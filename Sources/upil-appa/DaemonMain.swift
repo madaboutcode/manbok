@@ -21,6 +21,7 @@ import UpilAppaPlatform
 
 public enum DaemonMain {
     private static let log = AppLog(category: .daemon)
+    private static var server: UnixSocketServer?
 
     public static func runDaemon() {
         do {
@@ -35,14 +36,17 @@ public enum DaemonMain {
             try service.startCapture()
             log.info("daemon listening on \(AppStatePaths.socketURL.path)")
 
-            let server = UnixSocketServer { command in
+            let socketServer = UnixSocketServer { command in
                 handle(command: command, service: service)
             }
-            try server.run()
+            server = socketServer
+            try socketServer.run()
         } catch {
             log.error("daemon failed: \(error)")
+            shutdown()
             exit(1)
         }
+        shutdown()
     }
 
     private static func handle(command: IPCCommand, service: ListenerService) -> IPCResponse {
@@ -53,10 +57,20 @@ public enum DaemonMain {
             return service.isListening ? .listening : .stopped
         case .stop:
             service.stopCapture()
+            shutdown()
+            DispatchQueue.global().async {
+                exit(0)
+            }
             return .ok
         case .dump(let minutes):
             return dumpResponse(service: service, minutes: minutes)
         }
+    }
+
+    private static func shutdown() {
+        server?.stop()
+        server = nil
+        DaemonProcess.reclaimStaleState()
     }
 
     private static func dumpResponse(service: ListenerService, minutes: Int?) -> IPCResponse {

@@ -6,7 +6,7 @@
       "id": "001",
       "name": "Domain ring buffer",
       "description": "AudioFormat, ByteRingBuffer, DumpRange + unit tests",
-      "status": "pending",
+      "status": "passed",
       "depends_on": [],
       "type": "implementation",
       "files": [
@@ -25,7 +25,7 @@
       "id": "002",
       "name": "Domain WAV encoder",
       "description": "WavPCMEncoder pure encoder + tests",
-      "status": "pending",
+      "status": "passed",
       "depends_on": [],
       "type": "implementation",
       "files": [
@@ -40,7 +40,7 @@
       "id": "003",
       "name": "Platform logging and paths",
       "description": "AppLog, DumpPaths, AppStatePaths, WavFileWriter",
-      "status": "pending",
+      "status": "passed",
       "depends_on": [],
       "type": "implementation",
       "files": [
@@ -58,7 +58,7 @@
       "id": "004",
       "name": "Audio capture adapter",
       "description": "AudioCapturing protocol in Core, AVAudioCapture in Platform",
-      "status": "pending",
+      "status": "passed",
       "depends_on": ["001"],
       "type": "implementation",
       "files": [
@@ -71,7 +71,7 @@
       "id": "005",
       "name": "IPC layer",
       "description": "IPCCommand/IPCResponse, UnixSocketServer, UnixSocketClient",
-      "status": "pending",
+      "status": "passed",
       "depends_on": ["003"],
       "type": "implementation",
       "files": [
@@ -88,7 +88,7 @@
       "id": "006",
       "name": "Application layer",
       "description": "RecordingSession, ListenerService",
-      "status": "pending",
+      "status": "passed",
       "depends_on": ["001", "002", "004"],
       "type": "implementation",
       "files": [
@@ -103,7 +103,7 @@
       "id": "007",
       "name": "Daemon process",
       "description": "DaemonProcess, DaemonMain, wire ListenerService + IPC server",
-      "status": "pending",
+      "status": "passed",
       "depends_on": ["005", "006"],
       "type": "implementation",
       "files": [
@@ -116,7 +116,7 @@
       "id": "008",
       "name": "CLI and Audacity",
       "description": "CommandRouter, Main, AudacityLauncher",
-      "status": "pending",
+      "status": "passed",
       "depends_on": ["005", "007"],
       "type": "implementation",
       "files": [

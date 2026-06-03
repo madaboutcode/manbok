@@ -50,11 +50,12 @@ public final class UnixSocketServer: @unchecked Sendable {
             unlink(socketURL.path)
         }
 
-        while true {
+        while listenFD >= 0 {
             var clientAddr = sockaddr()
             var len = socklen_t(MemoryLayout<sockaddr>.size)
             let clientFD = accept(listenFD, &clientAddr, &len)
-            guard clientFD >= 0 else {
+            if clientFD < 0 {
+                if listenFD < 0 { break }
                 throw UnixSocketError.syscall("accept errno=\(errno)")
             }
 

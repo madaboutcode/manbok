@@ -33,8 +33,13 @@ struct StartCommand: ParsableCommand {
 
     func run() throws {
         if DaemonProcess.isRunning() {
-            cliLog.info("already listening")
-            return
+            if case .listening = try? UnixSocketClient.send(command: .status) {
+                cliLog.info("already listening")
+                return
+            }
+            // Orphan: process alive but not capturing — replace it.
+            cliLog.info("replacing stale daemon")
+            try terminateRunningDaemon()
         }
 
         let executable = CommandLine.arguments[0]
@@ -136,6 +141,12 @@ struct DaemonCommand: ParsableCommand {
     func run() throws {
         DaemonMain.runDaemon()
     }
+}
+
+private func terminateRunningDaemon() throws {
+    _ = try? UnixSocketClient.send(command: .stop)
+    DaemonProcess.reclaimStaleState()
+    usleep(200_000)
 }
 
 private func connectionMessage(_ error: Error) -> String {

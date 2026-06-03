@@ -116,7 +116,8 @@ public enum DaemonProcess {
         return true
     }
 
-    private static func reclaimStaleState() {
+    /// Removes pid file and socket (safe when daemon is exiting or stale).
+    public static func reclaimStaleState() {
         try? FileManager.default.removeItem(at: AppStatePaths.pidURL)
         removeStaleSocket()
     }
