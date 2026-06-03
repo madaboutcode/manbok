@@ -2,7 +2,7 @@
 
 > because manbok never misses a word
 
-Named after **Man-bok** (만복), the wiretapper from *Crash Landing on You* — always listening, never missing a word. **upil-appa** is that idea as a macOS background listener + ring buffer.
+Named after **Man-bok** (만복), the wiretapper from *Crash Landing on You* — always listening, never missing a word. His son is **U-pil** (우필); his wife calls him **“U-pil appa”** (우필 아빠), the usual Korean way of saying “our child’s dad.” **upil-appa** is that nickname for a macOS background listener + ring buffer.
 
 A background audio ring buffer for macOS. Continuously captures microphone audio, keeps the last 10 minutes in memory, and lets you dump it to a WAV file on demand.
 
