@@ -1,21 +1,20 @@
 import Foundation
-import os
 
 // MARK: - CONTRACT (AppLog)
 //
 // GUARANTEES
-// - Uses os.Logger with subsystem `ai.upil.appa` and categories cli | daemon | capture.
-// - `.info`, `.warning`, and `.error` are recorded in Logger and mirrored to stderr.
-// - `.debug` is recorded in Logger only unless `AppLog.verbose` is true (then also stderr).
+// - Routes categories cli | daemon | capture through Diagnostics.install sink.
+// - Daemon bootstrap uses OSLogOnlyDiagnostics; CLI uses OSLogAndStderrDiagnostics.
+// - `.debug` stderr mirror only when sink supports it and AppLog.verbose is true.
 //
 // DOES NOT
 // - Write log files, use print(), or emit diagnostics on stdout.
 
-/// Diagnostic logging: OSLog + stderr mirror for terminal users.
+/// Category-tagged diagnostics facade (sink configured at bootstrap).
 public struct AppLog {
     public static let subsystem = "ai.upil.appa"
 
-    /// When true, `.debug` messages are also mirrored to stderr (future `--verbose`).
+    /// When true, CLI sink also mirrors `.debug` to stderr.
     public static var verbose = false
 
     public enum Category: String {
@@ -24,39 +23,25 @@ public struct AppLog {
         case capture
     }
 
-    private let logger: Logger
     private let category: Category
 
     public init(category: Category) {
         self.category = category
-        self.logger = Logger(subsystem: Self.subsystem, category: category.rawValue)
     }
 
     public func info(_ message: String) {
-        logger.info("\(message, privacy: .public)")
-        mirror(level: "info", message: message)
+        Diagnostics.emit { $0.info(category: category, message) }
     }
 
     public func warning(_ message: String) {
-        logger.warning("\(message, privacy: .public)")
-        mirror(level: "warning", message: message)
+        Diagnostics.emit { $0.warning(category: category, message) }
     }
 
     public func error(_ message: String) {
-        logger.error("\(message, privacy: .public)")
-        mirror(level: "error", message: message)
+        Diagnostics.emit { $0.error(category: category, message) }
     }
 
     public func debug(_ message: String) {
-        logger.debug("\(message, privacy: .public)")
-        if Self.verbose {
-            mirror(level: "debug", message: message)
-        }
-    }
-
-    private func mirror(level: String, message: String) {
-        let line = "[\(category.rawValue)] \(level): \(message)\n"
-        guard let data = line.data(using: .utf8) else { return }
-        FileHandle.standardError.write(data)
+        Diagnostics.emit { $0.debug(category: category, message) }
     }
 }

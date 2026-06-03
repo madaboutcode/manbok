@@ -73,8 +73,8 @@ public final class AVAudioCapture: NSObject, AudioCapturing {
         self.sink = sink
         isCapturing = true
 
-        input.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [weak self] buffer, _ in
-            self?.handleTap(buffer: buffer, inputFormat: inputFormat)
+        input.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [self] buffer, _ in
+            handleTap(buffer: buffer, inputFormat: inputFormat)
         }
 
         do {
