@@ -29,6 +29,7 @@ public final class OpportunisticCaptureController: @unchecked Sendable {
     /// No speech (VAD-lite) for this long while capturing → run one release probe for true idle.
     private let silenceBeforeRelease: TimeInterval
     private let releaseSettle: TimeInterval
+    private var releaseProbeInFlight = false
 
     private var timer: DispatchSourceTimer?
     private var removeDeviceListener: (() -> Void)?
@@ -45,7 +46,7 @@ public final class OpportunisticCaptureController: @unchecked Sendable {
         service: ListenerService,
         pollInterval: TimeInterval = 0.25,
         silenceBeforeRelease: TimeInterval = 2.5,
-        releaseSettle: TimeInterval = 0.35
+        releaseSettle: TimeInterval = 0.5
     ) {
         self.service = service
         self.pollInterval = pollInterval
@@ -89,20 +90,24 @@ public final class OpportunisticCaptureController: @unchecked Sendable {
 
     private func tick() {
         if service.isListening {
+            guard !releaseProbeInFlight else { return }
             let speechQuiet = service.secondsSinceLastSpeech
-            let canRelease = Self.shouldReleaseAfterSpeechQuiet(
+            let activeQuiet = service.secondsSinceLastActiveAudio
+            let canRelease = Self.shouldRunReleaseProbe(
                 secondsSinceLastSpeech: speechQuiet,
+                secondsSinceLastActiveAudio: activeQuiet,
+                chunkCount: service.captureChunkCount,
                 silenceBeforeRelease: silenceBeforeRelease
             )
             if !canRelease {
-                traceCapturing(releaseBlocked: true, speechQuiet: speechQuiet)
+                traceCapturing(releaseBlocked: true, speechQuiet: speechQuiet, activeQuiet: activeQuiet)
                 return
             }
             trace(
                 "release-probe-start speechQuiet=\(fmt(speechQuiet))s " +
-                "need=\(fmt(silenceBeforeRelease))s \(captureSignals())"
+                "activeQuiet=\(fmt(activeQuiet))s need=\(fmt(silenceBeforeRelease))s \(captureSignals())"
             )
-            releaseProbe()
+            beginReleaseProbe()
             return
         }
 
@@ -131,28 +136,52 @@ public final class OpportunisticCaptureController: @unchecked Sendable {
         }
     }
 
-    /// True only after at least one speech frame, then `silenceBeforeRelease` without speech.
-    static func shouldReleaseAfterSpeechQuiet(
+    /// Speech quiet, or (after PCM arrived) sustained below-threshold audio — then release probe.
+    static func shouldRunReleaseProbe(
         secondsSinceLastSpeech: TimeInterval,
+        secondsSinceLastActiveAudio: TimeInterval,
+        chunkCount: Int,
         silenceBeforeRelease: TimeInterval
     ) -> Bool {
-        guard secondsSinceLastSpeech.isFinite else { return false }
-        return secondsSinceLastSpeech >= silenceBeforeRelease
+        if secondsSinceLastSpeech.isFinite,
+           secondsSinceLastSpeech >= silenceBeforeRelease {
+            return true
+        }
+        guard chunkCount > 0,
+              secondsSinceLastActiveAudio.isFinite,
+              secondsSinceLastActiveAudio >= silenceBeforeRelease else {
+            return false
+        }
+        return true
     }
 
-    /// Stop engine briefly to see if IO is still active (after speech went quiet).
-    private func releaseProbe() {
+    /// Stops engine off the poll queue, then checks whether another client still holds the mic.
+    private func beginReleaseProbe() {
+        releaseProbeInFlight = true
         let ringBefore = service.ringFilledBytes
         let deviceBusyBeforeSettle = InputDeviceObserver.isDefaultInputBusy()
         trace(
             "release-probe engine-stop ringBefore=\(ringBefore) " +
             "deviceBusy=\(deviceBusyBeforeSettle ? 1 : 0)"
         )
-
         service.stopCapture()
-        Thread.sleep(forTimeInterval: releaseSettle)
 
-        let deviceBusy = InputDeviceObserver.isDefaultInputBusy()
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            Thread.sleep(forTimeInterval: self.releaseSettle)
+            var deviceBusy = InputDeviceObserver.isDefaultInputBusy()
+            if deviceBusy {
+                Thread.sleep(forTimeInterval: self.releaseSettle)
+                deviceBusy = InputDeviceObserver.isDefaultInputBusy()
+            }
+            self.queue.async {
+                self.finishReleaseProbe(ringBefore: ringBefore, deviceBusy: deviceBusy)
+            }
+        }
+    }
+
+    private func finishReleaseProbe(ringBefore: Int, deviceBusy: Bool) {
+        defer { releaseProbeInFlight = false }
         let ringAfter = service.ringFilledBytes
         let ringDelta = ringAfter - ringBefore
 
@@ -221,17 +250,29 @@ public final class OpportunisticCaptureController: @unchecked Sendable {
     /// H4: ring grows while watching → watching heartbeat ringDelta>0
     /// H5: ring grows after engine stop → ringDeltaWhileStopped>0
 
-    private func traceCapturing(releaseBlocked: Bool, speechQuiet: TimeInterval) {
+    private func traceCapturing(
+        releaseBlocked: Bool,
+        speechQuiet: TimeInterval,
+        activeQuiet: TimeInterval
+    ) {
         phase = .capturing
         guard shouldEmitTrace() else { return }
         let ring = service.ringFilledBytes
         let ringDelta = ring - ringBytesAtLastTrace
-        let hypothesis = releaseBlocked
-            ? (speechQuiet.isFinite ? "H1-vad-not-quiet" : "H1-no-speech-yet")
-            : "capturing"
+        let hypothesis: String
+        if !releaseBlocked {
+            hypothesis = "capturing"
+        } else if !speechQuiet.isFinite, !activeQuiet.isFinite {
+            hypothesis = "H1-no-audio-yet"
+        } else if !speechQuiet.isFinite {
+            hypothesis = "H1-active-not-quiet"
+        } else {
+            hypothesis = "H1-vad-not-quiet"
+        }
         trace(
             "capturing releaseBlocked=\(releaseBlocked ? 1 : 0) " +
-            "speechQuiet=\(fmt(speechQuiet))s need=\(fmt(silenceBeforeRelease))s " +
+            "speechQuiet=\(fmt(speechQuiet))s activeQuiet=\(fmt(activeQuiet))s " +
+            "need=\(fmt(silenceBeforeRelease))s " +
             "ring=\(ring) ringDelta=\(ringDelta) \(captureSignals()) hypothesis=\(hypothesis)"
         )
         ringBytesAtLastTrace = ring
@@ -261,6 +302,7 @@ public final class OpportunisticCaptureController: @unchecked Sendable {
     private func captureSignals() -> String {
         let snap = service.currentActivity
         let speechQuiet = service.secondsSinceLastSpeech
+        let activeQuiet = service.secondsSinceLastActiveAudio
         let audioQuiet = service.secondsSinceLastAudio
         let deviceBusy = InputDeviceObserver.isDefaultInputBusy()
         return [
@@ -268,6 +310,7 @@ public final class OpportunisticCaptureController: @unchecked Sendable {
             "listening=\(service.isListening ? 1 : 0)",
             "deviceBusy=\(deviceBusy ? 1 : 0)",
             "speechQuiet=\(fmt(speechQuiet))s",
+            "activeQuiet=\(fmt(activeQuiet))s",
             "audioQuiet=\(fmt(audioQuiet))s",
             "rms=\(Int(snap.rms))",
             "isSpeech=\(snap.isSpeech ? 1 : 0)",

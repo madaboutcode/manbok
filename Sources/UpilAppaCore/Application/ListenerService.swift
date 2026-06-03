@@ -44,6 +44,8 @@ public final class ListenerService {
     private var listening = false
     private var speechDetector = SpeechActivityDetector()
     private var lastSpeechAt: Date?
+    /// Last frame at or above VAD threshold (used when speech was never flagged).
+    private var lastActiveAt: Date?
     private var chunkCount = 0
     private var activitySnapshot = AudioActivitySnapshot.idle
 
@@ -78,6 +80,18 @@ public final class ListenerService {
         }
     }
 
+    /// Time since last frame at/above VAD threshold; `.infinity` if none yet this session.
+    public var secondsSinceLastActiveAudio: TimeInterval {
+        stateQueue.sync {
+            guard let lastActiveAt else { return .infinity }
+            return Date().timeIntervalSince(lastActiveAt)
+        }
+    }
+
+    public var captureChunkCount: Int {
+        stateQueue.sync { chunkCount }
+    }
+
     /// Latest activity snapshot (thread-safe; terminal presenter may poll).
     public var currentActivity: AudioActivitySnapshot {
         stateQueue.sync { activitySnapshot }
@@ -88,6 +102,7 @@ public final class ListenerService {
             guard !listening else { return false }
             speechDetector = SpeechActivityDetector()
             lastSpeechAt = nil
+            lastActiveAt = nil
             chunkCount = 0
             activitySnapshot = AudioActivitySnapshot.idle
             listening = true
@@ -126,6 +141,7 @@ public final class ListenerService {
         stateQueue.sync {
             speechDetector = SpeechActivityDetector()
             lastSpeechAt = nil
+            lastActiveAt = nil
             refreshActivitySnapshot(isListening: false)
         }
     }
@@ -141,6 +157,9 @@ public final class ListenerService {
             let now = Date()
             if metrics.isSpeech {
                 lastSpeechAt = now
+            }
+            if metrics.rms >= metrics.threshold {
+                lastActiveAt = now
             }
             let quiet = lastSpeechAt.map { now.timeIntervalSince($0) } ?? .infinity
             activitySnapshot = AudioActivitySnapshot(

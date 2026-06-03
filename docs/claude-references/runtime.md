@@ -47,7 +47,8 @@ log stream --predicate 'subsystem == "ai.upil.appa" AND eventMessage CONTAINS "[
 | Log pattern | Hypothesis |
 |-------------|------------|
 | `releaseBlocked=1` … `hypothesis=H1-vad-not-quiet` | Speech VAD never stays quiet 2.5s — probe never runs |
-| `hypothesis=H1-no-speech-yet` | No speech frame yet (`speechQuiet=inf`) |
+| `hypothesis=H1-active-not-quiet` | PCM arrived but level stays above threshold (no 2.5s quiet) |
+| `hypothesis=H1-no-audio-yet` | No PCM chunks yet (`speechQuiet=inf`, `activeQuiet=inf`) |
 | `release-probe RESUME` … `hypothesis=H2-…` | Probe ran; device still busy — capture resumed |
 | `release-probe SESSION-END` … `hypothesis=ok-stop` | Clean stop |
 | `watching ringGROWTH=` … `H4-…` | Ring grew while not capturing (bug) |

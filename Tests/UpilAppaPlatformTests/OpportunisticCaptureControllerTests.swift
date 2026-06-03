@@ -2,25 +2,53 @@ import XCTest
 @testable import UpilAppaPlatform
 
 final class OpportunisticCaptureControllerTests: XCTestCase {
-    func testNoReleaseBeforeFirstSpeech() {
+    func testNoReleaseBeforeAnyAudio() {
         XCTAssertFalse(
-            OpportunisticCaptureController.shouldReleaseAfterSpeechQuiet(
+            OpportunisticCaptureController.shouldRunReleaseProbe(
                 secondsSinceLastSpeech: .infinity,
+                secondsSinceLastActiveAudio: .infinity,
+                chunkCount: 0,
+                silenceBeforeRelease: 2.5
+            )
+        )
+    }
+
+    func testNoReleaseBeforeSpeechQuiet() {
+        XCTAssertFalse(
+            OpportunisticCaptureController.shouldRunReleaseProbe(
+                secondsSinceLastSpeech: 1.0,
+                secondsSinceLastActiveAudio: 1.0,
+                chunkCount: 10,
                 silenceBeforeRelease: 2.5
             )
         )
     }
 
     func testReleaseAfterSpeechQuiet() {
+        XCTAssertTrue(
+            OpportunisticCaptureController.shouldRunReleaseProbe(
+                secondsSinceLastSpeech: 3.0,
+                secondsSinceLastActiveAudio: 0.5,
+                chunkCount: 10,
+                silenceBeforeRelease: 2.5
+            )
+        )
+    }
+
+    func testReleaseAfterActiveQuietWithoutSpeech() {
         XCTAssertFalse(
-            OpportunisticCaptureController.shouldReleaseAfterSpeechQuiet(
-                secondsSinceLastSpeech: 1.0,
+            OpportunisticCaptureController.shouldRunReleaseProbe(
+                secondsSinceLastSpeech: .infinity,
+                secondsSinceLastActiveAudio: 1.0,
+                chunkCount: 10,
                 silenceBeforeRelease: 2.5
             )
         )
         XCTAssertTrue(
-            OpportunisticCaptureController.shouldReleaseAfterSpeechQuiet(
-                secondsSinceLastSpeech: 3.0,
+            OpportunisticCaptureController.shouldRunReleaseProbe(
+                secondsSinceLastSpeech: .infinity,
+                secondsSinceLastActiveAudio: 3.0,
+                chunkCount: 10,
                 silenceBeforeRelease: 2.5
             )
         )
