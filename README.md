@@ -1,20 +1,24 @@
 # upil-appa
 
-> *because manbok never misses a word*
+> *because Man-bok never misses a word*
 
 Background microphone ring buffer for **macOS** (Apple Silicon). Keeps the last **10 minutes** of speech-grade audio in RAM and exports a WAV on demand — useful when another app’s recorder glitches or you want a safety copy of what you said.
 
 ## Why *upil-appa*?
 
-From [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You) (*사랑의 불시착*): **Man-bok** (만복) is the village wiretapper — always on the line, catching what others miss. His son is **U-pil** (우필). In Korean, his wife calls him the way many families do: **“U-pil appa”** (우필 아빠) — “U-pil’s dad” — not his given name, but the father hat he wears at home.
+From [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You) (*사랑의 불시착*, 2019–2020).
 
-This tool is that household name for the same job on your Mac: a background **appa** who listens so nothing slips past, and a **`dump`** when you need the tape.
+**[Jung Man-bok](https://en.wikipedia.org/wiki/Crash_Landing_on_You#People_in_the_North_Korean_Forces)** (정만복, [Kim Young-min](https://en.wikipedia.org/wiki/Kim_Young-min_(actor))) is the North Korean **wiretapper** assigned to monitor Captain Ri Jeong-hyeok. Villagers nickname him ***gwittaegi*** (귀때기 — “The Rat”): despised, always listening, yet he catches what everyone else misses. Coerced into serving antagonist Cho Cheol-gang, haunted by his role in Ri Mu-hyeok’s death, he eventually sides with Jeong-hyeok and Yoon Se-ri. (Writers and fans often compare him to the listener in [*The Lives of Others*](https://en.wikipedia.org/wiki/The_Lives_of_Others).)
 
-| Piece | Meaning |
-|-------|---------|
-| **u-pil** | The son in the drama |
-| **appa** | Dad — how Man-bok is addressed |
-| **upil-appa** | Man-bok, the listener; also this CLI/daemon |
+His family: wife **Hyun Myeong-sun** (현명선), son **[Jung U-pil](https://mydramalist.com/people/18931-oh-han-kyul)** (정우필 / 우필 — “Man Bok’s son” in the cast list). In Korean, Myeong-sun addresses her husband the way many wives do: **“U-pil appa”** (우필 아빠) — “U-pil’s dad” — not “Man-bok,” but the father role tied to their child.
+
+**upil-appa** is that address turned into software: the household name for the guy who’s always on the wire, plus a **`dump`** when you need the recording.
+
+| Piece | In the drama | In this repo |
+|-------|----------------|--------------|
+| **U-pil** (우필) | Man-bok’s son | — |
+| **appa** (아빠) | What Myeong-sun calls her husband | Background listener |
+| **upil-appa** | Jung Man-bok at home | CLI + daemon on your Mac |
 
 **Default mode is opportunistic:** the daemon watches the system default mic and only captures while another app (Zoom, Voice Memos, Meet, etc.) is using it. When that session ends, capture stops, the ring is preserved, and a **5 second silence gap** is inserted so sessions are easy to separate in an editor.
 
