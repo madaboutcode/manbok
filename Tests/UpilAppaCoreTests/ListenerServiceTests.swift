@@ -22,21 +22,20 @@ final class ListenerServiceTests: XCTestCase {
         XCTAssertEqual(sink.writeCalls, 0)
     }
 
-    func testDumpWhenNotListeningReturnsError() async {
+    func testDumpWhenNotCapturingButBufferHasData() async throws {
         let capture = MockAudioCapture()
         let sink = MockDumpSink()
         let service = ListenerService(capture: capture, dumpSink: sink)
 
-        do {
-            _ = try await service.dump(minutes: 3)
-            XCTFail("expected not listening error")
-        } catch let error as ListenerError {
-            XCTAssertEqual(error, .notListening)
-        } catch {
-            XCTFail("unexpected error: \(error)")
-        }
+        try service.startCapture()
+        capture.deliver(Data(repeating: 0xCD, count: AudioFormat.bytesPerFrame * 50))
+        service.stopCapture()
+        XCTAssertFalse(service.isListening)
+        XCTAssertTrue(service.hasBufferedAudio)
 
-        XCTAssertEqual(sink.writeCalls, 0)
+        let url = try await service.dump(minutes: nil)
+        XCTAssertEqual(url, sink.lastURL)
+        XCTAssertEqual(sink.writeCalls, 1)
     }
 
     func testDumpWritesWavWhenBufferHasData() async throws {

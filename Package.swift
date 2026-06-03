@@ -13,13 +13,15 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
     ],
     targets: [
-        .target(name: "UpilAppaCore"),
+        .target(name: "UpilAppaCore", exclude: ["CLAUDE.md"]),
         .target(
             name: "UpilAppaPlatform",
-            dependencies: ["UpilAppaCore"]
+            dependencies: ["UpilAppaCore"],
+            exclude: ["CLAUDE.md"]
         ),
         .executableTarget(
             name: "upil-appa",
+            exclude: ["CLAUDE.md"],
             dependencies: [
                 "UpilAppaCore",
                 "UpilAppaPlatform",

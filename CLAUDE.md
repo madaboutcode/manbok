@@ -7,8 +7,9 @@ Background mic ring buffer for macOS: keeps the last 10 minutes of speech-grade 
 ```bash
 swift build
 swift test
-.build/debug/upil-appa start
-.build/debug/upil-appa status    # stdout: listening | stopped
+.build/debug/upil-appa start              # opportunistic (default): mic only when another app uses it
+.build/debug/upil-appa start --always-on  # continuous capture (legacy)
+.build/debug/upil-appa status    # stdout: watching | listening | stopped
 .build/debug/upil-appa dump [--minutes N]   # stdout: absolute .wav path; opens Audacity
 .build/debug/upil-appa stop
 .build/debug/upil-appa --help

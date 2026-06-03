@@ -18,7 +18,8 @@ CLI surface and daemon entry. Thin — delegates to Core + Platform.
 
 | Command | stdout | stderr |
 |---------|--------|--------|
-| `status` | `listening` or `stopped` (one word) | — |
+| `status` | `watching`, `listening`, or `stopped` (one word) | — |
+| `start` | default opportunistic; `--always-on` for 24/7 capture | — |
 | `dump` | absolute path to `.wav` (one line) | `AppLog` info/warnings (e.g. Audacity) |
 | `start` | — | `daemon started` / `already listening` |
 | `stop` | — | `stopped` or error |

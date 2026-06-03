@@ -3,7 +3,7 @@ import Foundation
 // MARK: - CONTRACT: IPCResponse
 //
 // GUARANTEES:
-// - Serializes v1 responses: PONG, LISTENING, STOPPED, OK, OK path=<absolute-path>, ERR <message>.
+// - Serializes v1 responses: PONG, LISTENING, WATCHING, STOPPED, OK, OK path=<absolute-path>, ERR <message>.
 // - `parse(line:)` round-trips wire forms produced by `line`.
 //
 // EXPECTS:
@@ -19,6 +19,7 @@ import Foundation
 public enum IPCResponse: Equatable, Sendable {
     case pong
     case listening
+    case watching
     case stopped
     case ok
     case okPath(URL)
@@ -31,6 +32,8 @@ public enum IPCResponse: Equatable, Sendable {
             return "PONG"
         case .listening:
             return "LISTENING"
+        case .watching:
+            return "WATCHING"
         case .stopped:
             return "STOPPED"
         case .ok:
@@ -49,6 +52,7 @@ public enum IPCResponse: Equatable, Sendable {
 
         if trimmed == "PONG" { return .pong }
         if trimmed == "LISTENING" { return .listening }
+        if trimmed == "WATCHING" { return .watching }
         if trimmed == "STOPPED" { return .stopped }
         if trimmed == "OK" { return .ok }
 

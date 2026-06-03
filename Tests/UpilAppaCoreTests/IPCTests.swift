@@ -21,6 +21,7 @@ final class IPCTests: XCTestCase {
         let responses: [IPCResponse] = [
             .pong,
             .listening,
+            .watching,
             .stopped,
             .ok,
             .okPath(path),

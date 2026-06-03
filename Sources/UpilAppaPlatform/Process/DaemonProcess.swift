@@ -36,8 +36,8 @@ public enum DaemonProcess {
         return false
     }
 
-    /// Spawns a detached child that runs `executablePath` with the `daemon` argument.
-    public static func startDaemon(executablePath: String) throws {
+    /// Spawns a detached child: `executablePath daemon` plus optional extra args (e.g. `always-on`).
+    public static func startDaemon(executablePath: String, daemonArguments: [String] = []) throws {
         removeStaleSocket()
 
         var attr: posix_spawnattr_t?
@@ -69,7 +69,7 @@ public enum DaemonProcess {
             }
         }
 
-        let argv: [String] = [executablePath, "daemon"]
+        let argv: [String] = [executablePath, "daemon"] + daemonArguments
         let argvPointers: [UnsafeMutablePointer<CChar>?] = argv.map { strdup($0) } + [nil]
         defer {
             for pointer in argvPointers where pointer != nil {

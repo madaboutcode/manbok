@@ -3,7 +3,7 @@ import Foundation
 // MARK: - CONTRACT: ListenerService
 //
 // GUARANTEES:
-// - dump while not listening → structured error (not empty file).
+// - dump allowed whenever ring has PCM (including after opportunistic capture stops).
 // - dump(minutes:) writes via DumpSink after WavPCMEncoder; never writes when ring empty.
 // - stopCapture idempotent.
 // - startCapture when already listening → no-op success.
@@ -49,6 +49,10 @@ public final class ListenerService {
         stateQueue.sync { listening }
     }
 
+    public var hasBufferedAudio: Bool {
+        session.filledBytes > 0
+    }
+
     public func startCapture() throws {
         try stateQueue.sync {
             guard !listening else { return }
@@ -68,9 +72,6 @@ public final class ListenerService {
     }
 
     public func dump(minutes: Int?) async throws -> URL {
-        let active = stateQueue.sync { listening }
-        guard active else { throw ListenerError.notListening }
-
         let pcm = session.snapshotForDump(minutes: minutes)
         guard !pcm.isEmpty else { throw ListenerError.emptyBuffer }
 

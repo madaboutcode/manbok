@@ -31,20 +31,32 @@ private let cliLog = AppLog(category: .cli)
 struct StartCommand: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "start")
 
+    @Flag(name: .long, help: "Keep microphone open continuously (legacy; default is opportunistic)")
+    var alwaysOn = false
+
     func run() throws {
         if DaemonProcess.isRunning() {
-            if case .listening = try? UnixSocketClient.send(command: .status) {
-                cliLog.info("already listening")
-                return
+            if let response = try? UnixSocketClient.send(command: .status) {
+                switch response {
+                case .listening, .watching:
+                    cliLog.info("already running")
+                    return
+                default:
+                    break
+                }
             }
-            // Orphan: process alive but not capturing — replace it.
             cliLog.info("replacing stale daemon")
             try terminateRunningDaemon()
         }
 
         let executable = CommandLine.arguments[0]
-        try DaemonProcess.startDaemon(executablePath: executable)
-        cliLog.info("daemon started")
+        let args = alwaysOn ? ["always-on"] : []
+        try DaemonProcess.startDaemon(executablePath: executable, daemonArguments: args)
+        if alwaysOn {
+            cliLog.info("daemon started (always-on)")
+        } else {
+            cliLog.info("daemon started (opportunistic — captures when another app uses the mic)")
+        }
     }
 }
 
@@ -81,6 +93,8 @@ struct StatusCommand: ParsableCommand {
             switch response {
             case .listening:
                 word = "listening"
+            case .watching:
+                word = "watching"
             case .stopped:
                 word = "stopped"
             case .err(let message):

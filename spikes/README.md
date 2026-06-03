@@ -28,3 +28,18 @@ swift run ipc-spike client
 3. **Pass** if both apps receive audio (capture spike shows peaks; other app still records).
 
 If this fails, fallback options: investigate `AVAudioSession`-style aggregate routing on macOS, or document that simultaneous capture is best-effort.
+
+### Input device switching (2026-06-03)
+
+```bash
+swift run device-spike 60   # watch default input; plug/switch mic while running
+```
+
+Validates Core Audio `kAudioHardwarePropertyDefaultInputDevice` listener. See `tasks/upil-appa-device-selection.md`.
+
+```bash
+swift run device-usage-spike      # poll runningSomewhere only
+swift run device-capture-spike    # full opportunistic capture flow (interactive)
+```
+
+**device-capture-spike:** waits for `runningSomewhere→1`, starts AVAudioEngine, checks peaks, stops engine, verifies `→0` after you stop the other app.
