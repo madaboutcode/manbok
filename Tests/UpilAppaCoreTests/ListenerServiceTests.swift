@@ -78,6 +78,28 @@ final class ListenerServiceTests: XCTestCase {
         XCTAssertTrue(service.currentActivity.isSpeech)
     }
 
+    func testPauseForProbePreservesSpeechTimers() throws {
+        let capture = MockAudioCapture()
+        let service = ListenerService(capture: capture, dumpSink: MockDumpSink())
+        try service.startCapture()
+
+        var quiet = [Int16](repeating: 50, count: 400)
+        capture.deliver(Data(bytes: &quiet, count: quiet.count * 2))
+        var loud = [Int16](repeating: 12_000, count: 400)
+        capture.deliver(Data(bytes: &loud, count: loud.count * 2))
+        XCTAssertTrue(service.currentActivity.isSpeech)
+
+        service.pauseCaptureForReleaseProbe()
+        XCTAssertTrue(service.isListening)
+        let quietBefore = service.secondsSinceLastSpeech
+        usleep(100_000)
+        XCTAssertGreaterThan(service.secondsSinceLastSpeech, quietBefore)
+
+        try service.resumeCaptureAfterReleaseProbe()
+        XCTAssertTrue(service.isListening)
+        XCTAssertEqual(capture.startCount, 2)
+    }
+
     func testStopCaptureIsIdempotent() throws {
         let capture = MockAudioCapture()
         let service = ListenerService(capture: capture, dumpSink: MockDumpSink())

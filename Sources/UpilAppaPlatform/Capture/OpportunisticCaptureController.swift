@@ -164,7 +164,7 @@ public final class OpportunisticCaptureController: @unchecked Sendable {
             "release-probe engine-stop ringBefore=\(ringBefore) " +
             "deviceBusy=\(deviceBusyBeforeSettle ? 1 : 0)"
         )
-        service.stopCapture()
+        service.pauseCaptureForReleaseProbe()
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
@@ -187,7 +187,7 @@ public final class OpportunisticCaptureController: @unchecked Sendable {
 
         if deviceBusy {
             do {
-                try service.startCapture()
+                try service.resumeCaptureAfterReleaseProbe()
                 phase = .capturing
                 trace(
                     "release-probe RESUME deviceBusy=1 ringAfter=\(ringAfter) " +
@@ -201,6 +201,7 @@ public final class OpportunisticCaptureController: @unchecked Sendable {
             }
         } else {
             phase = .watching
+            service.stopCapture()
             if ringAfter > 0 {
                 service.insertSessionGap()
             }

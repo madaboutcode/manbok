@@ -129,6 +129,29 @@ public final class ListenerService {
         session.appendSilence(seconds: seconds)
     }
 
+    /// Stops the engine for a release probe but keeps session/VAD state (opportunistic mode).
+    public func pauseCaptureForReleaseProbe() {
+        let shouldPause = stateQueue.sync { listening }
+        guard shouldPause else { return }
+        capture.stop()
+        stateQueue.sync {
+            refreshActivitySnapshot(isListening: true)
+        }
+    }
+
+    /// Restarts the engine after a probe that resumed capture; does not reset VAD timers.
+    public func resumeCaptureAfterReleaseProbe() throws {
+        let shouldResume = stateQueue.sync { listening }
+        guard shouldResume else { return }
+
+        try capture.start { [self] data in
+            ingestPCM(data)
+        }
+        stateQueue.sync {
+            refreshActivitySnapshot(isListening: true)
+        }
+    }
+
     public func stopCapture() {
         let shouldStop = stateQueue.sync { () -> Bool in
             guard listening else { return false }
