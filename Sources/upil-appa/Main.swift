@@ -3,7 +3,11 @@ import Foundation
 @main
 struct UpilAppaMain {
     static func main() {
-        fputs("upil-appa: CLI not implemented\n", stderr)
-        exit(1)
+        if CommandLine.arguments.contains("daemon") {
+            DaemonMain.runDaemon()
+            return
+        }
+
+        CommandRouter.main()
     }
 }
