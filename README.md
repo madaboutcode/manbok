@@ -1,6 +1,14 @@
 # upil-appa
 
+> *because manbok never misses a word*
+
 Background microphone ring buffer for **macOS** (Apple Silicon). Keeps the last **10 minutes** of speech-grade audio in RAM and exports a WAV on demand — useful when another app’s recorder glitches or you want a safety copy of what you said.
+
+## Why *upil-appa*?
+
+Named after **Man-bok** (만복), the wiretapper from [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You) (*사랑의 불시착*) — the guy who’s always on the line, listening, catching what others miss. This daemon does the same for your Mac’s default mic: quiet, persistent, and ready when you need proof of what was actually said.
+
+**appa** is the always-watching listener in the background (the “dad” in the room who hears everything). **upil-appa** is that character as a CLI: `start`, let it watch, `dump` when transcription or a meeting recorder lets you down.
 
 **Default mode is opportunistic:** the daemon watches the system default mic and only captures while another app (Zoom, Voice Memos, Meet, etc.) is using it. When that session ends, capture stops, the ring is preserved, and a **5 second silence gap** is inserted so sessions are easy to separate in an editor.
 
