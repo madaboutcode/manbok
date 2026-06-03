@@ -1,0 +1,7 @@
+.build/
+.swiftpm/
+*.xcodeproj
+.DS_Store
+spikes/.build/
+spikes/spike-out.wav
+/tmp/upil-appa-spike.sock
