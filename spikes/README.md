@@ -43,3 +43,12 @@ swift run device-capture-spike    # full opportunistic capture flow (interactive
 ```
 
 **device-capture-spike:** waits for `runningSomewhere→1`, starts AVAudioEngine, checks peaks, stops engine, verifies `→0` after you stop the other app.
+
+```bash
+swift run speech-activity-spike       # live mic + waveform until Ctrl+C
+swift run speech-activity-spike 60    # same, auto-stop after 60s
+```
+
+**speech-activity-spike:** Opens the default mic **immediately** (not opportunistic — no waiting for Zoom/Voice Memos). Live waveform on stderr via alternate screen + repaint (~15 fps). `level`: `▁–█` + `·` below threshold; `gate`: `█` speech / blank silence.
+
+**device-capture-spike** is the one that waits for another app to use the mic first.
