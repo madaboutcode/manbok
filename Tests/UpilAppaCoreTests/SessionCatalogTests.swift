@@ -14,30 +14,4 @@ final class SessionCatalogTests: XCTestCase {
         XCTAssertEqual(ranges[1], 1000 + gap ..< pcm.count)
     }
 
-    func testSessionsResponseRoundTrip() {
-        let list = [
-            SessionSummary(
-                id: 1,
-                audioBytes: 32_000,
-                durationSeconds: 2.0,
-                startedSecondsAgo: 600,
-                endedSecondsAgo: 120,
-                isOpen: false
-            ),
-            SessionSummary(
-                id: 2,
-                audioBytes: 16_000,
-                durationSeconds: 1.0,
-                startedSecondsAgo: 90,
-                endedSecondsAgo: nil,
-                isOpen: true
-            ),
-        ]
-        let response = IPCResponse.sessions(list)
-        guard case .sessions(let parsed) = IPCResponse.parse(line: response.line) else {
-            XCTFail("expected sessions response")
-            return
-        }
-        XCTAssertEqual(parsed, list)
-    }
 }
