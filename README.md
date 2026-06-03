@@ -18,7 +18,7 @@ Named after [**Jung Man-bok**](https://en.wikipedia.org/wiki/Crash_Landing_on_Yo
 
 ## Install
 
-Build a release binary and install into your user bin directory (idiomatic on macOS — no `sudo`):
+Build a release binary, install into your user bin directory, and start the background daemon (restarts it if already running):
 
 ```bash
 git clone git@github.com:madaboutcode/upil-appa.git
@@ -26,7 +26,7 @@ cd upil-appa
 make install
 ```
 
-`make install` puts `upil-appa` in **`~/.local/bin`**. Add that to your shell `PATH` once:
+`make install` puts `upil-appa` in **`~/.local/bin`** and runs **`upil-appa start`** (opportunistic, detached). Add that directory to your shell `PATH` once:
 
 ```bash
 # ~/.zshrc or ~/.bashrc

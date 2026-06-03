@@ -8,6 +8,7 @@ MINUTES ?=
 # User-local install (no sudo). Override: make install PREFIX=/opt/homebrew
 PREFIX ?= $(HOME)/.local
 BINDIR ?= $(PREFIX)/bin
+INSTALLED_BIN := $(BINDIR)/upil-appa
 
 help:
 	@echo "upil-appa"
@@ -16,8 +17,8 @@ help:
 	@echo "  make release          swift build -c release"
 	@echo "  make test             swift test"
 	@echo "  make verify           test + build"
-	@echo "  make install          release build → $(BINDIR)/upil-appa"
-	@echo "  make uninstall        remove installed binary"
+	@echo "  make install          release → $(BINDIR)/upil-appa; restart + start daemon"
+	@echo "  make uninstall        stop daemon, remove installed binary"
 	@echo "  make dev              build, stop if running, start-fg (meter)"
 	@echo ""
 	@echo "  make start-bg         daemon (opportunistic, background)"
@@ -44,13 +45,21 @@ $(RELEASE_BIN):
 
 install: $(RELEASE_BIN)
 	@install -d "$(BINDIR)"
-	install -m 755 "$(RELEASE_BIN)" "$(BINDIR)/upil-appa"
-	@echo "installed $(BINDIR)/upil-appa"
+	@echo "stopping daemon if running…"
+	-@if [ -x "$(INSTALLED_BIN)" ]; then "$(INSTALLED_BIN)" stop; \
+	elif [ -x "$(RELEASE_BIN)" ]; then "$(RELEASE_BIN)" stop; \
+	elif [ -x "$(BIN)" ]; then "$(BIN)" stop; \
+	else true; fi 2>/dev/null
+	@sleep 0.3
+	install -m 755 "$(RELEASE_BIN)" "$(INSTALLED_BIN)"
+	@echo "installed $(INSTALLED_BIN)"
+	@"$(INSTALLED_BIN)" start
 	@echo "add to PATH if needed:  export PATH=\"$(BINDIR):\$$PATH\""
 
 uninstall:
-	@rm -f "$(BINDIR)/upil-appa"
-	@echo "removed $(BINDIR)/upil-appa (if it existed)"
+	-@if [ -x "$(INSTALLED_BIN)" ]; then "$(INSTALLED_BIN)" stop; fi 2>/dev/null
+	@rm -f "$(INSTALLED_BIN)"
+	@echo "removed $(INSTALLED_BIN) (if it existed)"
 
 test:
 	swift test
