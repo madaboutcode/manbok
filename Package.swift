@@ -21,12 +21,12 @@ let package = Package(
         ),
         .executableTarget(
             name: "upil-appa",
-            exclude: ["CLAUDE.md"],
             dependencies: [
                 "UpilAppaCore",
                 "UpilAppaPlatform",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ]
+            ],
+            exclude: ["CLAUDE.md"]
         ),
         .testTarget(
             name: "UpilAppaCoreTests",

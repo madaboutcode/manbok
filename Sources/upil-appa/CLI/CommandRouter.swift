@@ -34,7 +34,20 @@ struct StartCommand: ParsableCommand {
     @Flag(name: .long, help: "Keep microphone open continuously (legacy; default is opportunistic)")
     var alwaysOn = false
 
+    @Flag(name: .long, help: "Run daemon in this terminal (logs on stderr); do not detach")
+    var foreground = false
+
     func run() throws {
+        if foreground {
+            if DaemonProcess.isRunning() {
+                cliLog.error("daemon already running — stop it first")
+                throw ExitCode.failure
+            }
+            cliLog.info("daemon in foreground — meter on TTY; logs in Console (ai.upil.appa)")
+            DaemonMain.runDaemon(presentation: .foregroundMeter, alwaysOn: alwaysOn)
+            return
+        }
+
         if DaemonProcess.isRunning() {
             if let response = try? UnixSocketClient.send(command: .status) {
                 switch response {
@@ -87,16 +100,15 @@ struct StatusCommand: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "status")
 
     func run() throws {
-        let word: String
         do {
             let response = try UnixSocketClient.send(command: .status)
             switch response {
-            case .listening:
-                word = "listening"
-            case .watching:
-                word = "watching"
-            case .stopped:
-                word = "stopped"
+            case .listening(let ring):
+                print(statusLine(phase: "listening", ring: ring))
+            case .watching(let ring):
+                print(statusLine(phase: "watching", ring: ring))
+            case .stopped(let ring):
+                print(statusLine(phase: "stopped", ring: ring))
             case .err(let message):
                 cliLog.error(message)
                 throw ExitCode.failure
@@ -106,11 +118,13 @@ struct StatusCommand: ParsableCommand {
             }
         } catch {
             cliLog.debug(connectionMessage(error))
-            word = "stopped"
+            print(statusLine(phase: "stopped", ring: RingBufferSummary(filledBytes: 0)))
         }
-
-        print(word)
     }
+}
+
+private func statusLine(phase: String, ring: RingBufferSummary) -> String {
+    "\(phase) \(ring.displaySuffix)"
 }
 
 struct DumpCommand: ParsableCommand {
@@ -132,6 +146,7 @@ struct DumpCommand: ParsableCommand {
                 }
             case .err(let message):
                 cliLog.error(message)
+                explainDumpFailure(message)
                 throw ExitCode.failure
             default:
                 cliLog.error("unexpected response: \(response.line)")
@@ -149,11 +164,18 @@ struct DumpCommand: ParsableCommand {
 struct DaemonCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "daemon",
-        shouldDisplay: false
+        abstract: "Run the listener in the foreground (for debugging)"
     )
 
+    @Flag(name: .long, help: "Continuous capture (legacy)")
+    var alwaysOn = false
+
     func run() throws {
-        DaemonMain.runDaemon()
+        if DaemonProcess.isRunning() {
+            cliLog.error("daemon already running — stop it first")
+            throw ExitCode.failure
+        }
+        DaemonMain.runDaemon(presentation: .foregroundMeter, alwaysOn: alwaysOn)
     }
 }
 
@@ -161,6 +183,29 @@ private func terminateRunningDaemon() throws {
     _ = try? UnixSocketClient.send(command: .stop)
     DaemonProcess.reclaimStaleState()
     usleep(200_000)
+}
+
+private func explainDumpFailure(_ message: String) {
+    guard message.hasPrefix(ListenerError.emptyBuffer.message) else { return }
+    if message.contains("watching") || message.contains("stopped") || message.contains("listening") {
+        return
+    }
+    guard let status = try? UnixSocketClient.send(command: .status) else { return }
+    switch status {
+    case .watching:
+        cliLog.error(
+            "daemon is watching — start recording in Zoom/Voice Memos, "
+                + "wait for REC on the meter, then dump from another terminal"
+        )
+    case .listening:
+        cliLog.error(
+            "daemon is listening but ring is empty — speak into the mic; check Microphone privacy"
+        )
+    case .stopped:
+        cliLog.error("daemon is stopped — run make start-fg or make start")
+    default:
+        break
+    }
 }
 
 private func connectionMessage(_ error: Error) -> String {
