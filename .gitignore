@@ -1,7 +1,51 @@
+# Swift / SPM
 .build/
 .swiftpm/
+DerivedData/
 *.xcodeproj
+*.xcworkspace
+xcuserdata/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# macOS
 .DS_Store
-spikes/.build/
-spikes/spike-out.wav
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Editor / IDE
+.idea/
+.vscode/
+*.code-workspace
+*.swp
+*~
+
+# Local runtime (daemon uses ~/.upil-appa; ignore stray copies and sockets)
+.upil-appa/
+*.sock
 /tmp/upil-appa-spike.sock
+
+# Audio exports and scratch (dump targets system temp; ignore accidental copies in tree)
+*.wav
+*.aiff
+*.pcm
+
+# Spikes (separate SPM package)
+spikes/.build/
+spikes/**/spike-out.wav
+spikes/**/*.wav
+
+# Profiling / coverage
+*.profraw
+.coverage/
+*.gcno
+*.gcda
+
+# Secrets / env
+.env
+.env.*
+!.env.example
