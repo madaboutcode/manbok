@@ -46,7 +46,7 @@ swift test --filter UpilAppaCoreTests
 
 - New I/O → new port in `Ports/`, implement in `UpilAppaPlatform`.
 - `RecordingSession` owns serialization of ring writes (queue).
-- `ListenerService.dump` requires `listening == true` and non-empty PCM.
+- `ListenerService.dump` requires non-empty PCM in the ring (works after capture stops).
 
 ## Design & Documentation
 

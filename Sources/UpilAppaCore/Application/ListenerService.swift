@@ -3,7 +3,7 @@ import Foundation
 // MARK: - CONTRACT: ListenerService
 //
 // GUARANTEES:
-// - dump allowed whenever ring has PCM (including after opportunistic capture stops).
+// - dump allowed whenever ring has PCM (including listening→watching; ring not cleared on stopCapture).
 // - dump(minutes:) writes via DumpSink after WavPCMEncoder; never writes when ring empty.
 // - stopCapture idempotent.
 // - startCapture when already listening → no-op success.
@@ -39,6 +39,10 @@ public final class ListenerService {
     private let session = RecordingSession()
     private let stateQueue = DispatchQueue(label: "ai.upil.appa.listener-service")
     private var listening = false
+    private var speechDetector = SpeechActivityDetector()
+    private var lastSpeechAt: Date?
+    private var chunkCount = 0
+    private var activitySnapshot = AudioActivitySnapshot.idle
 
     public init(capture: AudioCapturing, dumpSink: DumpSink) {
         self.capture = capture
@@ -50,25 +54,117 @@ public final class ListenerService {
     }
 
     public var hasBufferedAudio: Bool {
-        session.filledBytes > 0
+        ringFilledBytes > 0
+    }
+
+    /// PCM bytes currently in the ring (preserved across stopCapture / watching).
+    public var ringFilledBytes: Int {
+        session.filledBytes
+    }
+
+    /// Time since last audio chunk was appended to the ring.
+    public var secondsSinceLastAudio: TimeInterval {
+        session.secondsSinceLastAppend
+    }
+
+    /// Time since last speech frame (VAD-lite); `.infinity` if none yet this session.
+    public var secondsSinceLastSpeech: TimeInterval {
+        stateQueue.sync {
+            guard let lastSpeechAt else { return .infinity }
+            return Date().timeIntervalSince(lastSpeechAt)
+        }
+    }
+
+    /// Latest activity snapshot (thread-safe; terminal presenter may poll).
+    public var currentActivity: AudioActivitySnapshot {
+        stateQueue.sync { activitySnapshot }
     }
 
     public func startCapture() throws {
-        try stateQueue.sync {
-            guard !listening else { return }
-            try capture.start { [weak self] data in
-                self?.session.append(data)
-            }
+        let shouldStart = stateQueue.sync { () -> Bool in
+            guard !listening else { return false }
+            speechDetector = SpeechActivityDetector()
+            lastSpeechAt = nil
+            chunkCount = 0
+            activitySnapshot = AudioActivitySnapshot.idle
             listening = true
+            refreshActivitySnapshot(isListening: true)
+            return true
+        }
+        guard shouldStart else { return }
+
+        do {
+            try capture.start { [self] data in
+                ingestPCM(data)
+            }
+        } catch {
+            stateQueue.sync {
+                listening = false
+                refreshActivitySnapshot(isListening: false)
+            }
+            throw error
         }
     }
 
+    /// Inserts a run of zero PCM after a session ends (opportunistic mode).
+    public func insertSessionGap(seconds: TimeInterval = AudioFormat.sessionGapSeconds) {
+        session.appendSilence(seconds: seconds)
+    }
+
     public func stopCapture() {
+        let shouldStop = stateQueue.sync { () -> Bool in
+            guard listening else { return false }
+            listening = false
+            return true
+        }
+        guard shouldStop else { return }
+
+        capture.stop()
+        stateQueue.sync {
+            speechDetector = SpeechActivityDetector()
+            lastSpeechAt = nil
+            refreshActivitySnapshot(isListening: false)
+        }
+    }
+
+    private func ingestPCM(_ data: Data) {
         stateQueue.sync {
             guard listening else { return }
-            capture.stop()
-            listening = false
+            session.append(data)
+            chunkCount += 1
+            var detector = speechDetector
+            let metrics = detector.analyze(pcm: data)
+            speechDetector = detector
+            let now = Date()
+            if metrics.isSpeech {
+                lastSpeechAt = now
+            }
+            let quiet = lastSpeechAt.map { now.timeIntervalSince($0) } ?? .infinity
+            activitySnapshot = AudioActivitySnapshot(
+                rms: metrics.rms,
+                peak: metrics.peak,
+                threshold: metrics.threshold,
+                noiseFloor: speechDetector.noiseFloor,
+                isSpeech: metrics.isSpeech,
+                secondsSinceSpeech: quiet,
+                chunkCount: chunkCount,
+                isListening: listening
+            )
         }
+    }
+
+    private func refreshActivitySnapshot(isListening: Bool) {
+        let quiet = lastSpeechAt.map { Date().timeIntervalSince($0) } ?? .infinity
+        activitySnapshot = AudioActivitySnapshot(
+            rms: activitySnapshot.rms,
+            peak: activitySnapshot.peak,
+            threshold: activitySnapshot.threshold,
+            noiseFloor: speechDetector.noiseFloor,
+            isSpeech: activitySnapshot.isSpeech,
+            secondsSinceSpeech: quiet,
+            chunkCount: chunkCount,
+            isListening: isListening
+        )
     }
 
     public func dump(minutes: Int?) async throws -> URL {

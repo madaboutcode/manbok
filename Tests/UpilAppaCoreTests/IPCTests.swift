@@ -18,11 +18,12 @@ final class IPCTests: XCTestCase {
 
     func testResponseSerializeAndParse() {
         let path = URL(fileURLWithPath: "/tmp/upil-appa-test.wav")
+        let ring = RingBufferSummary(filledBytes: 320_000)
         let responses: [IPCResponse] = [
             .pong,
-            .listening,
-            .watching,
-            .stopped,
+            .listening(ring: ring),
+            .watching(ring: .init(filledBytes: 0)),
+            .stopped(ring: ring),
             .ok,
             .okPath(path),
             .err("not listening"),
@@ -30,5 +31,12 @@ final class IPCTests: XCTestCase {
         for response in responses {
             XCTAssertEqual(IPCResponse.parse(line: response.line), response)
         }
+    }
+
+    func testStatusParseLegacyWithoutRingBytes() {
+        XCTAssertEqual(
+            IPCResponse.parse(line: "LISTENING"),
+            .listening(ring: RingBufferSummary(filledBytes: 0))
+        )
     }
 }

@@ -3,7 +3,7 @@ import Foundation
 // MARK: - CONTRACT: IPCResponse
 //
 // GUARANTEES:
-// - Serializes v1 responses: PONG, LISTENING, WATCHING, STOPPED, OK, OK path=<absolute-path>, ERR <message>.
+// - Serializes v1 responses: PONG, LISTENING|WATCHING|STOPPED [ring_bytes=N], OK, OK path=…, ERR …
 // - `parse(line:)` round-trips wire forms produced by `line`.
 //
 // EXPECTS:
@@ -18,24 +18,33 @@ import Foundation
 /// Daemon replies sent over the Unix socket line protocol.
 public enum IPCResponse: Equatable, Sendable {
     case pong
-    case listening
-    case watching
-    case stopped
+    case listening(ring: RingBufferSummary)
+    case watching(ring: RingBufferSummary)
+    case stopped(ring: RingBufferSummary)
     case ok
     case okPath(URL)
     case err(String)
+
+    public var ring: RingBufferSummary? {
+        switch self {
+        case .listening(let ring), .watching(let ring), .stopped(let ring):
+            return ring
+        default:
+            return nil
+        }
+    }
 
     /// Single-line wire form without trailing newline.
     public var line: String {
         switch self {
         case .pong:
             return "PONG"
-        case .listening:
-            return "LISTENING"
-        case .watching:
-            return "WATCHING"
-        case .stopped:
-            return "STOPPED"
+        case .listening(let ring):
+            return Self.statusWire(verb: "LISTENING", ring: ring)
+        case .watching(let ring):
+            return Self.statusWire(verb: "WATCHING", ring: ring)
+        case .stopped(let ring):
+            return Self.statusWire(verb: "STOPPED", ring: ring)
         case .ok:
             return "OK"
         case .okPath(let url):
@@ -51,10 +60,9 @@ public enum IPCResponse: Equatable, Sendable {
         guard !trimmed.isEmpty else { return nil }
 
         if trimmed == "PONG" { return .pong }
-        if trimmed == "LISTENING" { return .listening }
-        if trimmed == "WATCHING" { return .watching }
-        if trimmed == "STOPPED" { return .stopped }
         if trimmed == "OK" { return .ok }
+
+        if let status = parseStatusLine(trimmed) { return status }
 
         if trimmed.hasPrefix("OK path=") {
             let path = String(trimmed.dropFirst("OK path=".count))
@@ -68,5 +76,34 @@ public enum IPCResponse: Equatable, Sendable {
         }
 
         return nil
+    }
+
+    private static func statusWire(verb: String, ring: RingBufferSummary) -> String {
+        "\(verb) \(ring.ipcSuffix)"
+    }
+
+    private static func parseStatusLine(_ trimmed: String) -> IPCResponse? {
+        let parts = trimmed.split(separator: " ", omittingEmptySubsequences: true)
+        guard let verb = parts.first.map(String.init)?.uppercased() else { return nil }
+
+        var ringBytes = 0
+        for part in parts.dropFirst() {
+            let token = String(part)
+            if token.hasPrefix("ring_bytes=") {
+                ringBytes = Int(token.dropFirst("ring_bytes=".count)) ?? 0
+            }
+        }
+        let ring = RingBufferSummary(filledBytes: ringBytes)
+
+        switch verb {
+        case "LISTENING":
+            return .listening(ring: ring)
+        case "WATCHING":
+            return .watching(ring: ring)
+        case "STOPPED":
+            return .stopped(ring: ring)
+        default:
+            return nil
+        }
     }
 }
