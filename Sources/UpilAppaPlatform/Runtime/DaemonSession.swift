@@ -83,14 +83,16 @@ public final class DaemonSession {
             return .pong
         case .status:
             return statusResponse(service: service)
+        case .sessions:
+            return .sessions(service.listSessions())
         case .stop:
             opportunistic?.stop()
             service.stopCapture()
             shutdown()
             DispatchQueue.global().async { exit(0) }
             return .ok
-        case .dump(let minutes):
-            return dumpResponse(service: service, minutes: minutes)
+        case .dump(let minutes, let sessionId):
+            return dumpResponse(service: service, minutes: minutes, sessionId: sessionId)
         }
     }
 
@@ -123,14 +125,23 @@ public final class DaemonSession {
         return "\(error.message) (stopped)"
     }
 
-    private func dumpResponse(service: ListenerService, minutes: Int?) -> IPCResponse {
+    private func dumpResponse(
+        service: ListenerService,
+        minutes: Int?,
+        sessionId: Int?
+    ) -> IPCResponse {
         let semaphore = DispatchSemaphore(value: 0)
         var response: IPCResponse = .err("dump failed")
 
         Task {
             defer { semaphore.signal() }
             do {
-                let url = try await service.dump(minutes: minutes)
+                let url: URL
+                if let sessionId {
+                    url = try await service.dump(sessionId: sessionId)
+                } else {
+                    url = try await service.dump(minutes: minutes)
+                }
                 response = .okPath(url)
             } catch let error as ListenerError {
                 response = .err(dumpErrorMessage(error, service: service))

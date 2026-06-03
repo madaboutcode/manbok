@@ -1,5 +1,5 @@
 # upil-appa — common dev/daemon commands (run `make help`)
-.PHONY: help build release test verify install uninstall dev stop-quiet start start-bg start-fg start-fg-always start-always-on stop status dump
+.PHONY: help build release test verify install uninstall dev stop-quiet start start-bg start-fg start-fg-always start-always-on stop status sessions dump
 
 BIN := .build/debug/upil-appa
 RELEASE_BIN := .build/release/upil-appa
@@ -27,7 +27,9 @@ help:
 	@echo "  make start-always-on  always-on daemon (background)"
 	@echo "  make stop             stop daemon"
 	@echo "  make status           watching | listening | stopped"
+	@echo "  make sessions         list ring sessions (5s gap markers)"
 	@echo "  make dump             export WAV (optional: MINUTES=5)"
+	@echo "  make dump SESSION=2   export one session by id"
 	@echo ""
 	@echo "Debug:   $(BIN)"
 	@echo "Release: $(RELEASE_BIN)"
@@ -83,13 +85,18 @@ stop: $(BIN)
 status: $(BIN)
 	$(BIN) status
 
+sessions: $(BIN)
+	$(BIN) sessions
+
 dump: $(BIN)
 	@status=$$($(BIN) status 2>/dev/null | awk '{print $$1}'); \
 	if [ "$$status" = "stopped" ]; then \
 	  echo "dump failed: daemon is stopped. Run make start-fg or make start." >&2; \
 	  exit 1; \
 	fi
-ifdef MINUTES
+ifdef SESSION
+	@$(BIN) dump --session $(SESSION)
+else ifdef MINUTES
 	@$(BIN) dump --minutes $(MINUTES)
 else
 	@$(BIN) dump

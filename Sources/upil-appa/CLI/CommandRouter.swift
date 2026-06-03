@@ -20,6 +20,7 @@ struct CommandRouter: ParsableCommand {
             StartCommand.self,
             StopCommand.self,
             StatusCommand.self,
+            SessionsCommand.self,
             DumpCommand.self,
             DaemonCommand.self,
         ]
@@ -127,15 +128,54 @@ private func statusLine(phase: String, ring: RingBufferSummary) -> String {
     "\(phase) \(ring.displaySuffix)"
 }
 
+struct SessionsCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "sessions")
+
+    func run() throws {
+        do {
+            let response = try UnixSocketClient.send(command: .sessions)
+            switch response {
+            case .sessions(let list):
+                if list.isEmpty {
+                    print("no sessions (record in another app, or ring empty)")
+                    return
+                }
+                print("  #      dur  ended          started")
+                for summary in list {
+                    print(summary.displayLine())
+                }
+            case .err(let message):
+                cliLog.error(message)
+                throw ExitCode.failure
+            default:
+                cliLog.error("unexpected response: \(response.line)")
+                throw ExitCode.failure
+            }
+        } catch let error as ExitCode {
+            throw error
+        } catch {
+            cliLog.error(connectionMessage(error))
+            throw ExitCode.failure
+        }
+    }
+}
+
 struct DumpCommand: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "dump")
 
     @Option(name: .long, help: "Minutes of audio to export (default: all buffered)")
     var minutes: Int?
 
+    @Option(name: .long, help: "Export one session by id (see `sessions` command)")
+    var session: Int?
+
     func run() throws {
+        if session != nil, minutes != nil {
+            cliLog.error("use either --minutes or --session, not both")
+            throw ExitCode.failure
+        }
         do {
-            let response = try UnixSocketClient.send(command: .dump(minutes: minutes))
+            let response = try UnixSocketClient.send(command: .dump(minutes: minutes, sessionId: session))
             switch response {
             case .okPath(let url):
                 print(url.path)

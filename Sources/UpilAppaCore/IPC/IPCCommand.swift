@@ -3,7 +3,7 @@ import Foundation
 // MARK: - CONTRACT: IPCCommand
 //
 // GUARANTEES:
-// - Parses UTF-8 line commands: PING, STATUS, STOP, DUMP [minutes].
+// - Parses UTF-8 line commands: PING, STATUS, SESSIONS, STOP, DUMP [minutes|SESSION id].
 // - `DUMP` with no argument → dump(all) via `minutes: nil`.
 // - `DUMP N` where N is a non-negative integer → dump(last N minutes).
 // - Unknown verbs or malformed lines return nil from `parse(line:)`.
@@ -21,8 +21,9 @@ import Foundation
 public enum IPCCommand: Equatable, Sendable {
     case ping
     case status
+    case sessions
     case stop
-    case dump(minutes: Int?)
+    case dump(minutes: Int?, sessionId: Int?)
 
     /// Wire form without trailing newline (caller adds `\n` when sending).
     public var wireLine: String {
@@ -31,9 +32,14 @@ public enum IPCCommand: Equatable, Sendable {
             return "PING"
         case .status:
             return "STATUS"
+        case .sessions:
+            return "SESSIONS"
         case .stop:
             return "STOP"
-        case .dump(let minutes):
+        case .dump(let minutes, let sessionId):
+            if let sessionId {
+                return "DUMP SESSION \(sessionId)"
+            }
             if let minutes {
                 return "DUMP \(minutes)"
             }
@@ -54,15 +60,20 @@ public enum IPCCommand: Equatable, Sendable {
             return parts.count == 1 ? .ping : nil
         case "STATUS":
             return parts.count == 1 ? .status : nil
+        case "SESSIONS":
+            return parts.count == 1 ? .sessions : nil
         case "STOP":
             return parts.count == 1 ? .stop : nil
         case "DUMP":
+            if parts.count == 3, parts[1].uppercased() == "SESSION", let id = Int(parts[2]), id >= 1 {
+                return .dump(minutes: nil, sessionId: id)
+            }
             switch parts.count {
             case 1:
-                return .dump(minutes: nil)
+                return .dump(minutes: nil, sessionId: nil)
             case 2:
                 guard let minutes = Int(parts[1]), minutes >= 0 else { return nil }
-                return .dump(minutes: minutes)
+                return .dump(minutes: minutes, sessionId: nil)
             default:
                 return nil
             }

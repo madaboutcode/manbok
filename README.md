@@ -62,6 +62,8 @@ Background daemon:
 ```bash
 make start        # opportunistic, detached
 make status
+make sessions
+make dump SESSION=2
 make dump MINUTES=5
 make stop
 ```
@@ -81,7 +83,9 @@ make start-always-on
 | `upil-appa start --always-on` | Continuous capture |
 | `upil-appa stop` | Stop daemon |
 | `upil-appa status` | Phase + ring fill (`watching ring=1.2 MB (~6.0s)`) |
+| `upil-appa sessions` | List sessions split by 5s silence markers (relative times) |
 | `upil-appa dump` | Export ring to WAV (system temp dir) |
+| `upil-appa dump --session 2` | Export one session by id |
 | `upil-appa dump --minutes 5` | Last N minutes only |
 
 State: `~/.upil-appa/` (pid + Unix socket). Logs: Console.app → filter `subsystem:ai.upil.appa`.

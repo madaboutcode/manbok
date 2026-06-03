@@ -21,6 +21,7 @@ import Foundation
 public enum ListenerError: Error, Equatable, Sendable {
     case notListening
     case emptyBuffer
+    case sessionNotFound(Int)
 
     public var message: String {
         switch self {
@@ -28,6 +29,8 @@ public enum ListenerError: Error, Equatable, Sendable {
             return "not listening"
         case .emptyBuffer:
             return "ring buffer is empty"
+        case .sessionNotFound(let id):
+            return "session \(id) not found"
         }
     }
 }
@@ -167,10 +170,24 @@ public final class ListenerService {
         )
     }
 
+    public func listSessions() -> [SessionSummary] {
+        session.listSessions()
+    }
+
     public func dump(minutes: Int?) async throws -> URL {
         let pcm = session.snapshotForDump(minutes: minutes)
         guard !pcm.isEmpty else { throw ListenerError.emptyBuffer }
+        return try writeWAV(pcm: pcm)
+    }
 
+    public func dump(sessionId: Int) async throws -> URL {
+        guard let pcm = session.snapshotForSession(id: sessionId), !pcm.isEmpty else {
+            throw ListenerError.sessionNotFound(sessionId)
+        }
+        return try writeWAV(pcm: pcm)
+    }
+
+    private func writeWAV(pcm: Data) throws -> URL {
         let wav = WavPCMEncoder.encode(pcm: pcm)
         let url = dumpSink.nextURL()
         try dumpSink.write(wav: wav, to: url)
