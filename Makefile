@@ -1,9 +1,13 @@
 # upil-appa — common dev/daemon commands (run `make help`)
-.PHONY: help build release test verify dev stop-quiet start start-bg start-fg start-fg-always start-always-on stop status dump
+.PHONY: help build release test verify install uninstall dev stop-quiet start start-bg start-fg start-fg-always start-always-on stop status dump
 
 BIN := .build/debug/upil-appa
 RELEASE_BIN := .build/release/upil-appa
 MINUTES ?=
+
+# User-local install (no sudo). Override: make install PREFIX=/opt/homebrew
+PREFIX ?= $(HOME)/.local
+BINDIR ?= $(PREFIX)/bin
 
 help:
 	@echo "upil-appa"
@@ -12,6 +16,8 @@ help:
 	@echo "  make release          swift build -c release"
 	@echo "  make test             swift test"
 	@echo "  make verify           test + build"
+	@echo "  make install          release build → $(BINDIR)/upil-appa"
+	@echo "  make uninstall        remove installed binary"
 	@echo "  make dev              build, stop if running, start-fg (meter)"
 	@echo ""
 	@echo "  make start-bg         daemon (opportunistic, background)"
@@ -29,8 +35,20 @@ help:
 build:
 	swift build
 
-release:
+release: $(RELEASE_BIN)
+
+$(RELEASE_BIN):
 	swift build -c release
+
+install: $(RELEASE_BIN)
+	@install -d "$(BINDIR)"
+	install -m 755 "$(RELEASE_BIN)" "$(BINDIR)/upil-appa"
+	@echo "installed $(BINDIR)/upil-appa"
+	@echo "add to PATH if needed:  export PATH=\"$(BINDIR):\$$PATH\""
+
+uninstall:
+	@rm -f "$(BINDIR)/upil-appa"
+	@echo "removed $(BINDIR)/upil-appa (if it existed)"
 
 test:
 	swift test
