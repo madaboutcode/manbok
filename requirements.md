@@ -2,7 +2,7 @@
 
 > because Man-bok never misses a word
 
-Named after **Jung Man-bok** (정만복), the wiretapper in [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You) — State Security’s *gwittaegi* (귀때기) who monitors Ri Jeong-hyeok. Son: **Jung U-pil** (우필). Wife **Hyun Myeong-sun** calls him **“U-pil appa”** (우필 아빠), the usual Korean “[child’s name] + appa” form of address. **upil-appa** is that nickname as a macOS background listener + ring buffer.
+Named after **Jung Man-bok** (정만복), wiretapper in [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You). Son **Jung U-pil** (우필); wife calls him **“U-pil appa”** (우필 아빠). **upil-appa** = that nickname as a macOS ring-buffer listener.
 
 A background audio ring buffer for macOS. Continuously captures microphone audio, keeps the last 10 minutes in memory, and lets you dump it to a WAV file on demand.
 

@@ -6,19 +6,7 @@ Background microphone ring buffer for **macOS** (Apple Silicon). Keeps the last 
 
 ## Why *upil-appa*?
 
-From [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You) (*사랑의 불시착*, 2019–2020).
-
-**[Jung Man-bok](https://en.wikipedia.org/wiki/Crash_Landing_on_You#People_in_the_North_Korean_Forces)** (정만복, [Kim Young-min](https://en.wikipedia.org/wiki/Kim_Young-min_(actor))) is the North Korean **wiretapper** assigned to monitor Captain Ri Jeong-hyeok. Villagers nickname him ***gwittaegi*** (귀때기 — “The Rat”): despised, always listening, yet he catches what everyone else misses. Coerced into serving antagonist Cho Cheol-gang, haunted by his role in Ri Mu-hyeok’s death, he eventually sides with Jeong-hyeok and Yoon Se-ri. (Writers and fans often compare him to the listener in [*The Lives of Others*](https://en.wikipedia.org/wiki/The_Lives_of_Others).)
-
-His family: wife **Hyun Myeong-sun** (현명선), son **[Jung U-pil](https://mydramalist.com/people/18931-oh-han-kyul)** (정우필 / 우필 — “Man Bok’s son” in the cast list). In Korean, Myeong-sun addresses her husband the way many wives do: **“U-pil appa”** (우필 아빠) — “U-pil’s dad” — not “Man-bok,” but the father role tied to their child.
-
-**upil-appa** is that address turned into software: the household name for the guy who’s always on the wire, plus a **`dump`** when you need the recording.
-
-| Piece | In the drama | In this repo |
-|-------|----------------|--------------|
-| **U-pil** (우필) | Man-bok’s son | — |
-| **appa** (아빠) | What Myeong-sun calls her husband | Background listener |
-| **upil-appa** | Jung Man-bok at home | CLI + daemon on your Mac |
+Named after [**Jung Man-bok**](https://en.wikipedia.org/wiki/Crash_Landing_on_You#People_in_the_North_Korean_Forces) (정만복), the wiretapper in [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You) — always listening, never missing a word. His son is **Jung U-pil** (우필); his wife calls him **“U-pil appa”** (우필 아빠), the usual Korean “[child’s name] + appa” way of addressing a father. This project is that nickname as a Mac listener with an on-demand **`dump`**.
 
 **Default mode is opportunistic:** the daemon watches the system default mic and only captures while another app (Zoom, Voice Memos, Meet, etc.) is using it. When that session ends, capture stops, the ring is preserved, and a **5 second silence gap** is inserted so sessions are easy to separate in an editor.
 
