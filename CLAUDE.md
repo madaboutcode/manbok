@@ -2,20 +2,28 @@
 
 Background mic ring buffer for macOS: keeps the last 10 minutes of speech-grade PCM in RAM, exports WAV on demand.
 
-## Commands (verified)
+## Commands
+
+Prefer **`make`** (see `Makefile` or `make help`). Builds `.build/debug/upil-appa` when needed.
 
 ```bash
-swift build
-swift test
-.build/debug/upil-appa start              # opportunistic (default): mic only when another app uses it
-.build/debug/upil-appa start --always-on  # continuous capture (legacy)
-.build/debug/upil-appa status    # stdout: watching | listening | stopped
-.build/debug/upil-appa dump [--minutes N]   # stdout: absolute .wav path; opens Audacity
-.build/debug/upil-appa stop
-.build/debug/upil-appa --help
+make build              # swift build (debug)
+make release            # swift build -c release → .build/release/upil-appa
+make test               # swift test
+make verify             # test + build
+
+make start              # opportunistic daemon (background)
+make start-fg           # foreground + live meter — run make dump/stop in **another terminal**
+make start-always-on    # continuous capture (background)
+make stop
+make status             # stdout: phase + ring size (e.g. watching ring=empty)
+make dump               # exports ring (works in watching if audio was captured)
+make dump MINUTES=5     # last N minutes only
 ```
 
 Mic permission: System Settings → Privacy & Security → Microphone (first capture).
+
+Foreground meter: TTY UI on stdout; daemon diagnostics → Console (`subsystem:ai.upil.appa`). CLI subcommands still mirror hints to stderr.
 
 ## Jumpstart
 
@@ -84,8 +92,8 @@ Daemon/IPC issues: read `docs/claude-references/runtime.md`.
 ## Verification
 
 ```bash
-swift test && swift build
-# Manual: start → speak → dump → confirm WAV + Audacity; stop → status stopped
+make verify
+# Manual: make start-fg (tab 1) → REC on meter → make dump (tab 2) → WAV; make stop (tab 2)
 ```
 
 ## Design & Documentation

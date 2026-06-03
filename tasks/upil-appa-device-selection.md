@@ -64,6 +64,7 @@ Reversal:     user reports wrong device while default is correct → invest in (
 |-------|----------------|
 | `device-spike` | Plug/switch input → stderr prints CHANGED with new device name within 2s |
 | `device-capture-spike` | Wait 0→1 idle → capture + peaks → stop engine → verify 0 after other app stops |
+| `speech-activity-spike` | VAD-lite RMS floor + fixed stderr waveform (`·` = silence, blocks = speech) |
 
 Run:
 
