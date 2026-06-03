@@ -6,7 +6,8 @@ import UpilAppaPlatform
 // MARK: - CONTRACT (CommandRouter)
 //
 // GUARANTEES
-// - Maps start|stop|status|dump to IPC or daemon launch.
+// - Maps authorize|start|stop|status|dump|sessions to IPC or daemon launch.
+// - `dump` accepts session targets: id, `last`, `last-N`, or `--list`.
 // - stdout: dump path (one line) or status word; stderr: AppLog diagnostics.
 //
 // DOES NOT
@@ -17,6 +18,7 @@ struct CommandRouter: ParsableCommand {
         commandName: "upil-appa",
         abstract: "Rolling microphone buffer with on-demand WAV export",
         subcommands: [
+            AuthorizeCommand.self,
             StartCommand.self,
             StopCommand.self,
             StatusCommand.self,
@@ -28,6 +30,36 @@ struct CommandRouter: ParsableCommand {
 }
 
 private let cliLog = AppLog(category: .cli)
+
+struct AuthorizeCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "authorize",
+        abstract: "Request microphone access for this binary (run once from Terminal before background start)"
+    )
+
+    func run() throws {
+        switch MicrophoneAuthorization.currentStatus() {
+        case .authorized:
+            print("authorized")
+            cliLog.info("microphone already authorized")
+            return
+        case .denied, .restricted:
+            print("denied")
+            cliLog.error("microphone access denied — \(MicrophoneAuthorization.settingsHint)")
+            throw ExitCode.failure
+        case .notDetermined:
+            cliLog.info("approve the microphone dialog if macOS shows it")
+        }
+
+        guard MicrophoneAuthorization.ensureAuthorized() else {
+            print("denied")
+            cliLog.error("microphone access denied — \(MicrophoneAuthorization.settingsHint)")
+            throw ExitCode.failure
+        }
+        print("authorized")
+        cliLog.info("microphone access granted")
+    }
+}
 
 struct StartCommand: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "start")
@@ -61,6 +93,11 @@ struct StartCommand: ParsableCommand {
             }
             cliLog.info("replacing stale daemon")
             try terminateRunningDaemon()
+        }
+
+        guard MicrophoneAuthorization.ensureAuthorized() else {
+            cliLog.error("microphone access denied — \(MicrophoneAuthorization.settingsHint)")
+            throw ExitCode.failure
         }
 
         let executable = CommandLine.arguments[0]
@@ -129,75 +166,56 @@ private func statusLine(phase: String, ring: RingBufferSummary) -> String {
 }
 
 struct SessionsCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "sessions")
+    static let configuration = CommandConfiguration(
+        commandName: "sessions",
+        abstract: "List recorded sessions (same as `dump --list`)"
+    )
 
     func run() throws {
-        do {
-            let response = try UnixSocketClient.send(command: .sessions)
-            switch response {
-            case .sessions(let list):
-                if list.isEmpty {
-                    print("no sessions (record in another app, or ring empty)")
-                    return
-                }
-                print("  #      dur  ended          started")
-                for summary in list {
-                    print(summary.displayLine())
-                }
-            case .err(let message):
-                cliLog.error(message)
-                throw ExitCode.failure
-            default:
-                cliLog.error("unexpected response: \(response.line)")
-                throw ExitCode.failure
-            }
-        } catch let error as ExitCode {
-            throw error
-        } catch {
-            cliLog.error(connectionMessage(error))
-            throw ExitCode.failure
-        }
+        try printSessionList()
     }
 }
 
 struct DumpCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "dump")
+    static let configuration = CommandConfiguration(
+        commandName: "dump",
+        abstract: "Export WAV — default: newest session; `all` = full ring"
+    )
 
-    @Option(name: .long, help: "Minutes of audio to export (default: all buffered)")
+    @Flag(name: .long, help: "List recorded sessions (ids for `dump 1`, `dump -1`, …)")
+    var list = false
+
+    @Option(name: .long, help: "Last N minutes of the ring (not a session selector)")
     var minutes: Int?
 
-    @Option(name: .long, help: "Export one session by id (see `sessions` command)")
-    var session: Int?
+    @Argument(help: "Omit/`last` = newest; `-1` = prior; `all` = ring; or id `1`")
+    var target: String?
 
     func run() throws {
-        if session != nil, minutes != nil {
-            cliLog.error("use either --minutes or --session, not both")
+        if list {
+            try printSessionList()
+            return
+        }
+
+        if minutes != nil, let target, !target.isEmpty {
+            cliLog.error("use either a target or --minutes, not both")
             throw ExitCode.failure
         }
-        do {
-            let response = try UnixSocketClient.send(command: .dump(minutes: minutes, sessionId: session))
-            switch response {
-            case .okPath(let url):
-                print(url.path)
-                if AudacityLauncher.open(path: url.path) {
-                    cliLog.info("opened in Audacity")
-                } else {
-                    cliLog.warning("could not open Audacity — open the WAV manually")
-                }
-            case .err(let message):
-                cliLog.error(message)
-                explainDumpFailure(message)
-                throw ExitCode.failure
-            default:
-                cliLog.error("unexpected response: \(response.line)")
-                throw ExitCode.failure
+
+        let sessionId: Int?
+        if let target, !target.isEmpty {
+            if target.lowercased() == "all" {
+                sessionId = nil
+            } else {
+                sessionId = try resolveDumpSessionTarget(target)
             }
-        } catch let error as ExitCode {
-            throw error
-        } catch {
-            cliLog.error(connectionMessage(error))
-            throw ExitCode.failure
+        } else if minutes != nil {
+            sessionId = nil
+        } else {
+            sessionId = try resolveDumpSessionTarget("last")
         }
+
+        try performDump(minutes: minutes, sessionId: sessionId)
     }
 }
 
@@ -216,6 +234,89 @@ struct DaemonCommand: ParsableCommand {
             throw ExitCode.failure
         }
         DaemonMain.runDaemon(presentation: .foregroundMeter, alwaysOn: alwaysOn)
+    }
+}
+
+private func fetchSessions() throws -> [SessionSummary] {
+    let response = try UnixSocketClient.send(command: .sessions)
+    switch response {
+    case .sessions(let list):
+        return list
+    case .err(let message):
+        cliLog.error(message)
+        throw ExitCode.failure
+    default:
+        cliLog.error("unexpected response: \(response.line)")
+        throw ExitCode.failure
+    }
+}
+
+private func printSessionList() throws {
+    let list = try fetchSessions()
+    if list.isEmpty {
+        print("no sessions (record in another app, or ring empty)")
+        return
+    }
+    print("  #      dur  ended          started")
+    for summary in list {
+        print(summary.displayLine())
+    }
+}
+
+private func resolveDumpSessionTarget(_ text: String) throws -> Int {
+    let selector: DumpSessionSelector
+    switch DumpSessionSelectorParser.parse(text) {
+    case .success(let parsed):
+        selector = parsed
+    case .failure(.invalidSyntax(let raw)):
+        cliLog.error("unknown session \(raw) — use `last`, `-1` (prior), `1`, or `all`; see `upil-appa dump --list`")
+        throw ExitCode.failure
+    case .failure(.noSessions), .failure(.unknownSession), .failure(.offsetOutOfRange):
+        throw ExitCode.failure
+    }
+
+    let sessions = try fetchSessions()
+    switch DumpSessionSelectorParser.resolve(selector, in: sessions) {
+    case .success(let id):
+        return id
+    case .failure(.noSessions):
+        cliLog.error("no sessions — record in another app first")
+        throw ExitCode.failure
+    case .failure(.unknownSession(let id)):
+        cliLog.error("no session #\(id) — run `upil-appa dump --list`")
+        throw ExitCode.failure
+    case .failure(.offsetOutOfRange(let offset, let count)):
+        cliLog.error("only \(count) session\(count == 1 ? "" : "s") — cannot go back \(offset)")
+        throw ExitCode.failure
+    case .failure(.invalidSyntax):
+        throw ExitCode.failure
+    }
+}
+
+private func performDump(minutes: Int?, sessionId: Int?) throws {
+    do {
+        let response = try UnixSocketClient.send(command: .dump(minutes: minutes, sessionId: sessionId))
+        switch response {
+        case .okPath(let url):
+            print(url.path)
+            if AudacityLauncher.open(path: url.path) {
+                cliLog.info("opened in Audacity")
+            } else {
+                cliLog.warning("could not open Audacity — open the WAV manually")
+            }
+        case .err(let message):
+            cliLog.error(message)
+            explainDumpFailure(message)
+            throw ExitCode.failure
+        default:
+            cliLog.error("unexpected response: \(response.line)")
+            throw ExitCode.failure
+        }
+    } catch let error as ExitCode {
+        throw error
+    } catch {
+        cliLog.error(connectionMessage(error))
+        throw ExitCode.failure
     }
 }
 

@@ -30,6 +30,12 @@ public final class DaemonSession {
             try DaemonProcess.writeCurrentPID()
             DaemonProcess.removeStaleSocket()
 
+            guard MicrophoneAuthorization.ensureAuthorized() else {
+                log.error("microphone access denied — \(MicrophoneAuthorization.settingsHint)")
+                exit(1)
+            }
+            log.info("microphone access granted")
+
             let service = ListenerService(
                 capture: AVAudioCapture(),
                 dumpSink: PlatformDumpSink()

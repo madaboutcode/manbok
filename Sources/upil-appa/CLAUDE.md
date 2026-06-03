@@ -4,13 +4,13 @@ CLI surface and daemon entry. Thin — delegates to Core + Platform.
 
 ## Jumpstart
 
-**Updated:** 2026-06-03
+**Updated:** 2026-06-04
 
 ### Entry Points
 
 | Invocation | Behavior |
 |------------|----------|
-| `upil-appa start\|stop\|status\|dump` | `CommandRouter` → `UnixSocketClient` |
+| `upil-appa authorize\|start\|stop\|status\|dump\|sessions` | `CommandRouter` → mic TCC or `UnixSocketClient` |
 | `upil-appa daemon` (hidden) | `DaemonMain.runDaemon()` — do not run manually unless debugging |
 | `argv` contains `daemon` | `Main.swift` routes to `DaemonMain` (spawned child) |
 
@@ -18,6 +18,8 @@ CLI surface and daemon entry. Thin — delegates to Core + Platform.
 
 | Command | stdout | stderr |
 |---------|--------|--------|
+| `authorize` | `authorized` or `denied` (one word) | grant/deny hints |
+| `dump` | WAV path; default = newest; `-1` = prior; `all` = ring; `1` = id | Audacity hint |
 | `status` | `watching`, `listening`, or `stopped` (one word) | — |
 | `start` | default opportunistic; `--always-on` for 24/7 capture | — |
 | `dump` | absolute path to `.wav` (one line) | `AppLog` info/warnings (e.g. Audacity) |

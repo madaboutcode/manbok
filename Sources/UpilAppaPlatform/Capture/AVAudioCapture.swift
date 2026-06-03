@@ -60,7 +60,9 @@ public final class AVAudioCapture: NSObject, AudioCapturing {
     public func start(sink: @escaping (Data) -> Void) throws {
         guard !isCapturing else { return }
 
-        try ensureMicrophoneAuthorized()
+        guard MicrophoneAuthorization.ensureAuthorized() else {
+            throw AVAudioCaptureError.microphoneDenied
+        }
 
         let input = engine.inputNode
         let inputFormat = input.outputFormat(forBus: 0)
@@ -87,7 +89,11 @@ public final class AVAudioCapture: NSObject, AudioCapturing {
             throw AVAudioCaptureError.engineStartFailed(error.localizedDescription)
         }
 
-        log.info("capture started (\(inputFormat.sampleRate) Hz → \(AudioFormat.sampleRate) Hz mono)")
+        log.info(
+            "capture started device format: \(inputFormat.sampleRate) Hz, "
+                + "ch=\(inputFormat.channelCount), format=\(inputFormat.commonFormat.rawValue) "
+                + "→ \(AudioFormat.sampleRate) Hz mono s16"
+        )
     }
 
     public func stop() {
@@ -101,24 +107,6 @@ public final class AVAudioCapture: NSObject, AudioCapturing {
         converter = nil
 
         log.info("capture stopped")
-    }
-
-    private func ensureMicrophoneAuthorized() throws {
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
-        case .authorized:
-            return
-        case .notDetermined:
-            let semaphore = DispatchSemaphore(value: 0)
-            var granted = false
-            AVCaptureDevice.requestAccess(for: .audio) { ok in
-                granted = ok
-                semaphore.signal()
-            }
-            semaphore.wait()
-            guard granted else { throw AVAudioCaptureError.microphoneDenied }
-        default:
-            throw AVAudioCaptureError.microphoneDenied
-        }
     }
 
     private func handleTap(buffer: AVAudioPCMBuffer, inputFormat: AVAudioFormat) {

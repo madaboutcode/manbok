@@ -35,5 +35,21 @@ final class RecordingSessionTests: XCTestCase {
         XCTAssertEqual(first?.count, 800)
         let second = session.snapshotForSession(id: 2)
         XCTAssertEqual(second?.count, 400)
+
+        let full = session.snapshotForDump(minutes: nil)
+        XCTAssertEqual(full.count, 800 + 400)
+        XCTAssertFalse(containsSessionGapMarker(full))
+        XCTAssertFalse(containsSessionGapMarker(first ?? Data()))
+    }
+
+    private func containsSessionGapMarker(_ pcm: Data) -> Bool {
+        let gap = AudioFormat.sessionGapBytes
+        guard pcm.count >= gap else { return false }
+        for offset in 0 ... (pcm.count - gap) {
+            if SessionCatalog.isSessionGap(at: offset, in: pcm, byteCount: gap) {
+                return true
+            }
+        }
+        return false
     }
 }

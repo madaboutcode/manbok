@@ -19,7 +19,7 @@ extension SessionSummary {
         ].joined(separator: ",")
     }
 
-    /// Human line for `upil-appa sessions` (stdout).
+    /// Human line for `upil-appa dump --list` (stdout).
     public func displayLine() -> String {
         let dur = String(format: "%.1fs", durationSeconds)
         let started = Self.relativeLabel(secondsAgo: startedSecondsAgo, prefix: "started")

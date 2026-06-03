@@ -14,7 +14,7 @@ Named after [**Jung Man-bok**](https://en.wikipedia.org/wiki/Crash_Landing_on_Yo
 
 - macOS 14+ (Apple Silicon)
 - Xcode command-line tools / Swift 5.9+
-- Microphone permission for the `upil-appa` binary (System Settings → Privacy & Security → Microphone)
+- Microphone permission for the `upil-appa` binary: `upil-appa authorize` or `make authorize` from Terminal (or System Settings → Privacy & Security → Microphone)
 
 ## Install
 
@@ -45,6 +45,16 @@ Uninstall:
 make uninstall
 ```
 
+**Login persistence (recommended for background use):** user LaunchAgent in your GUI session (better mic routing than a bare detached daemon):
+
+```bash
+make install-launchagent   # installs binary, authorize, loads ~/Library/LaunchAgents/com.upil.appa.plist
+```
+
+Approve the microphone prompt when it appears. Logs: `/tmp/upil-appa.stderr.log`. Remove with `make uninstall-launchagent`.
+
+Use **`make install`** for a one-shot detached daemon (no launchd). Do not run both at once.
+
 Other install options people use: [Homebrew](https://brew.sh) formula (best for wide distribution), or `swift build -c release` and copy the binary from `.build/release/` yourself.
 
 ## Quick start
@@ -62,8 +72,10 @@ Background daemon:
 ```bash
 make start        # opportunistic, detached
 make status
-make sessions
-make dump SESSION=2
+upil-appa dump --list
+upil-appa dump          # newest session (default)
+upil-appa dump -1       # session before that
+upil-appa dump all      # full ring (session gaps omitted in export)
 make dump MINUTES=5
 make stop
 ```
@@ -81,14 +93,22 @@ make start-always-on
 | `upil-appa start` | Opportunistic daemon (background) |
 | `upil-appa start --foreground` | Same, with live terminal meter on stdout |
 | `upil-appa start --always-on` | Continuous capture |
+| `upil-appa authorize` | Request microphone access (run once from Terminal) |
 | `upil-appa stop` | Stop daemon |
 | `upil-appa status` | Phase + ring fill (`watching ring=1.2 MB (~6.0s)`) |
-| `upil-appa sessions` | List sessions split by 5s silence markers (relative times) |
-| `upil-appa dump` | Export ring to WAV (system temp dir) |
-| `upil-appa dump --session 2` | Export one session by id |
-| `upil-appa dump --minutes 5` | Last N minutes only |
+| `upil-appa dump` | Export **newest** session (default) |
+| `upil-appa dump all` | Export full ring to WAV |
+| `upil-appa dump --list` | List sessions (5s gap markers; relative times) |
+| `upil-appa dump 1` | Export session by id (oldest = 1) |
+| `upil-appa dump last` | Same as bare `dump` (newest) |
+| `upil-appa dump -1` | Session **before** the newest |
+| `upil-appa dump -2` | Two before the newest |
+| `upil-appa dump --minutes 5` | Last N minutes of ring (not a session id) |
+| `upil-appa sessions` | Same as `upil-appa dump --list` |
 
-State: `~/.upil-appa/` (pid + Unix socket). Logs: Console.app → filter `subsystem:ai.upil.appa`.
+State: `~/.upil-appa/` (pid + Unix socket). Logs: Console.app → `subsystem:ai.upil.appa`; LaunchAgent also writes `/tmp/upil-appa.stderr.log`.
+
+Exported session WAVs omit the 5s ring markers (gaps stay in the ring for `dump --list` only).
 
 ## How it works
 

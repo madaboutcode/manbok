@@ -6,7 +6,8 @@ import Foundation
 // - Only mutates ring on capture callback path (serialized on internal queue).
 // - appendSilence(seconds:) writes zero PCM for session markers (same queue as append).
 // - Closed sessions recorded when a gap is appended; open session tracked until next gap.
-// - snapshotForSession(id:) extracts one session using gap markers in chronological PCM.
+// - snapshotForSession(id:) extracts one session; omits adjacent 5s gap markers from export.
+// - snapshotForDump omits all session-gap markers from export.
 // - snapshotForDump(minutes:) is consistent — no partial write visible.
 //
 // EXPECTS:
@@ -118,14 +119,17 @@ public final class RecordingSession {
             guard id >= 1, id <= ranges.count else { return nil }
             let range = ranges[id - 1]
             guard !range.isEmpty else { return nil }
-            return pcm.subdata(in: range)
+            let slice = pcm.subdata(in: range)
+            let trimmed = SessionCatalog.trimSessionGapPadding(in: slice)
+            return trimmed.isEmpty ? nil : trimmed
         }
     }
 
     /// Returns contiguous PCM for the last `minutes` of audio (or all filled when nil).
     public func snapshotForDump(minutes: Int?) -> Data {
         queue.sync {
-            snapshotPCMUnlocked(minutes: minutes)
+            let pcm = snapshotPCMUnlocked(minutes: minutes)
+            return SessionCatalog.pcmWithoutSessionGaps(in: pcm)
         }
     }
 

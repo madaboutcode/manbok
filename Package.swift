@@ -26,7 +26,15 @@ let package = Package(
                 "UpilAppaPlatform",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ],
-            exclude: ["CLAUDE.md"]
+            exclude: ["CLAUDE.md", "Info.plist"],
+            linkerSettings: [
+                .unsafeFlags([
+                    "-Xlinker", "-sectcreate",
+                    "-Xlinker", "__TEXT",
+                    "-Xlinker", "__info_plist",
+                    "-Xlinker", "Sources/upil-appa/Info.plist",
+                ], .when(platforms: [.macOS])),
+            ]
         ),
         .testTarget(
             name: "UpilAppaCoreTests",

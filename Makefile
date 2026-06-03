@@ -1,5 +1,9 @@
 # upil-appa — common dev/daemon commands (run `make help`)
-.PHONY: help build release test verify install uninstall dev stop-quiet start start-bg start-fg start-fg-always start-always-on stop status sessions dump
+.PHONY: help build release test verify install uninstall install-launchagent uninstall-launchagent authorize dev stop-quiet start start-bg start-fg start-fg-always start-always-on stop status sessions dump dump-list
+
+LAUNCH_AGENT_LABEL := com.upil.appa
+LAUNCH_AGENT_PLIST := $(HOME)/Library/LaunchAgents/$(LAUNCH_AGENT_LABEL).plist
+GUI_DOMAIN := gui/$(shell id -u)
 
 BIN := .build/debug/upil-appa
 RELEASE_BIN := .build/release/upil-appa
@@ -17,7 +21,10 @@ help:
 	@echo "  make release          swift build -c release"
 	@echo "  make test             swift test"
 	@echo "  make verify           test + build"
-	@echo "  make install          release → $(BINDIR)/upil-appa; restart + start daemon"
+	@echo "  make install          release → $(BINDIR)/upil-appa; authorize + start daemon"
+	@echo "  make install-launchagent  install + user LaunchAgent (login, Aqua session)"
+	@echo "  make uninstall-launchagent remove LaunchAgent"
+	@echo "  make authorize        request mic permission (Terminal; before background daemon)"
 	@echo "  make uninstall        stop daemon, remove installed binary"
 	@echo "  make dev              build, stop if running, start-fg (meter)"
 	@echo ""
@@ -28,9 +35,11 @@ help:
 	@echo "  make start-always-on  always-on daemon (background)"
 	@echo "  make stop             stop daemon"
 	@echo "  make status           watching | listening | stopped"
-	@echo "  make sessions         list ring sessions (5s gap markers)"
-	@echo "  make dump             export WAV (optional: MINUTES=5)"
-	@echo "  make dump SESSION=2   export one session by id"
+	@echo "  make sessions         list sessions (same as: upil-appa dump --list)"
+	@echo "  make dump             export newest session (default)"
+	@echo "  make dump TARGET=all  export full ring"
+	@echo "  make dump TARGET=-1   prior session (-2 = two back; omit = newest)"
+	@echo "  make dump MINUTES=5   last N minutes of ring"
 	@echo ""
 	@echo "Debug:   $(BIN)"
 	@echo "Release: $(RELEASE_BIN)"
@@ -38,33 +47,60 @@ help:
 build:
 	swift build
 
-release: $(RELEASE_BIN)
-
-$(RELEASE_BIN):
+# Always invoke SPM — file mtime alone does not track source changes.
+release:
 	swift build -c release
 
-install: $(RELEASE_BIN)
+install: release
 	@install -d "$(BINDIR)"
 	@echo "stopping daemon if running…"
-	-@if [ -x "$(INSTALLED_BIN)" ]; then "$(INSTALLED_BIN)" stop; \
-	elif [ -x "$(RELEASE_BIN)" ]; then "$(RELEASE_BIN)" stop; \
-	elif [ -x "$(BIN)" ]; then "$(BIN)" stop; \
-	else true; fi 2>/dev/null
+	-@for b in "$(INSTALLED_BIN)" "$(RELEASE_BIN)" "$(BIN)"; do \
+	  if [ -x "$$b" ]; then "$$b" stop; fi; \
+	done 2>/dev/null || true
 	@sleep 0.3
 	install -m 755 "$(RELEASE_BIN)" "$(INSTALLED_BIN)"
 	@echo "installed $(INSTALLED_BIN)"
+	@"$(INSTALLED_BIN)" authorize
 	@"$(INSTALLED_BIN)" start
 	@echo "add to PATH if needed:  export PATH=\"$(BINDIR):\$$PATH\""
 
 uninstall:
-	-@if [ -x "$(INSTALLED_BIN)" ]; then "$(INSTALLED_BIN)" stop; fi 2>/dev/null
+	-@if [ -x "$(INSTALLED_BIN)" ]; then "$(INSTALLED_BIN)" stop; fi 2>/dev/null || true
 	@rm -f "$(INSTALLED_BIN)"
 	@echo "removed $(INSTALLED_BIN) (if it existed)"
+
+install-launchagent: release
+	@install -d "$(BINDIR)" "$(HOME)/Library/LaunchAgents"
+	@echo "stopping manual daemon if running…"
+	-@for b in "$(INSTALLED_BIN)" "$(RELEASE_BIN)" "$(BIN)"; do \
+	  if [ -x "$$b" ]; then "$$b" stop; fi; \
+	done 2>/dev/null || true
+	@sleep 0.3
+	install -m 755 "$(RELEASE_BIN)" "$(INSTALLED_BIN)"
+	@"$(INSTALLED_BIN)" authorize
+	-@launchctl bootout $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)" 2>/dev/null || true
+	@sed -e 's|REPLACE_WITH_UPIL_APPA_PATH|$(INSTALLED_BIN)|g' \
+		-e 's|REPLACE_WITH_HOME|$(HOME)|g' \
+		resources/com.upil.appa.plist > "$(LAUNCH_AGENT_PLIST)"
+	@launchctl bootstrap $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)"
+	@echo "LaunchAgent loaded: $(LAUNCH_AGENT_PLIST)"
+	@echo "logs: /tmp/upil-appa.stderr.log  Console: subsystem ai.upil.appa"
+	@sleep 1
+	@$(INSTALLED_BIN) status
+
+uninstall-launchagent:
+	-@launchctl bootout $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)" 2>/dev/null || true
+	@rm -f "$(LAUNCH_AGENT_PLIST)"
+	-@if [ -x "$(INSTALLED_BIN)" ]; then "$(INSTALLED_BIN)" stop; fi 2>/dev/null || true
+	@echo "LaunchAgent removed (binary left at $(INSTALLED_BIN))"
 
 test:
 	swift test
 
 verify: test build
+
+authorize: $(BIN)
+	$(BIN) authorize
 
 dev: build stop-quiet start-fg
 
@@ -103,10 +139,13 @@ dump: $(BIN)
 	  echo "dump failed: daemon is stopped. Run make start-fg or make start." >&2; \
 	  exit 1; \
 	fi
-ifdef SESSION
-	@$(BIN) dump --session $(SESSION)
+ifdef TARGET
+	@$(BIN) dump $(TARGET)
 else ifdef MINUTES
 	@$(BIN) dump --minutes $(MINUTES)
 else
 	@$(BIN) dump
 endif
+
+dump-list: $(BIN)
+	@$(BIN) dump --list

@@ -11,15 +11,19 @@ make build              # swift build (debug)
 make release            # swift build -c release → .build/release/upil-appa
 make test               # swift test
 make verify             # test + build
-make install            # release → ~/.local/bin; stop if running, start daemon
+make install            # release → ~/.local/bin/upil-appa; authorize + start daemon
+make install-launchagent # install + user LaunchAgent (Aqua session; login persistence)
+make authorize          # mic permission for this binary (Terminal)
 
 make start              # opportunistic daemon (background)
-make start-fg           # foreground + live meter — run make dump/stop in **another terminal**
+make start-fg           # foreground + live meter — run dump/stop in **another terminal**
 make start-always-on    # continuous capture (background)
 make stop
 make status             # stdout: phase + ring size (e.g. watching ring=empty)
-make dump               # exports ring (works in watching if audio was captured)
-make dump MINUTES=5     # last N minutes only
+make dump               # export newest session (default)
+make dump TARGET=all    # full ring
+make dump TARGET=-1     # prior session
+make dump MINUTES=5     # last N minutes of ring
 ```
 
 Mic permission: System Settings → Privacy & Security → Microphone (first capture).
@@ -28,7 +32,7 @@ Foreground meter: TTY UI on stdout; daemon diagnostics → Console (`subsystem:a
 
 ## Jumpstart
 
-**Updated:** 2026-06-03
+**Updated:** 2026-06-04
 
 ### What This Project Does
 

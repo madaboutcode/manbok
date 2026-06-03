@@ -5,6 +5,7 @@ import Foundation
 // GUARANTEES
 // - Splits chronological PCM on exact session-gap markers (zero runs of sessionGapBytes).
 // - Returns audio ranges in order; trailing audio without a following gap is one session (may be open).
+// - `pcmWithoutSessionGaps` / `trimSessionGapPadding` omit gap markers from dump exports.
 //
 // DOES NOT
 // - Read the ring buffer directly.
@@ -64,6 +65,38 @@ public enum SessionCatalog {
         }
 
         return ranges
+    }
+
+    /// PCM for WAV export: all non-gap regions concatenated (no 5s markers between sessions).
+    public static func pcmWithoutSessionGaps(
+        in pcm: Data,
+        gapBytes: Int = AudioFormat.sessionGapBytes
+    ) -> Data {
+        let ranges = audioRanges(in: pcm, gapBytes: gapBytes)
+        guard !ranges.isEmpty else { return pcm }
+        return ranges.reduce(into: Data()) { exported, range in
+            exported.append(pcm.subdata(in: range))
+        }
+    }
+
+    /// Strips leading/trailing session-gap markers from one session slice (dump safety net).
+    public static func trimSessionGapPadding(
+        in pcm: Data,
+        gapBytes: Int = AudioFormat.sessionGapBytes
+    ) -> Data {
+        guard gapBytes > 0, !pcm.isEmpty else { return pcm }
+        var start = 0
+        var end = pcm.count
+        while start + gapBytes <= end,
+              isSessionGap(at: start, in: pcm, byteCount: gapBytes) {
+            start += gapBytes
+        }
+        while end - gapBytes >= start,
+              isSessionGap(at: end - gapBytes, in: pcm, byteCount: gapBytes) {
+            end -= gapBytes
+        }
+        guard start < end else { return Data() }
+        return pcm.subdata(in: start ..< end)
     }
 
     public static func isSessionGap(at offset: Int, in pcm: Data, byteCount: Int) -> Bool {
