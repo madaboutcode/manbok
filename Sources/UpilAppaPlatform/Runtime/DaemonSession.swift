@@ -1,6 +1,10 @@
 import Foundation
 import UpilAppaCore
 
+private final class IPCResponseBox: @unchecked Sendable {
+    var value: IPCResponse = .err("dump failed")
+}
+
 // MARK: - CONTRACT (DaemonSession)
 //
 // GUARANTEES
@@ -137,7 +141,7 @@ public final class DaemonSession {
         sessionId: Int?
     ) -> IPCResponse {
         let semaphore = DispatchSemaphore(value: 0)
-        var response: IPCResponse = .err("dump failed")
+        let box = IPCResponseBox()
 
         Task {
             defer { semaphore.signal() }
@@ -148,15 +152,15 @@ public final class DaemonSession {
                 } else {
                     url = try await service.dump(minutes: minutes)
                 }
-                response = .okPath(url)
+                box.value = .okPath(url)
             } catch let error as ListenerError {
-                response = .err(dumpErrorMessage(error, service: service))
+                box.value = .err(dumpErrorMessage(error, service: service))
             } catch {
-                response = .err(error.localizedDescription)
+                box.value = .err(error.localizedDescription)
             }
         }
 
         semaphore.wait()
-        return response
+        return box.value
     }
 }
