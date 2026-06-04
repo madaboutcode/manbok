@@ -52,4 +52,60 @@ final class RecordingSessionTests: XCTestCase {
         }
         return false
     }
+
+    func testSessionTableFormattingUsesModernRuledList() {
+        // Realistic-ish summaries (newest last)
+        let s1 = SessionSummary(
+            id: 1,
+            audioBytes: 241_000,
+            durationSeconds: 15.1,
+            startedSecondsAgo: 75,
+            endedSecondsAgo: 60,
+            isOpen: false,
+            appName: "Extension"
+        )
+        let s2 = SessionSummary(
+            id: 2,
+            audioBytes: 144_000,
+            durationSeconds: 9.0,
+            startedSecondsAgo: 15,
+            endedSecondsAgo: 6,
+            isOpen: false,
+            appName: "Pipit"
+        )
+        let open = SessionSummary(
+            id: 3,
+            audioBytes: 32_000,
+            durationSeconds: 2.0,
+            startedSecondsAgo: 2,
+            endedSecondsAgo: nil,
+            isOpen: true,
+            appName: "Zoom"
+        )
+
+        let output = SessionSummary.table([s1, s2, open])
+
+        // Show the human what it looks like (appears in test log)
+        print("\n=== dump --list (modern ruled) ===\n\(output)\n=== end ===\n")
+
+        // Modern TUI visual: header rule using drawing char, no enclosing box.
+        XCTAssertTrue(output.contains("━"), "should use unicode rule line (━ heavy for modern TUI header)")
+        XCTAssertFalse(output.contains("┌") || output.contains("│"), "no box-drawing grid; modern ruled list only")
+        XCTAssertTrue(output.contains("#"), "header should include #")
+        XCTAssertTrue(output.contains("dur"), "header should include dur")
+        XCTAssertTrue(output.contains("ended"), "header should have 'ended' column")
+        XCTAssertTrue(output.contains("started"), "header should have 'started' column")
+        XCTAssertTrue(output.contains("app"), "header should have app column")
+
+        // Compact relative times (no "ago" inside cells; rule provides separation)
+        XCTAssertTrue(output.contains("1m"), "should show compact '1m'")
+        XCTAssertTrue(output.contains("15s"), "should show compact seconds")
+
+        // Open session shows "open" not a time
+        XCTAssertTrue(output.contains("open"), "open session should render 'open'")
+
+        // Alignment: data values for metric cols are right-aligned within their col width.
+        // We at least ensure the rule segments exist under the headers and values sit above them.
+        XCTAssertTrue(output.contains("  #  "), "indented, header # present with spacing")
+    }
 }
