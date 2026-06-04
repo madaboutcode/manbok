@@ -63,10 +63,10 @@ install: release
 	@"$(INSTALLED_BIN)" authorize
 	@if [ -f "$(LAUNCH_AGENT_PLIST)" ]; then \
 	  echo "restarting LaunchAgent with updated binary…"; \
-	  -@launchctl bootout $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)" 2>/dev/null || true; \
-	  @launchctl bootstrap $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)"; \
-	  @sleep 1; \
-	  @$(INSTALLED_BIN) status; \
+	  launchctl bootout $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)" 2>/dev/null || true; \
+	  launchctl bootstrap $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)"; \
+	  sleep 1; \
+	  "$(INSTALLED_BIN)" status; \
 	else \
 	  echo "no LaunchAgent found — run 'make install-launchagent' for login persistence"; \
 	fi
