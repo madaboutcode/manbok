@@ -26,6 +26,7 @@ public final class RecordingSession {
         let audioBytes: Int
         let startedAt: Date
         let endedAt: Date
+        let appName: String?
     }
 
     private var ring = ByteRingBuffer()
@@ -33,6 +34,7 @@ public final class RecordingSession {
     private var closedSessions: [ClosedSession] = []
     private var openSessionStartedAt: Date?
     private var openSessionAudioBytes = 0
+    private var openSessionAppName: String?
     private let queue = DispatchQueue(label: "ai.upil.appa.recording-session")
 
     public init() {}
@@ -62,12 +64,18 @@ public final class RecordingSession {
         }
     }
 
+    /// Sets the app name for the currently open session (called when capture starts or apps change).
+    public func setOpenSessionAppName(_ name: String?) {
+        queue.sync { openSessionAppName = name }
+    }
+
     /// Appends digital silence (zero samples) for visual separation between sessions.
-    public func appendSilence(seconds: TimeInterval) {
+    public func appendSilence(seconds: TimeInterval, appName: String? = nil) {
         guard seconds > 0 else { return }
         let byteCount = Int(seconds * Double(AudioFormat.bytesPerSecond))
         guard byteCount > 0 else { return }
         queue.sync {
+            if let appName { openSessionAppName = appName }
             closeOpenSession(endedAt: Date())
             ring.write(Data(count: byteCount))
             lastAppendAt = Date()
@@ -88,7 +96,8 @@ public final class RecordingSession {
                         durationSeconds: Double(closed.audioBytes) / Double(AudioFormat.bytesPerSecond),
                         startedSecondsAgo: now.timeIntervalSince(closed.startedAt),
                         endedSecondsAgo: now.timeIntervalSince(closed.endedAt),
-                        isOpen: false
+                        isOpen: false,
+                        appName: closed.appName
                     )
                 )
                 nextId += 1
@@ -102,7 +111,8 @@ public final class RecordingSession {
                         durationSeconds: Double(openSessionAudioBytes) / Double(AudioFormat.bytesPerSecond),
                         startedSecondsAgo: now.timeIntervalSince(startedAt),
                         endedSecondsAgo: nil,
-                        isOpen: true
+                        isOpen: true,
+                        appName: openSessionAppName
                     )
                 )
             }
@@ -143,16 +153,19 @@ public final class RecordingSession {
         guard openSessionAudioBytes > 0, let startedAt = openSessionStartedAt else {
             openSessionAudioBytes = 0
             openSessionStartedAt = nil
+            openSessionAppName = nil
             return
         }
         closedSessions.append(
             ClosedSession(
                 audioBytes: openSessionAudioBytes,
                 startedAt: startedAt,
-                endedAt: endedAt
+                endedAt: endedAt,
+                appName: openSessionAppName
             )
         )
         openSessionAudioBytes = 0
         openSessionStartedAt = nil
+        openSessionAppName = nil
     }
 }

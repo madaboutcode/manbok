@@ -20,6 +20,8 @@ public struct SessionSummary: Sendable, Equatable {
     /// Seconds before `now` the session ended (gap inserted); nil while still recording.
     public let endedSecondsAgo: TimeInterval?
     public let isOpen: Bool
+    /// Human-readable name of the app(s) that triggered this session (e.g. "Zoom", "FaceTime, OBS").
+    public let appName: String?
 
     public init(
         id: Int,
@@ -27,7 +29,8 @@ public struct SessionSummary: Sendable, Equatable {
         durationSeconds: Double,
         startedSecondsAgo: TimeInterval,
         endedSecondsAgo: TimeInterval?,
-        isOpen: Bool
+        isOpen: Bool,
+        appName: String? = nil
     ) {
         self.id = id
         self.audioBytes = audioBytes
@@ -35,6 +38,7 @@ public struct SessionSummary: Sendable, Equatable {
         self.startedSecondsAgo = startedSecondsAgo
         self.endedSecondsAgo = endedSecondsAgo
         self.isOpen = isOpen
+        self.appName = appName
     }
 }
 

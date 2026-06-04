@@ -125,31 +125,13 @@ public final class ListenerService {
     }
 
     /// Inserts a run of zero PCM after a session ends (opportunistic mode).
-    public func insertSessionGap(seconds: TimeInterval = AudioFormat.sessionGapSeconds) {
-        session.appendSilence(seconds: seconds)
+    public func insertSessionGap(seconds: TimeInterval = AudioFormat.sessionGapSeconds, appName: String? = nil) {
+        session.appendSilence(seconds: seconds, appName: appName)
     }
 
-    /// Stops the engine for a release probe but keeps session/VAD state (opportunistic mode).
-    public func pauseCaptureForReleaseProbe() {
-        let shouldPause = stateQueue.sync { listening }
-        guard shouldPause else { return }
-        capture.stop()
-        stateQueue.sync {
-            refreshActivitySnapshot(isListening: true)
-        }
-    }
-
-    /// Restarts the engine after a probe that resumed capture; does not reset VAD timers.
-    public func resumeCaptureAfterReleaseProbe() throws {
-        let shouldResume = stateQueue.sync { listening }
-        guard shouldResume else { return }
-
-        try capture.start { [self] data in
-            ingestPCM(data)
-        }
-        stateQueue.sync {
-            refreshActivitySnapshot(isListening: true)
-        }
+    /// Sets the app name for the currently open session.
+    public func setSessionAppName(_ name: String?) {
+        session.setOpenSessionAppName(name)
     }
 
     public func stopCapture() {

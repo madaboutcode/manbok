@@ -135,6 +135,7 @@ public enum IPCResponse: Equatable, Sendable {
         }
         let isOpen = (fields["open"] ?? "0") == "1"
         let audioBytes = Int(fields["bytes"] ?? "") ?? Int(dur * Double(AudioFormat.bytesPerSecond))
+        let appName = fields["app"]
 
         return SessionSummary(
             id: id,
@@ -142,7 +143,8 @@ public enum IPCResponse: Equatable, Sendable {
             durationSeconds: dur,
             startedSecondsAgo: startAgo,
             endedSecondsAgo: endAgo,
-            isOpen: isOpen
+            isOpen: isOpen,
+            appName: appName
         )
     }
 
