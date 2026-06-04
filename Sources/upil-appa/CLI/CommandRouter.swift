@@ -17,6 +17,7 @@ struct CommandRouter: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "upil-appa",
         abstract: "Rolling microphone buffer with on-demand WAV export",
+        version: appVersion,
         subcommands: [
             AuthorizeCommand.self,
             StartCommand.self,
