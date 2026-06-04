@@ -15,7 +15,7 @@ public final class TerminalCaptureMeter: ActivityPresenting, @unchecked Sendable
     public enum Mode: Sendable {
         case watching
         case listening
-        case capturing
+        case capturing(appName: String?)
     }
 
     private let displayRows = 14
@@ -124,8 +124,9 @@ public final class TerminalCaptureMeter: ActivityPresenting, @unchecked Sendable
         case .listening:
             lines.append(ANSIColor.wrap(ANSIColor.green + ANSIColor.bold, "● LIVE  upil-appa  (always-on)"))
             lines.append(statusLine(capturing: capturing, snap: snap, elapsed: elapsed, ring: ring))
-        case .capturing:
-            lines.append(ANSIColor.wrap(ANSIColor.green + ANSIColor.bold, "● LIVE  upil-appa  (opportunistic)"))
+        case .capturing(let appName):
+            let suffix = appName.map { " · \($0)" } ?? ""
+            lines.append(ANSIColor.wrap(ANSIColor.green + ANSIColor.bold, "● LIVE  upil-appa  (opportunistic\(suffix))"))
             lines.append(statusLine(capturing: capturing, snap: snap, elapsed: elapsed, ring: ring))
         }
 
@@ -243,7 +244,8 @@ public final class TerminalCaptureMeter: ActivityPresenting, @unchecked Sendable
     }
 
     private func stateHintRow(mode: Mode) -> String {
-        let ch = mode == .watching ? "w" : "."
+        let ch: String
+        if case .watching = mode { ch = "w" } else { ch = "." }
         return "state " + String(repeating: ch, count: min(24, historyWidth))
             + ANSIColor.wrap(ANSIColor.dim, "  (w=watching)")
     }

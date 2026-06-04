@@ -254,14 +254,7 @@ private func fetchSessions() throws -> [SessionSummary] {
 
 private func printSessionList() throws {
     let list = try fetchSessions()
-    if list.isEmpty {
-        print("no sessions (record in another app, or ring empty)")
-        return
-    }
-    print("  #      dur  ended          started")
-    for summary in list {
-        print(summary.displayLine())
-    }
+    print(SessionSummary.table(list))
 }
 
 private func resolveDumpSessionTarget(_ text: String) throws -> Int {

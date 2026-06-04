@@ -78,8 +78,12 @@ public final class DaemonSession {
         if alwaysOn {
             return service.isListening ? .listening : .watching
         }
-        if service.isListening { return .capturing }
-        if opportunistic?.currentPhase == .capturing { return .capturing }
+        if service.isListening {
+            return .capturing(appName: opportunistic?.currentAppName)
+        }
+        if let phase = opportunistic?.currentPhase, phase == .capturing || phase == .draining {
+            return .capturing(appName: opportunistic?.currentAppName)
+        }
         return .watching
     }
 
