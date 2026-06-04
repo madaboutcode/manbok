@@ -6,7 +6,7 @@ import UpilAppaCore
 //
 // GUARANTEES
 // - Listens on `AppStatePaths.socketURL` (Unix domain stream socket).
-// - One request per accepted connection: read one line, invoke handler, write one response line.
+// - One request per accepted connection: read one line, invoke handler (may be async), write one response line.
 // - UTF-8 line protocol; responses end with `\n`.
 //
 // EXPECTS
@@ -20,6 +20,10 @@ import UpilAppaCore
 // DOES NOT
 // - Stream audio, parse CLI flags, or implement dump use cases (see ListenerService).
 
+private final class ResponseBox: @unchecked Sendable {
+    var value: IPCResponse = .err("internal error")
+}
+
 public enum UnixSocketError: Error, Equatable, Sendable {
     case syscall(String)
     case pathTooLong
@@ -27,7 +31,7 @@ public enum UnixSocketError: Error, Equatable, Sendable {
 
 /// Blocking Unix domain socket server for daemon IPC.
 public final class UnixSocketServer: @unchecked Sendable {
-    public typealias Handler = @Sendable (IPCCommand) -> IPCResponse
+    public typealias Handler = @Sendable (IPCCommand) async -> IPCResponse
 
     private let socketURL: URL
     private let handler: Handler
@@ -72,11 +76,18 @@ public final class UnixSocketServer: @unchecked Sendable {
         }
     }
 
-    private static func serveConnection(fd: Int32, handler: Handler) {
+    private static func serveConnection(fd: Int32, handler: @escaping Handler) {
         let requestLine = readLine(fd: fd) ?? ""
         let response: IPCResponse
         if let command = IPCCommand.parse(line: requestLine) {
-            response = handler(command)
+            let semaphore = DispatchSemaphore(value: 0)
+            let box = ResponseBox()
+            Task {
+                box.value = await handler(command)
+                semaphore.signal()
+            }
+            semaphore.wait()
+            response = box.value
         } else {
             response = .err("bad command")
         }

@@ -1,10 +1,6 @@
 import Foundation
 import UpilAppaCore
 
-private final class IPCResponseBox: @unchecked Sendable {
-    var value: IPCResponse = .err("dump failed")
-}
-
 // MARK: - CONTRACT (DaemonSession)
 //
 // GUARANTEES
@@ -66,7 +62,7 @@ public final class DaemonSession {
             activityPresenter = presenter
 
             let socketServer = UnixSocketServer { [weak self] command in
-                self?.handle(command: command, service: service) ?? .err("daemon unavailable")
+                await self?.handle(command: command, service: service) ?? .err("daemon unavailable")
             }
             server = socketServer
             try socketServer.run()
@@ -87,7 +83,7 @@ public final class DaemonSession {
         return .watching
     }
 
-    private func handle(command: IPCCommand, service: ListenerService) -> IPCResponse {
+    private func handle(command: IPCCommand, service: ListenerService) async -> IPCResponse {
         switch command {
         case .ping:
             return .pong
@@ -102,7 +98,7 @@ public final class DaemonSession {
             DispatchQueue.global().async { exit(0) }
             return .ok
         case .dump(let minutes, let sessionId):
-            return dumpResponse(service: service, minutes: minutes, sessionId: sessionId)
+            return await dumpResponse(service: service, minutes: minutes, sessionId: sessionId)
         }
     }
 
@@ -139,28 +135,19 @@ public final class DaemonSession {
         service: ListenerService,
         minutes: Int?,
         sessionId: Int?
-    ) -> IPCResponse {
-        let semaphore = DispatchSemaphore(value: 0)
-        let box = IPCResponseBox()
-
-        Task {
-            defer { semaphore.signal() }
-            do {
-                let url: URL
-                if let sessionId {
-                    url = try await service.dump(sessionId: sessionId)
-                } else {
-                    url = try await service.dump(minutes: minutes)
-                }
-                box.value = .okPath(url)
-            } catch let error as ListenerError {
-                box.value = .err(dumpErrorMessage(error, service: service))
-            } catch {
-                box.value = .err(error.localizedDescription)
+    ) async -> IPCResponse {
+        do {
+            let url: URL
+            if let sessionId {
+                url = try await service.dump(sessionId: sessionId)
+            } else {
+                url = try await service.dump(minutes: minutes)
             }
+            return .okPath(url)
+        } catch let error as ListenerError {
+            return .err(dumpErrorMessage(error, service: service))
+        } catch {
+            return .err(error.localizedDescription)
         }
-
-        semaphore.wait()
-        return box.value
     }
 }
