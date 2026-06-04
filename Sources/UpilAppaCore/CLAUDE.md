@@ -50,7 +50,7 @@ swift test --filter UpilAppaCoreTests
 
 ## Design & Documentation
 
-- Component contracts: `tasks/upil-appa.design.md` § L2 — Domain / Application.
+- Component contracts: `ARCHITECTURE.md` § L2 — Domain / Application.
 - Edit CONTRACT blocks when changing public behavior.
 
 ## Testing

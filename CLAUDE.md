@@ -55,7 +55,7 @@ State lives in `~/.upil-appa/` (pid + socket). Dump files go to the system temp 
 | `Sources/UpilAppaPlatform/` | AVFoundation capture, sockets, files, logging, daemon spawn | Yes |
 | `Sources/upil-appa/` | CLI + daemon entry (`Main`, `DaemonMain`) | Yes |
 | `Tests/` | XCTest for Core + Platform | — |
-| `tasks/` | Design, sprint bricks, progress | — |
+| `tasks/` | Internal planning files (not tracked) | — |
 | `spikes/` | Pre-implementation experiments (not shipped) | — |
 
 ### Directory Structure
@@ -64,15 +64,13 @@ State lives in `~/.upil-appa/` (pid + socket). Dump files go to the system temp 
 upil-appa/
 ├── Package.swift          # SPM: UpilAppaCore, UpilAppaPlatform, upil-appa
 ├── requirements.md        # Product spec
-├── tasks/
-│   ├── upil-appa.design.md   # Architecture (read before multi-file work)
-│   ├── upil-appa.context.md  # Sprint verify commands
-│   └── upil-appa.tasks.json  # Brick DAG
+├── ARCHITECTURE.md        # System design (read before multi-file work)
+├── tasks/                 # Internal planning files (not tracked in git)
 ├── Sources/ …               # See module CLAUDE.md files
 └── spikes/                  # Validation spikes only
 ```
 
-Deep architecture: read `tasks/upil-appa.design.md` when touching layers, IPC, or capture.
+Deep architecture: read `ARCHITECTURE.md` when touching layers, IPC, or capture.
 
 Daemon/IPC issues: read `docs/claude-references/runtime.md`.
 
@@ -104,9 +102,9 @@ make verify
 ## Design & Documentation
 
 - Before multi-component features, read `~/.agents/skills/software-design/SKILL.md` and follow its process.
-- System design source of truth: `tasks/upil-appa.design.md` (promote to root `DESIGN.md` when stabilizing).
+- System design source of truth: `ARCHITECTURE.md`.
 - Maintain CONTRACT blocks in source files when changing guarantees.
-- When behavior changes, update `tasks/upil-appa.design.md` and relevant module `CLAUDE.md`.
+- When behavior changes, update `ARCHITECTURE.md` and relevant module `CLAUDE.md`.
 
 ## Testing
 

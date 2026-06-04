@@ -45,7 +45,7 @@ Exit 0 on successful dump even if Audacity fails to open (path still on stdout).
 
 ## Design & Documentation
 
-- `tasks/upil-appa.design.md` § L4 — Interface / flows.
+- `ARCHITECTURE.md` § L4 — Interface / flows.
 
 ## Testing
 

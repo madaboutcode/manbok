@@ -1,6 +1,4 @@
-# upil-appa — system design
-
-Proposed design (pre-implementation). Promote to `DESIGN.md` at repo root when coding starts.
+# upil-appa — architecture
 
 **Sources:** `requirements.md`, `spikes/README.md` (2026-06-03)
 
@@ -81,7 +79,7 @@ Ring math and WAV layout should not change when IPC changes.
 | Daemon crash | Lost buffer | Acceptable — RAM-only by design |
 | Dump disk full | Dump only | Return error; listener keeps running |
 | Second `start` | CLI only | Idempotent: report already listening |
-| CLI while daemon down | CLI only | Clear “not listening” / connection error |
+| CLI while daemon down | CLI only | Clear "not listening" / connection error |
 
 ### Data lifecycle
 
@@ -169,7 +167,7 @@ Each layer hides one kind of mess. Dependencies point **inward** (interface → 
 
 | Pros | Cons |
 |------|------|
-| Fewest moving parts | Temptation to import AVFoundation in “domain” files |
+| Fewest moving parts | Temptation to import AVFoundation in "domain" files |
 | Fast to scaffold | Harder to enforce dependency rules in SPM |
 
 **Loses when:** first requirement change (e.g. test capture without mic) forces refactor.
@@ -203,7 +201,7 @@ Each layer hides one kind of mess. Dependencies point **inward** (interface → 
 
 ---
 
-## 5. Brainstorming commits (key forks)
+## 5. Key design decisions
 
 ### Process model
 
@@ -213,7 +211,7 @@ Chosen:       dual-mode single binary (`upil-appa daemon` invoked by `start`)
 Why:          one install artifact; spike-validated lifecycle; familiar macOS CLI pattern
 Limitations:  no auto-respawn on crash unless user re-runs start
 Fine because:  24/7 is user-initiated; crash loses buffer anyway (RAM-only)
-Reversal:     login persistence / auto-restart → add LaunchAgent plist brick, keep same daemon entry
+Reversal:     login persistence / auto-restart → add LaunchAgent plist, keep same daemon entry
 ```
 
 ### Ring representation
@@ -265,7 +263,7 @@ Considered:   AudioQueue | AVAudioRecorder | AVAudioEngine tap + converter
 Chosen:       AVAudioEngine input tap + AVAudioConverter → s16le 16 kHz mono
 Why:          spike showed device at 48 kHz → stable conversion; continuous tap fits ring
 Limitations:  converter errors drop frames; mic-sharing is OS-dependent
-Fine because:  matches “no processing” scope; spike proved throughput
+Fine because:  matches "no processing" scope; spike proved throughput
 Reversal:     mic-sharing manual test fails → spike HAL/aggregate device path before coding more
 ```
 
@@ -336,7 +334,7 @@ upil-appa/                   # executable
 
 - After `write(_:)`, total stored length ≤ `capacityBytes`; oldest bytes overwritten.
 - `slice(lastBytes:)` returns 1 or 2 `Data` segments that concatenate to exactly `min(requested, filled)` bytes, in chronological order.
-- Thread-safety: documented — either internal lock or “external serial queue” (choose one in implementation; **RecordingSession** owns the queue).
+- Thread-safety: documented — either internal lock or "external serial queue" (choose one in implementation; **RecordingSession** owns the queue).
 
 **EXPECTS**
 
@@ -605,20 +603,20 @@ CLI → STATUS → LISTENING | STOPPED
 
 ## 11. Implementation order (aligned to layers)
 
-1. L2 `ByteRingBuffer` + `WavPCMEncoder` + tests  
-2. L2 `DumpRange` + tests  
-3. L1 `AVAudioCapture` (port spike code)  
-4. L3 `RecordingSession` + `ListenerService`  
-5. L1 IPC server + `DaemonProcess`  
-6. L4 CLI commands  
-7. Manual mic-sharing gate  
+1. L2 `ByteRingBuffer` + `WavPCMEncoder` + tests
+2. L2 `DumpRange` + tests
+3. L1 `AVAudioCapture` (port spike code)
+4. L3 `RecordingSession` + `ListenerService`
+5. L1 IPC server + `DaemonProcess`
+6. L4 CLI commands
+7. Manual mic-sharing gate
 
 ---
 
 ## 12. One-breath summary
 
-**Building:** a macOS CLI + background daemon that keeps 10 minutes of speech-grade PCM in a byte ring and exports WAV on demand.  
-**Why:** STT sometimes drops audio; user needs a silent safety net.  
-**Path:** layered core (testable ring + WAV) with thin AVFoundation/socket/process adapters and a dual-mode binary.  
-**Doesn't handle:** segmentation, in-app trim UI, login items, disk persistence of the buffer (user saves from Audacity if keeping).  
+**Building:** a macOS CLI + background daemon that keeps 10 minutes of speech-grade PCM in a byte ring and exports WAV on demand.
+**Why:** STT sometimes drops audio; user needs a silent safety net.
+**Path:** layered core (testable ring + WAV) with thin AVFoundation/socket/process adapters and a dual-mode binary.
+**Doesn't handle:** segmentation, in-app trim UI, login items, disk persistence of the buffer (user saves from Audacity if keeping).
 **Reversal:** mic-sharing fails or buffer duration/format changes → revisit capture adapter or storage model before piling on features.

@@ -49,3 +49,6 @@ spikes/**/*.wav
 .env
 .env.*
 !.env.example
+
+# Internal task/sprint files
+tasks/

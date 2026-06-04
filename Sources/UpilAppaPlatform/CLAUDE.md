@@ -42,7 +42,7 @@ Validated prototypes live in `spikes/Sources/CaptureSpike`, `IpcSpike` — do no
 
 ## Design & Documentation
 
-- `tasks/upil-appa.design.md` § L1 — Infrastructure.
+- `ARCHITECTURE.md` § L1 — Infrastructure.
 - Mic-sharing with other apps is best-effort — manual QA, not unit-tested.
 
 ## Testing
