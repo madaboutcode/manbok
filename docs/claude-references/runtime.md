@@ -56,7 +56,7 @@ external mic activity — capturing from <device name>
 
 If launchd shows a different **device name** or **format** than Terminal, you are not on the same input path. Bluetooth headsets under background co-capture often stay on **16 kHz HFP** and sound worse when Zoom and appa share the mic.
 
-**Workaround:** skip launchd for now — `make install` + `make start` from login, or a Login Item that runs `upil-appa start` after you log in.
+**Workaround:** skip launchd for now — `make install` then `make start` (or `upil-appa start`) from login, or a Login Item that runs `upil-appa start` after you log in.
 
 ## Logs
 

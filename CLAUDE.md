@@ -11,7 +11,7 @@ make build              # swift build (debug)
 make release            # swift build -c release → .build/release/upil-appa
 make test               # swift test
 make verify             # test + build
-make install            # release → ~/.local/bin/upil-appa; authorize + start daemon
+make install            # release → ~/.local/bin/upil-appa (restarts LaunchAgent if present)
 make install-launchagent # install + user LaunchAgent (Aqua session; login persistence)
 make authorize          # mic permission for this binary (Terminal)
 

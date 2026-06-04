@@ -21,7 +21,7 @@ help:
 	@echo "  make release          swift build -c release"
 	@echo "  make test             swift test"
 	@echo "  make verify           test + build"
-	@echo "  make install          release → $(BINDIR)/upil-appa; authorize + start daemon"
+	@echo "  make install          release → $(BINDIR)/upil-appa (restarts LaunchAgent if present)"
 	@echo "  make install-launchagent  install + user LaunchAgent (login, Aqua session)"
 	@echo "  make uninstall-launchagent remove LaunchAgent"
 	@echo "  make authorize        request mic permission (Terminal; before background daemon)"
@@ -53,7 +53,7 @@ release:
 
 install: release
 	@install -d "$(BINDIR)"
-	@echo "stopping daemon if running…"
+	@echo "stopping manual daemon if running…"
 	-@for b in "$(INSTALLED_BIN)" "$(RELEASE_BIN)" "$(BIN)"; do \
 	  if [ -x "$$b" ]; then "$$b" stop; fi; \
 	done 2>/dev/null || true
@@ -61,7 +61,15 @@ install: release
 	install -m 755 "$(RELEASE_BIN)" "$(INSTALLED_BIN)"
 	@echo "installed $(INSTALLED_BIN)"
 	@"$(INSTALLED_BIN)" authorize
-	@"$(INSTALLED_BIN)" start
+	@if [ -f "$(LAUNCH_AGENT_PLIST)" ]; then \
+	  echo "restarting LaunchAgent with updated binary…"; \
+	  -@launchctl bootout $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)" 2>/dev/null || true; \
+	  @launchctl bootstrap $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)"; \
+	  @sleep 1; \
+	  @$(INSTALLED_BIN) status; \
+	else \
+	  echo "no LaunchAgent found — run 'make install-launchagent' for login persistence"; \
+	fi
 	@echo "add to PATH if needed:  export PATH=\"$(BINDIR):\$$PATH\""
 
 uninstall:
