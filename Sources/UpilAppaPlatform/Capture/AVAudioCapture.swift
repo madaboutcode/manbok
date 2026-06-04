@@ -8,6 +8,9 @@ import UpilAppaCore
 // - Delivers s16le 16 kHz mono PCM as Data via sink on the audio tap thread.
 // - Requests microphone permission before starting AVAudioEngine.
 // - Uses AppLog category capture for diagnostics.
+// - Creates a fresh AVAudioEngine per capture session (F2).
+// - Creates the format converter lazily from the first tap buffer's actual format (F1).
+// - Recreates the converter if the hardware format changes mid-session.
 //
 // EXPECTS
 // - sink handles Data on the capture thread (RecordingSession serializes).
@@ -39,10 +42,13 @@ public enum AVAudioCaptureError: Error, LocalizedError {
 
 /// AVAudioEngine tap + AVAudioConverter → canonical PCM for the ring buffer.
 public final class AVAudioCapture: NSObject, AudioCapturing {
-    private let engine = AVAudioEngine()
+    // F2: engine is created fresh per session, not reused
+    private var engine: AVAudioEngine?
     private let log = AppLog(category: .capture)
 
+    // F1: converter created lazily in first tap callback
     private var converter: AVAudioConverter?
+    private var lastInputFormat: AVAudioFormat?
     private var sink: ((Data) -> Void)?
     private var isCapturing = false
 
@@ -64,36 +70,32 @@ public final class AVAudioCapture: NSObject, AudioCapturing {
             throw AVAudioCaptureError.microphoneDenied
         }
 
-        let input = engine.inputNode
-        let inputFormat = input.outputFormat(forBus: 0)
+        // F2: create a new engine each session — eliminates stale node/tap state
+        let newEngine = AVAudioEngine()
+        self.engine = newEngine
 
-        guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
-            throw AVAudioCaptureError.converterUnavailable
-        }
+        let input = newEngine.inputNode
 
-        self.converter = converter
         self.sink = sink
         isCapturing = true
 
-        input.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [self] buffer, _ in
-            handleTap(buffer: buffer, inputFormat: inputFormat)
+        // F1: pass nil format — let AVAudioEngine match hardware format automatically.
+        // The converter is created lazily in handleTap from the first buffer's actual format.
+        input.installTap(onBus: 0, bufferSize: 4096, format: nil) { [weak self] buffer, _ in
+            self?.handleTap(buffer: buffer)
         }
 
         do {
-            try engine.start()
+            try newEngine.start()
         } catch {
             isCapturing = false
             self.sink = nil
-            self.converter = nil
             input.removeTap(onBus: 0)
+            self.engine = nil
             throw AVAudioCaptureError.engineStartFailed(error.localizedDescription)
         }
 
-        log.info(
-            "capture started device format: \(inputFormat.sampleRate) Hz, "
-                + "ch=\(inputFormat.channelCount), format=\(inputFormat.commonFormat.rawValue) "
-                + "→ \(AudioFormat.sampleRate) Hz mono s16"
-        )
+        log.info("capture started → \(AudioFormat.sampleRate) Hz mono s16 (converter created on first frame)")
     }
 
     public func stop() {
@@ -102,15 +104,37 @@ public final class AVAudioCapture: NSObject, AudioCapturing {
         isCapturing = false
         sink = nil
 
-        engine.inputNode.removeTap(onBus: 0)
-        engine.stop()
+        engine?.inputNode.removeTap(onBus: 0)
+        engine?.stop()
+        // F2: discard engine so next session starts clean
+        engine = nil
+
         converter = nil
+        lastInputFormat = nil
 
         log.info("capture stopped")
     }
 
-    private func handleTap(buffer: AVAudioPCMBuffer, inputFormat: AVAudioFormat) {
-        guard isCapturing, let sink, let converter else { return }
+    private func handleTap(buffer: AVAudioPCMBuffer) {
+        guard isCapturing, let sink else { return }
+
+        let inputFormat = buffer.format
+
+        // F1: create or recreate converter if format changed (device reconfigured mid-session)
+        if converter == nil || inputFormat != lastInputFormat {
+            guard let newConverter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
+                log.warning("dropped frame: cannot create converter for \(inputFormat)")
+                return
+            }
+            converter = newConverter
+            lastInputFormat = inputFormat
+            log.info(
+                "converter created: \(inputFormat.sampleRate) Hz ch=\(inputFormat.channelCount)"
+                    + " → \(AudioFormat.sampleRate) Hz mono s16"
+            )
+        }
+
+        guard let converter else { return }
 
         let frameCapacity = AVAudioFrameCount(
             Double(buffer.frameLength) * targetFormat.sampleRate / inputFormat.sampleRate
