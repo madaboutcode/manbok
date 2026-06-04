@@ -47,11 +47,7 @@ swift test --filter UpilAppaCoreTests
 - New I/O → new port in `Ports/`, implement in `UpilAppaPlatform`.
 - `RecordingSession` owns serialization of ring writes (queue).
 - `ListenerService.dump` requires non-empty PCM in the ring (works after capture stops).
-
-## Design & Documentation
-
-- Component contracts: `ARCHITECTURE.md` § L2 — Domain / Application.
-- Edit CONTRACT blocks when changing public behavior.
+- No `print()` in Core — logging belongs at edges (`AppLog`).
 
 ## Testing
 

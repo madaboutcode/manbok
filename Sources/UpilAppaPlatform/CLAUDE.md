@@ -32,18 +32,13 @@ Implements Core ports (`AudioCapturing`, `DumpSink`) and provides infrastructure
 
 ### Spike Reference
 
-Validated prototypes live in `spikes/Sources/CaptureSpike`, `IpcSpike` — do not ship spikes; port patterns into here.
+Validated prototypes: `spikes/Sources/CaptureSpike`, `IpcSpike`.
 
 ## Constraints
 
 - Dropped converter frames: log `.warning`, continue capture.
 - `UnixSocketServer.stop()` closes listen fd — used when daemon exits on `STOP`.
-- Do not import `ArgumentParser` here.
-
-## Design & Documentation
-
-- `ARCHITECTURE.md` § L1 — Infrastructure.
-- Mic-sharing with other apps is best-effort — manual QA, not unit-tested.
+- `stop` command must exit the daemon process — orphan pid breaks status/dump.
 
 ## Testing
 
@@ -52,3 +47,4 @@ swift test --filter UpilAppaPlatformTests
 ```
 
 Capture itself is not unit-tested (needs mic); test IO/paths/IPC helpers where possible.
+Mic-sharing with other apps is best-effort — manual QA, not unit-tested.

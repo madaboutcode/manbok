@@ -19,11 +19,9 @@ CLI surface and daemon entry. Thin — delegates to Core + Platform.
 | Command | stdout | stderr |
 |---------|--------|--------|
 | `authorize` | `authorized` or `denied` (one word) | grant/deny hints |
-| `dump` | WAV path; default = newest; `-1` = prior; `all` = ring; `1` = id | Audacity hint |
 | `status` | `watching`, `listening`, or `stopped` (one word) | — |
-| `start` | default opportunistic; `--always-on` for 24/7 capture | — |
-| `dump` | absolute path to `.wav` (one line) | `AppLog` info/warnings (e.g. Audacity) |
-| `start` | — | `daemon started` / `already listening` |
+| `start` | default opportunistic; `--always-on` for 24/7 capture | `daemon started` / `already listening` |
+| `dump` | absolute path to `.wav`; default = newest; `-1` = prior; `all` = ring; `1` = id | `AppLog` info/warnings (e.g. Audacity) |
 | `stop` | — | `stopped` or error |
 
 Exit 0 on successful dump even if Audacity fails to open (path still on stdout).
@@ -42,10 +40,6 @@ Exit 0 on successful dump even if Audacity fails to open (path still on stdout).
 
 - Never import AVAudioEngine in this target — use `AVAudioCapture` via daemon only.
 - Do not write dumps from CLI — always IPC `DUMP` to daemon.
-
-## Design & Documentation
-
-- `ARCHITECTURE.md` § L4 — Interface / flows.
 
 ## Testing
 

@@ -87,9 +87,7 @@ Daemon/IPC issues: read `docs/claude-references/runtime.md`.
 | Rule | Why |
 |------|-----|
 | No AVFoundation in `UpilAppaCore` | Keeps domain unit-testable without mic/hardware |
-| No `print()` in Core | Logging belongs at edges (`AppLog`) |
 | Do not stream audio over the Unix socket | Dump writes a file; CLI prints path |
-| `stop` must exit the daemon | Orphan pid breaks `status`/`dump` |
 | Do not add third-party deps without discussion | Spec mandates native frameworks |
 
 ## Verification
