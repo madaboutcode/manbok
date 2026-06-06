@@ -78,14 +78,14 @@ final class ListenerServiceTests: XCTestCase {
         XCTAssertTrue(service.currentActivity.isSpeech)
     }
 
-    func testSessionAppNameFlowsThroughGap() throws {
+    func testSessionAppNameFlowsThroughClose() throws {
         let capture = MockAudioCapture()
         let service = ListenerService(capture: capture, dumpSink: MockDumpSink())
         try service.startCapture()
 
         capture.deliver(Data(repeating: 0xAB, count: AudioFormat.bytesPerFrame * 100))
         service.setSessionAppName("Zoom")
-        service.insertSessionGap(appName: "Zoom")
+        service.closeSession(appName: "Zoom")
 
         let sessions = service.listSessions()
         XCTAssertEqual(sessions.count, 1)

@@ -3,7 +3,8 @@ import Foundation
 // MARK: - CONTRACT: ListenerService
 //
 // GUARANTEES:
-// - dump allowed whenever ring has PCM (including listening→watching; ring not cleared on stopCapture).
+// - closeSession() finalizes the current recording session as metadata (no bytes written to ring).
+// - dump allowed whenever ring has PCM (ring not cleared on stopCapture).
 // - dump(minutes:) writes via DumpSink after WavPCMEncoder; never writes when ring empty.
 // - stopCapture idempotent.
 // - startCapture when already listening → no-op success.
@@ -17,6 +18,7 @@ import Foundation
 //
 // DOES NOT:
 // - Parse CLI flags, launch GUI apps, or import platform frameworks.
+// - embed gap markers in the ring.
 
 public enum ListenerError: Error, Equatable, Sendable {
     case notListening
@@ -124,9 +126,9 @@ public final class ListenerService {
         }
     }
 
-    /// Inserts a run of zero PCM after a session ends (opportunistic mode).
-    public func insertSessionGap(seconds: TimeInterval = AudioFormat.sessionGapSeconds, appName: String? = nil) {
-        session.appendSilence(seconds: seconds, appName: appName)
+    /// Finalizes the current recording session as metadata (no bytes written to ring).
+    public func closeSession(appName: String? = nil) {
+        session.closeSession(appName: appName)
     }
 
     /// Sets the app name for the currently open session.

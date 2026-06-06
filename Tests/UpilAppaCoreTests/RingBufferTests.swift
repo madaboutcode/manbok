@@ -49,6 +49,44 @@ final class RingBufferTests: XCTestCase {
         XCTAssertEqual(lastTen, expected)
     }
 
+    func testTotalBytesWrittenIsMonotonic() {
+        var ring = ByteRingBuffer(capacityBytes: 100)
+        XCTAssertEqual(ring.totalBytesWritten, 0)
+
+        ring.write(Data(repeating: 0xAA, count: 50))
+        XCTAssertEqual(ring.totalBytesWritten, 50)
+
+        ring.write(Data(repeating: 0xBB, count: 80))
+        XCTAssertEqual(ring.totalBytesWritten, 130)
+        XCTAssertEqual(ring.filledBytes, 100)
+        XCTAssertEqual(ring.oldestValidOffset, 30)
+    }
+
+    func testReadFromTotalOffset() {
+        var ring = ByteRingBuffer(capacityBytes: 100)
+        ring.write(Data(repeating: 0xAA, count: 60))
+        ring.write(Data(repeating: 0xBB, count: 60))
+        // Ring wrapped: totalBytesWritten=120, filled=100, oldest=20
+        // Physical: [BB×60][BB×20 overwrote AA][AA×40 left from first write... no]
+        // Actually: first write puts 60 AA bytes at positions 0-59
+        // second write puts 60 BB bytes at positions 60-99 then wraps to 0-19
+        // So ring contains: [BB×20 at 0-19][AA×40 at 20-59][BB×40 at 60-99]
+
+        // Read the AA bytes that survived (offset 20-59, which is totalOffset 20-59)
+        let surviving = ring.read(fromTotalOffset: 20, count: 40)
+        XCTAssertEqual(surviving.count, 40)
+        XCTAssertEqual(surviving, Data(repeating: 0xAA, count: 40))
+
+        // Read across the wrap boundary
+        let crossWrap = ring.read(fromTotalOffset: 80, count: 40)
+        XCTAssertEqual(crossWrap.count, 40)
+        XCTAssertEqual(crossWrap, Data(repeating: 0xBB, count: 40))
+
+        // Read before oldest valid offset returns empty
+        let expired = ring.read(fromTotalOffset: 10, count: 10)
+        XCTAssertEqual(expired.count, 0)
+    }
+
     func testMinutesClampedToFilled() {
         let oneMinute = AudioFormat.bytesPerMinute
         let filled = oneMinute * 3

@@ -27,7 +27,4 @@ public enum AudioFormat {
     public static var bytesPerMinute: Int { bytesPerSecond * 60 }
     public static let capacityBytes = bytesPerMinute * bufferMinutes
 
-    /// Digital silence inserted between opportunistic sessions for waveform separation.
-    public static let sessionGapSeconds: TimeInterval = 5
-    public static var sessionGapBytes: Int { Int(sessionGapSeconds) * bytesPerSecond }
 }

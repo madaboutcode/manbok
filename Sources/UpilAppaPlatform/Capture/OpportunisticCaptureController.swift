@@ -7,7 +7,7 @@ import UpilAppaCore
 // - Does not open AVAudioEngine until ProcessAudioMonitor detects another app using input.
 // - While capturing, engine stays on until all other apps release input, then drains for gracePeriod.
 // - Draining keeps engine running — zero audio loss at session end.
-// - Appends sessionGapSeconds silence on SESSION-END; tags session with app name(s).
+// - Closes session on SESSION-END; tags session with app name(s).
 //
 // EXPECTS
 // - ListenerService owns capture + ring; controller only starts/stops capture.
@@ -199,7 +199,7 @@ public final class OpportunisticCaptureController: @unchecked Sendable {
         let appName = ProcessAudioMonitor.appName(for: activeAppBundleIDs)
         service.stopCapture()
         if service.ringFilledBytes > 0 {
-            service.insertSessionGap(appName: appName)
+            service.closeSession(appName: appName)
         }
         let ringBytes = service.ringFilledBytes
         trace("SESSION-END app=\(appName ?? "?") ring=\(ringBytes) \(signals())")
@@ -220,7 +220,9 @@ public final class OpportunisticCaptureController: @unchecked Sendable {
             guard let id = InputDeviceObserver.defaultInputDeviceID() else { return }
             self.log.info("default input changed → \(InputDeviceObserver.deviceName(id))")
             if self.service.isListening {
+                let appName = ProcessAudioMonitor.appName(for: self.activeAppBundleIDs)
                 self.service.stopCapture()
+                self.service.closeSession(appName: appName)
             }
             self.phase = .watching
             self.activeAppBundleIDs = []

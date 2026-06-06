@@ -4,6 +4,9 @@ import Foundation
 //
 // GUARANTEES:
 // - After write(_:), total stored length ≤ capacityBytes; oldest bytes overwritten.
+// - totalBytesWritten is monotonic (Int64); never resets or wraps.
+// - oldestValidOffset = totalBytesWritten - filledBytes; bytes before this offset are gone.
+// - read(fromTotalOffset:count:) returns bytes at an absolute position; handles physical wrap.
 // - slice(lastBytes:) returns 1 or 2 Data segments that concatenate to exactly
 //   min(requested, filled) bytes, in chronological order.
 // - Thread-safety: caller must serialize access (RecordingSession owns the queue).
@@ -13,15 +16,17 @@ import Foundation
 //
 // FAILURE BEHAVIOR:
 // - write larger than capacity → only the trailing capacityBytes of the chunk are kept.
+// - read with offset before oldestValidOffset → returns empty Data.
 //
 // DOES NOT:
-// - Know WAV, files, or time in minutes (see DumpRange).
+// - Know WAV, files, time in minutes, or sessions (see RecordingSession).
 
 /// Fixed-capacity byte ring for canonical PCM chunks.
 public struct ByteRingBuffer {
     private var storage: [UInt8]
     private var writeIndex = 0
     private var filled = 0
+    public private(set) var totalBytesWritten: Int64 = 0
 
     public init(capacityBytes: Int = AudioFormat.capacityBytes) {
         precondition(capacityBytes > 0, "capacityBytes must be positive")
@@ -31,6 +36,10 @@ public struct ByteRingBuffer {
     public var capacityBytes: Int { storage.count }
 
     public var filledBytes: Int { filled }
+
+    public var oldestValidOffset: Int64 {
+        totalBytesWritten - Int64(filled)
+    }
 
     public mutating func write(_ data: Data) {
         guard !data.isEmpty else { return }
@@ -46,6 +55,7 @@ public struct ByteRingBuffer {
             }
             writeIndex = 0
             filled = capacity
+            totalBytesWritten += Int64(data.count)
             return
         }
 
@@ -59,6 +69,23 @@ public struct ByteRingBuffer {
                 }
             }
         }
+        totalBytesWritten += Int64(data.count)
+    }
+
+    /// Returns bytes starting at an absolute `totalBytesWritten`-based offset.
+    public func read(fromTotalOffset offset: Int64, count: Int) -> Data {
+        guard offset >= oldestValidOffset else { return Data() }
+        let actualCount = min(count, Int(totalBytesWritten - offset))
+        guard actualCount > 0 else { return Data() }
+        let capacity = storage.count
+        let physStart = Int(offset % Int64(capacity))
+        if physStart + actualCount <= capacity {
+            return Data(storage[physStart ..< physStart + actualCount])
+        }
+        let firstLen = capacity - physStart
+        var result = Data(storage[physStart ..< capacity])
+        result.append(contentsOf: storage[0 ..< actualCount - firstLen])
+        return result
     }
 
     /// Returns one or two segments covering the last `lastBytes` stored bytes (chronological).

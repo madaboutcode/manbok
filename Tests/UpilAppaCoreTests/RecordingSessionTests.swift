@@ -2,26 +2,19 @@ import XCTest
 @testable import UpilAppaCore
 
 final class RecordingSessionTests: XCTestCase {
-    func testAppendSilenceAddsGapBytes() {
+    func testCloseSessionWritesNoExtraBytes() {
         let session = RecordingSession()
-        session.append(Data(count: 64))
+        session.append(Data(repeating: 0xAA, count: 64))
         XCTAssertEqual(session.filledBytes, 64)
 
-        session.appendSilence(seconds: AudioFormat.sessionGapSeconds)
-        XCTAssertEqual(session.filledBytes, 64 + AudioFormat.sessionGapBytes)
+        session.closeSession()
+        XCTAssertEqual(session.filledBytes, 64, "closeSession must not write any bytes to the ring")
     }
 
-    func testAppendSilenceZeroSecondsIsNoOp() {
-        let session = RecordingSession()
-        session.append(Data(count: 10))
-        session.appendSilence(seconds: 0)
-        XCTAssertEqual(session.filledBytes, 10)
-    }
-
-    func testListAndDumpSessionsByGap() {
+    func testListAndDumpSessions() {
         let session = RecordingSession()
         session.append(Data(repeating: 0x11, count: 800))
-        session.appendSilence(seconds: AudioFormat.sessionGapSeconds)
+        session.closeSession()
         session.append(Data(repeating: 0x22, count: 400))
 
         let list = session.listSessions()
@@ -33,28 +26,84 @@ final class RecordingSessionTests: XCTestCase {
 
         let first = session.snapshotForSession(id: 1)
         XCTAssertEqual(first?.count, 800)
+        XCTAssertEqual(first, Data(repeating: 0x11, count: 800))
         let second = session.snapshotForSession(id: 2)
         XCTAssertEqual(second?.count, 400)
+        XCTAssertEqual(second, Data(repeating: 0x22, count: 400))
 
         let full = session.snapshotForDump(minutes: nil)
         XCTAssertEqual(full.count, 800 + 400)
-        XCTAssertFalse(containsSessionGapMarker(full))
-        XCTAssertFalse(containsSessionGapMarker(first ?? Data()))
     }
 
-    private func containsSessionGapMarker(_ pcm: Data) -> Bool {
-        let gap = AudioFormat.sessionGapBytes
-        guard pcm.count >= gap else { return false }
-        for offset in 0 ... (pcm.count - gap) {
-            if SessionCatalog.isSessionGap(at: offset, in: pcm, byteCount: gap) {
-                return true
-            }
-        }
-        return false
+    func testExpiredSessionsDropFromList() {
+        let capacity = 1000
+        let session = RecordingSession(ringCapacity: capacity)
+
+        // Session 1: 400 bytes
+        session.append(Data(repeating: 0x11, count: 400))
+        session.closeSession(appName: "App1")
+
+        // Session 2: 400 bytes
+        session.append(Data(repeating: 0x22, count: 400))
+        session.closeSession(appName: "App2")
+
+        XCTAssertEqual(session.listSessions().count, 2)
+
+        // Session 3: 400 bytes — pushes ring past capacity, session 1 overwritten
+        session.append(Data(repeating: 0x33, count: 400))
+        session.closeSession(appName: "App3")
+
+        let list = session.listSessions()
+        XCTAssertEqual(list.count, 2, "session 1 should be expired")
+        XCTAssertEqual(list[0].appName, "App2")
+        XCTAssertEqual(list[1].appName, "App3")
+    }
+
+    func testPartiallyOverwrittenSessionIsDiscarded() {
+        let capacity = 1000
+        let session = RecordingSession(ringCapacity: capacity)
+
+        // Session 1: 600 bytes
+        session.append(Data(repeating: 0x11, count: 600))
+        session.closeSession()
+
+        // Write 500 more bytes — overwrites first 100 bytes of session 1
+        session.append(Data(repeating: 0x22, count: 500))
+
+        let list = session.listSessions()
+        XCTAssertEqual(list.count, 1, "partially overwritten session should be discarded entirely")
+        XCTAssertEqual(list[0].audioBytes, 500)
+    }
+
+    func testSnapshotForExpiredSessionReturnsNil() {
+        let capacity = 1000
+        let session = RecordingSession(ringCapacity: capacity)
+
+        session.append(Data(repeating: 0x11, count: 400))
+        session.closeSession()
+
+        // Overwrite session 1 entirely; id=1 maps to the open session after expiry
+        session.append(Data(repeating: 0x22, count: 1000))
+        session.closeSession()
+
+        // After expiry: closedSessions = [session2 (1000 bytes)]; id=1 → session2
+        // id=2 is out of range — no such session exists
+        XCTAssertNil(session.snapshotForSession(id: 2))
+        // And confirm id=1 (session2) is readable
+        XCTAssertNotNil(session.snapshotForSession(id: 1))
+    }
+
+    func testSessionAppNamePreserved() {
+        let session = RecordingSession()
+        session.append(Data(repeating: 0xAB, count: 100))
+        session.closeSession(appName: "Zoom")
+
+        let list = session.listSessions()
+        XCTAssertEqual(list.count, 1)
+        XCTAssertEqual(list[0].appName, "Zoom")
     }
 
     func testSessionTableFormattingUsesModernRuledList() {
-        // Realistic-ish summaries (newest last)
         let s1 = SessionSummary(
             id: 1,
             audioBytes: 241_000,
@@ -84,28 +133,39 @@ final class RecordingSessionTests: XCTestCase {
         )
 
         let output = SessionSummary.table([s1, s2, open])
-
-        // Show the human what it looks like (appears in test log)
         print("\n=== dump --list (modern ruled) ===\n\(output)\n=== end ===\n")
 
-        // Modern TUI visual: header rule using drawing char, no enclosing box.
-        XCTAssertTrue(output.contains("━"), "should use unicode rule line (━ heavy for modern TUI header)")
-        XCTAssertFalse(output.contains("┌") || output.contains("│"), "no box-drawing grid; modern ruled list only")
+        XCTAssertTrue(output.contains("━"), "should use unicode rule line")
+        XCTAssertFalse(output.contains("┌") || output.contains("│"), "no box-drawing grid")
         XCTAssertTrue(output.contains("#"), "header should include #")
         XCTAssertTrue(output.contains("dur"), "header should include dur")
         XCTAssertTrue(output.contains("ended"), "header should have 'ended' column")
         XCTAssertTrue(output.contains("started"), "header should have 'started' column")
         XCTAssertTrue(output.contains("app"), "header should have app column")
-
-        // Compact relative times (no "ago" inside cells; rule provides separation)
         XCTAssertTrue(output.contains("1m"), "should show compact '1m'")
         XCTAssertTrue(output.contains("15s"), "should show compact seconds")
-
-        // Open session shows "open" not a time
         XCTAssertTrue(output.contains("open"), "open session should render 'open'")
-
-        // Alignment: data values for metric cols are right-aligned within their col width.
-        // We at least ensure the rule segments exist under the headers and values sit above them.
         XCTAssertTrue(output.contains("  #  "), "indented, header # present with spacing")
+    }
+
+    func testOpenSessionLongerThanRingClampsToCap() {
+        let capacity = 1000
+        let session = RecordingSession(ringCapacity: capacity)
+        session.append(Data(repeating: 0xAA, count: 1500))
+
+        let list = session.listSessions()
+        XCTAssertEqual(list.count, 1)
+        XCTAssertLessThanOrEqual(list[0].audioBytes, capacity, "reported bytes must not exceed ring capacity")
+
+        let snap = session.snapshotForSession(id: 1)
+        XCTAssertNotNil(snap, "visible session must be snapshotable")
+        XCTAssertEqual(snap?.count, list[0].audioBytes, "snapshot size must match listed size")
+    }
+
+    func testCloseSessionWithNoOpenIsNoOp() {
+        let session = RecordingSession()
+        session.closeSession()
+        XCTAssertEqual(session.listSessions().count, 0)
+        XCTAssertEqual(session.filledBytes, 0)
     }
 }
