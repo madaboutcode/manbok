@@ -13,6 +13,7 @@ let package = Package(
         .executable(name: "device-usage-spike", targets: ["DeviceUsageSpike"]),
         .executable(name: "device-capture-spike", targets: ["DeviceCaptureSpike"]),
         .executable(name: "speech-activity-spike", targets: ["SpeechActivitySpike"]),
+        .executable(name: "mic-detect-spike", targets: ["MicDetectSpike"]),
     ],
     targets: [
         .executableTarget(name: "CaptureSpike", dependencies: []),
@@ -23,5 +24,6 @@ let package = Package(
         .executableTarget(name: "DeviceUsageSpike", dependencies: []),
         .executableTarget(name: "DeviceCaptureSpike", dependencies: []),
         .executableTarget(name: "SpeechActivitySpike", dependencies: []),
+        .executableTarget(name: "MicDetectSpike", dependencies: []),
     ]
 )
