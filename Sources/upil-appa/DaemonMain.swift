@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import UpilAppaPlatform
 
@@ -14,6 +15,7 @@ public enum DaemonMain {
         presentation: DaemonPresentation,
         alwaysOn: Bool? = nil
     ) {
+        signal(SIGPIPE, SIG_IGN)
         let alwaysOn = alwaysOn ?? CommandLine.arguments.contains("always-on")
         DaemonRuntimeEnvironment.bootstrap(presentation: presentation)
         DaemonSession(presentation: presentation, alwaysOn: alwaysOn).run()
