@@ -52,3 +52,6 @@ spikes/**/*.wav
 
 # Internal task/sprint files
 tasks/
+
+# Local scratch / mockups
+tmp/
