@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "UpilAppaSpikes",
+    name: "ManbokSpikes",
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "capture-spike", targets: ["CaptureSpike"]),

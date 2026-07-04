@@ -5,7 +5,7 @@ import Foundation
 // Spike: opportunistic capture — idle until default input is in use elsewhere, then capture; stop when released.
 //
 // Run: swift run device-capture-spike [watchSeconds]
-// 1. Do NOT run upil-appa start.
+// 1. Do NOT run manbok start.
 // 2. When prompted, start recording in Voice Memos / Zoom / Meet on the default input.
 // 3. When prompted, stop recording in that app.
 //

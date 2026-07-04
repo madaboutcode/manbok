@@ -1,4 +1,4 @@
-# upil-appa Menu Bar App — Functional Spec
+# manbok Menu Bar App — Functional Spec
 
 **Status:** Draft  
 **Date:** 2026-06-05  
@@ -8,7 +8,7 @@
 
 ## 1. What This Is
 
-Convert upil-appa from a CLI daemon to a native macOS menu bar app. The app becomes the process that owns the ring buffer and audio capture. CLI access is preserved via Unix socket IPC.
+Convert manbok from a CLI daemon to a native macOS menu bar app. The app becomes the process that owns the ring buffer and audio capture. CLI access is preserved via Unix socket IPC.
 
 ## 2. Key Decisions
 
@@ -42,7 +42,7 @@ Icon does not animate. macOS already shows the orange mic-in-use indicator — w
 
 ### Header
 - App icon (mic, colored by state)
-- App name: "upil-appa"
+- App name: "manbok"
 - Status badge: "Watching" (amber) or "Recording" (red, pulsing dot)
 - Ring fill indicator: "4:32 / 10:00" or "Ring empty"
 
@@ -101,28 +101,28 @@ Sessions exist only while their PCM data is in the ring buffer.
 
 ### New SPM Target
 ```
-UpilAppaApp (SwiftUI executable, .app bundle)
-  ├── depends on UpilAppaCore
-  └── depends on UpilAppaPlatform
+ManbokApp (SwiftUI executable, .app bundle)
+  ├── depends on ManbokCore
+  └── depends on ManbokPlatform
 ```
 
 ### What Stays
-- `UpilAppaCore` — unchanged. Domain types, ring buffer, WAV encoder, IPC types.
-- `UpilAppaPlatform` — capture, IPC server, file I/O, logging all reused.
-- Unix socket IPC at `~/.upil-appa/run.sock`
-- PID file at `~/.upil-appa/appa.pid`
+- `ManbokCore` — unchanged. Domain types, ring buffer, WAV encoder, IPC types.
+- `ManbokPlatform` — capture, IPC server, file I/O, logging all reused.
+- Unix socket IPC at `~/.manbok/run.sock`
+- PID file at `~/.manbok/appa.pid`
 
 ### What Changes
 - **Process model:** `NSApplication` with `LSUIElement = true` replaces daemon fork. App *is* the long-lived process.
 - **Entry point:** SwiftUI `@main App` with `MenuBarExtra` instead of `DaemonMain`.
 - **ListenerService** runs inside the app process, not a detached daemon.
-- **CLI target** (`upil-appa`) becomes client-only — strips daemon logic, keeps IPC client commands.
+- **CLI target** (`manbok`) becomes client-only — strips daemon logic, keeps IPC client commands.
 - **TerminalCaptureMeter** — no longer needed (or optional, for a `--foreground` debug mode).
 
 ### New Components
 | Component | Layer | Responsibility |
 |-----------|-------|---------------|
-| `UpilAppaApp` (SwiftUI) | L4 | App lifecycle, MenuBarExtra, popover |
+| `ManbokApp` (SwiftUI) | L4 | App lifecycle, MenuBarExtra, popover |
 | `SessionListView` | L4 | SwiftUI list of ring sessions |
 | `SessionRowView` | L4 | Individual session: icon, meta, waveform, actions |
 | `WaveformView` | L4 | Canvas/Path rendering of amplitude peaks |
@@ -137,7 +137,7 @@ UpilAppaApp (SwiftUI executable, .app bundle)
 CLI → App (Unix socket):
   PING          → PONG
   STATUS        → LISTENING | STOPPED | WATCHING
-  DUMP [minutes] → OK path=/tmp/upil-appa-*.wav | ERR <message>
+  DUMP [minutes] → OK path=/tmp/manbok-*.wav | ERR <message>
   STOP          → OK
 ```
 
@@ -149,7 +149,7 @@ All three UI actions (dump button, copy, drag) share the same underlying operati
 
 1. Identify session's byte range in ring buffer
 2. Extract PCM from ring
-3. Write WAV header + PCM to temp file (`$TMPDIR/upil-appa-YYYYMMDD-HHMMSS.wav`)
+3. Write WAV header + PCM to temp file (`$TMPDIR/manbok-YYYYMMDD-HHMMSS.wav`)
 4. Return file path
 
 Then:
@@ -180,7 +180,7 @@ Render as vertical bars in SwiftUI Canvas. Color:
 
 ## 11. Open Questions
 
-1. **Filename convention for dumps:** Currently `upil-appa-YYYYMMDD-HHMMSS.wav`. Should GUI dumps include app name? e.g., `zoom-20260605-143422.wav`
+1. **Filename convention for dumps:** Currently `manbok-YYYYMMDD-HHMMSS.wav`. Should GUI dumps include app name? e.g., `zoom-20260605-143422.wav`
 2. **Feedback on dump:** Brief toast/animation in popover? Or just trust the action completed?
 3. **Accessibility:** VoiceOver labels for waveform, drag source, session actions.
 4. **Distribution:** Direct .app download? Homebrew cask? (Affects code signing, notarization.)

@@ -1,4 +1,4 @@
-# upil-appa — architecture
+# manbok — architecture
 
 **Sources:** `requirements.md`, `spikes/README.md` (2026-06-03)
 
@@ -8,7 +8,7 @@
 
 ### Job to be done
 
-When speech-to-text (or another recorder) drops audio, the user hires **upil-appa** to keep a rolling copy of what they said so they can export it without repeating themselves.
+When speech-to-text (or another recorder) drops audio, the user hires **manbok** to keep a rolling copy of what they said so they can export it without repeating themselves.
 
 ### Nouns and verbs (essential complexity)
 
@@ -99,7 +99,7 @@ HAL mic (variable rate)
 |-------|-------|------------|
 | Ring buffer contents | Daemon only | No |
 | Listening / not listening | Daemon | No (reconstructed: process alive?) |
-| pid, socket path | Daemon writes on start; CLI reads | Yes — `~/.upil-appa/` |
+| pid, socket path | Daemon writes on start; CLI reads | Yes — `~/.manbok/` |
 | Dump files | CLI or daemon (see open questions) | Yes — user path |
 
 ---
@@ -110,7 +110,7 @@ Each layer hides one kind of mess. Dependencies point **inward** (interface → 
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ L4  Interface — CLI (upil-appa executable)                  │
+│ L4  Interface — CLI (manbok executable)                  │
 │     Hides: argv, exit codes, human messages                 │
 │     Exports: none (edge of system)                          │
 │     Does not know: AVAudioEngine, ring layout                 │
@@ -149,11 +149,11 @@ Each layer hides one kind of mess. Dependencies point **inward** (interface → 
 
 **Shape:**
 
-- SPM library `UpilAppaCore` — L2 + L3 + IPC message types
-- SPM library `UpilAppaPlatform` — L1 adapters
-- Executable `upil-appa` — CLI + `upil-appa daemon` (or `--daemon`) entry
+- SPM library `ManbokCore` — L2 + L3 + IPC message types
+- SPM library `ManbokPlatform` — L1 adapters
+- Executable `manbok` — CLI + `manbok daemon` (or `--daemon`) entry
 
-**Dependency:** `upil-appa` → `UpilAppaPlatform` → `UpilAppaCore`
+**Dependency:** `manbok` → `ManbokPlatform` → `ManbokCore`
 
 | Pros | Cons |
 |------|------|
@@ -172,7 +172,7 @@ Each layer hides one kind of mess. Dependencies point **inward** (interface → 
 
 **Loses when:** first requirement change (e.g. test capture without mic) forces refactor.
 
-### C — Separate `upil-appa` + `upil-appa-daemon` binaries
+### C — Separate `manbok` + `manbok-daemon` binaries
 
 **Pattern:** Two executables, shared library.
 
@@ -207,7 +207,7 @@ Each layer hides one kind of mess. Dependencies point **inward** (interface → 
 
 ```
 Considered:   LaunchAgent-only | separate daemon binary | dual-mode single binary
-Chosen:       dual-mode single binary (`upil-appa daemon` invoked by `start`)
+Chosen:       dual-mode single binary (`manbok daemon` invoked by `start`)
 Why:          one install artifact; spike-validated lifecycle; familiar macOS CLI pattern
 Limitations:  no auto-respawn on crash unless user re-runs start
 Fine because:  24/7 is user-initiated; crash loses buffer anyway (RAM-only)
@@ -229,7 +229,7 @@ Reversal:     multi-format or variable rate storage → frame-aware ring + metad
 
 ```
 Considered:   shared memory | HTTP localhost | Unix domain socket + line protocol
-Chosen:       Unix socket at ~/.upil-appa/run.sock, newline commands
+Chosen:       Unix socket at ~/.manbok/run.sock, newline commands
 Why:          spike passed; debuggable with nc; no extra deps
 Limitations:  local machine only; no large binary payloads over socket
 Fine because:  dump writes file path in reply, not audio over wire
@@ -240,7 +240,7 @@ Reversal:     remote control → add auth + different transport; keep domain com
 
 ```
 Considered:   cwd | ~/Downloads | system temp dir
-Chosen:       FileManager.default.temporaryDirectory + upil-appa-<timestamp>.wav
+Chosen:       FileManager.default.temporaryDirectory + manbok-<timestamp>.wav
 Why:          ephemeral recovery files; avoids cluttering project dirs; matches "quick trim" workflow
 Limitations:  OS may purge temp; user must save from Audacity if keeping long-term
 Fine because:  job is recover-then-trim, not archive
@@ -274,7 +274,7 @@ Reversal:     mic-sharing manual test fails → spike HAL/aggregate device path 
 ### Package / module map
 
 ```text
-UpilAppaCore/
+ManbokCore/
   Domain/
     AudioFormat.swift      # constants: sampleRate, channels, bytesPerSample, capacity
     ByteRingBuffer.swift
@@ -287,13 +287,13 @@ UpilAppaCore/
     IPCCommand.swift         # parse/serialize line protocol
     IPCResponse.swift
 
-UpilAppaPlatform/
+ManbokPlatform/
   Capture/
     AVAudioCapture.swift     # implements AudioCapturing
   IO/
     WavFileWriter.swift      # URL + Data → disk
     DumpPaths.swift          # temp dir + timestamped filename
-    AppStatePaths.swift      # ~/.upil-appa/{run.sock, appa.pid}
+    AppStatePaths.swift      # ~/.manbok/{run.sock, appa.pid}
   External/
     AudacityLauncher.swift   # NSWorkspace / open(1) wrapper (CLI-only)
   Logging/
@@ -304,7 +304,7 @@ UpilAppaPlatform/
     UnixSocketServer.swift
     UnixSocketClient.swift
 
-upil-appa/                   # executable
+manbok/                   # executable
   CLI/
     CommandRouter.swift      # ArgumentParser → IPC or daemon main
   DaemonMain.swift
@@ -418,7 +418,7 @@ upil-appa/                   # executable
 **GUARANTEES**
 
 - Path is under `FileManager.default.temporaryDirectory`.
-- Pattern: `upil-appa-YYYYMMDD-HHMMSS.wav` (local timezone).
+- Pattern: `manbok-YYYYMMDD-HHMMSS.wav` (local timezone).
 - Parent directory exists before write.
 
 **DOES NOT:** Open applications or delete old dumps.
@@ -507,30 +507,30 @@ STOP          → OK
 
 ## 7. End-to-end flows
 
-### `upil-appa start`
+### `manbok start`
 
 ```text
 CLI → check pid/socket → if alive: stderr "already listening", exit 0
      → else fork exec same binary `daemon`
-Daemon → write pid, bind ~/.upil-appa/run.sock
+Daemon → write pid, bind ~/.manbok/run.sock
        → ListenerService.startCapture()
        → block in socket accept loop
 ```
 
-### `upil-appa dump 3`
+### `manbok dump 3`
 
 ```text
 CLI → connect socket → send "DUMP 3\n"
 Daemon → DumpPaths.nextURL() under system temp
        → DumpRange(3) → ring.slice → WavPCMEncoder → WavFileWriter
-       → reply "OK path=/var/folders/.../T/upil-appa-20260603-160000.wav"
+       → reply "OK path=/var/folders/.../T/manbok-20260603-160000.wav"
 CLI → write path to stdout (single line, no prefix)
     → diagnostics to stderr (e.g. "opened in Audacity")
     → AudacityLauncher.open(path)
     → on open fail: stderr warning; stdout path unchanged; exit 0
 ```
 
-### `upil-appa status`
+### `manbok status`
 
 ```text
 CLI → STATUS → LISTENING | STOPPED
@@ -556,7 +556,7 @@ CLI → STATUS → LISTENING | STOPPED
 |----------|----------|
 | Happy: start → wait → dump | WAV in temp dir, Audacity opens with audio |
 | Dump OK, Audacity missing | path on stdout; warning on stderr; exit 0 |
-| `upil-appa dump \| wc -l` | stdout is exactly one path line; logs don't pollute pipe |
+| `manbok dump \| wc -l` | stdout is exactly one path line; logs don't pollute pipe |
 | Dump 0 min / empty ring | ERR, no file |
 | Double start | "already listening", one process |
 | stop then dump | ERR not listening |
@@ -571,7 +571,7 @@ CLI → STATUS → LISTENING | STOPPED
 
 | Decision | Choice |
 |----------|--------|
-| **Dump path** | System temp dir (`FileManager.default.temporaryDirectory`), file `upil-appa-<timestamp>.wav` |
+| **Dump path** | System temp dir (`FileManager.default.temporaryDirectory`), file `manbok-<timestamp>.wav` |
 | **Who writes dump** | Daemon (returns absolute path over IPC); CLI opens Audacity |
 | **After dump** | CLI launches **Audacity** with the WAV for trim/export |
 | **Logging** | `os.Logger` + stderr diagnostics; stdout = primary output only; no log files |
@@ -585,10 +585,10 @@ CLI → STATUS → LISTENING | STOPPED
 | Practice | Application |
 |----------|-------------|
 | **stdout vs stderr** | stdout = machine-friendly result (one line per command); stderr = everything else |
-| **`os.Logger`** | Shared `Logger(subsystem: "ai.upil.appa", category: "cli" \| "daemon" \| "capture")` — Apple-standard, zero deps, works in Console.app |
+| **`os.Logger`** | Shared `Logger(subsystem: "ai.manbok.app", category: "cli" \| "daemon" \| "capture")` — Apple-standard, zero deps, works in Console.app |
 | **No `print()` in Core** | Domain/application use `Logger` or callbacks; only L4/L1 edges emit to stderr |
 | **Levels** | `.error` failures, `.warning` recoverable (dropped frame, Audacity missing), `.info` lifecycle (started/stopped), `.debug` verbose (behind `--verbose` later) |
-| **Detached daemon** | stderr may be discarded after fork; **OSLog still records** — operators use Console.app filter `subsystem:ai.upil.appa` |
+| **Detached daemon** | stderr may be discarded after fork; **OSLog still records** — operators use Console.app filter `subsystem:ai.manbok.app` |
 | **ArgumentParser** | CLI parsing (ecosystem standard for Swift executables) |
 | **Exit codes** | 0 success; 1 general error; optional 2 usage (ArgumentParser) |
 

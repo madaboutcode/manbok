@@ -1,17 +1,17 @@
-# upil-appa
+# manbok
 
 Background mic ring buffer for macOS: keeps the last 10 minutes of speech-grade PCM in RAM, exports WAV on demand.
 
 ## Commands
 
-Prefer **`make`** (see `Makefile` or `make help`). Builds `.build/debug/upil-appa` when needed.
+Prefer **`make`** (see `Makefile` or `make help`). Builds `.build/debug/manbok` when needed.
 
 ```bash
 make build              # swift build (debug)
-make release            # swift build -c release → .build/release/upil-appa
+make release            # swift build -c release → .build/release/manbok
 make test               # swift test
 make verify             # test + build
-make install            # release → ~/.local/bin/upil-appa (restarts LaunchAgent if present)
+make install            # release → ~/.local/bin/manbok (restarts LaunchAgent if present)
 make install-launchagent # install + user LaunchAgent (Aqua session; login persistence)
 make authorize          # mic permission for this binary (Terminal)
 
@@ -28,7 +28,7 @@ make dump MINUTES=5     # last N minutes of ring
 
 Mic permission: System Settings → Privacy & Security → Microphone (first capture).
 
-Foreground meter: TTY UI on stdout; daemon diagnostics → Console (`subsystem:ai.upil.appa`). CLI subcommands still mirror hints to stderr.
+Foreground meter: TTY UI on stdout; daemon diagnostics → Console (`subsystem:ai.manbok.app`). CLI subcommands still mirror hints to stderr.
 
 ## Jumpstart
 
@@ -45,15 +45,15 @@ CLI (short-lived) ──IPC──► daemon (long-lived) ──► AVAudioEngine
                               └── dump ──► temp WAV ──► CLI opens Audacity
 ```
 
-State lives in `~/.upil-appa/` (pid + socket). Dump files go to the system temp directory.
+State lives in `~/.manbok/` (pid + socket). Dump files go to the system temp directory.
 
 ### Module Map
 
 | Path | Owns | CLAUDE.md |
 |------|------|-----------|
-| `Sources/UpilAppaCore/` | Domain, ports, application use cases, IPC types | Yes |
-| `Sources/UpilAppaPlatform/` | AVFoundation capture, sockets, files, logging, daemon spawn | Yes |
-| `Sources/upil-appa/` | CLI + daemon entry (`Main`, `DaemonMain`) | Yes |
+| `Sources/ManbokCore/` | Domain, ports, application use cases, IPC types | Yes |
+| `Sources/ManbokPlatform/` | AVFoundation capture, sockets, files, logging, daemon spawn | Yes |
+| `Sources/manbok/` | CLI + daemon entry (`Main`, `DaemonMain`) | Yes |
 | `Tests/` | XCTest for Core + Platform | — |
 | `tasks/` | Internal planning files (not tracked) | — |
 | `spikes/` | Pre-implementation experiments (not shipped) | — |
@@ -61,8 +61,8 @@ State lives in `~/.upil-appa/` (pid + socket). Dump files go to the system temp 
 ### Directory Structure
 
 ```text
-upil-appa/
-├── Package.swift          # SPM: UpilAppaCore, UpilAppaPlatform, upil-appa
+manbok/
+├── Package.swift          # SPM: ManbokCore, ManbokPlatform, manbok
 ├── requirements.md        # Product spec
 ├── ARCHITECTURE.md        # System design (read before multi-file work)
 ├── tasks/                 # Internal planning files (not tracked in git)
@@ -78,15 +78,15 @@ Daemon/IPC issues: read `docs/claude-references/runtime.md`.
 
 - **Layers:** Core has no AVFoundation; Platform implements Core ports; executable only routes CLI/daemon.
 - **Contracts:** `// MARK: - CONTRACT` blocks at top of component files — keep aligned with design.
-- **Logging:** `AppLog` + `os.Logger` subsystem `ai.upil.appa`; diagnostics on **stderr**, primary output on **stdout**.
-- **IPC:** Line protocol — `PING`, `STATUS`, `STOP`, `DUMP [minutes]` → see `Sources/UpilAppaCore/IPC/`.
-- **Dependencies:** Native macOS only in libraries; **ArgumentParser** only on the `upil-appa` executable.
+- **Logging:** `AppLog` + `os.Logger` subsystem `ai.manbok.app`; diagnostics on **stderr**, primary output on **stdout**.
+- **IPC:** Line protocol — `PING`, `STATUS`, `STOP`, `DUMP [minutes]` → see `Sources/ManbokCore/IPC/`.
+- **Dependencies:** Native macOS only in libraries; **ArgumentParser** only on the `manbok` executable.
 
 ## Constraints
 
 | Rule | Why |
 |------|-----|
-| No AVFoundation in `UpilAppaCore` | Keeps domain unit-testable without mic/hardware |
+| No AVFoundation in `ManbokCore` | Keeps domain unit-testable without mic/hardware |
 | Do not stream audio over the Unix socket | Dump writes a file; CLI prints path |
 | Do not add third-party deps without discussion | Spec mandates native frameworks |
 

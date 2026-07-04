@@ -1,4 +1,4 @@
-# upil-appa spikes
+# manbok spikes
 
 Lightweight validation before implementation. Run from this directory:
 
@@ -18,7 +18,7 @@ swift run ipc-spike client
 | ring-math | 10 min buffer size | **PASS** — 19,200,000 bytes (19.2 MB decimal) |
 | wav | RIFF PCM export | **PASS** — `file(1)` reports mono 16 kHz PCM |
 | capture | 16 kHz mono from mic via AVAudioEngine | **PASS** — 48 kHz device → converter → ~16k samples/s, non-zero peaks |
-| ipc | CLI ↔ daemon on Unix socket | **PASS** — request/response over `/tmp/upil-appa-spike.sock` |
+| ipc | CLI ↔ daemon on Unix socket | **PASS** — request/response over `/tmp/manbok-spike.sock` |
 | mic-share | Coexist with Zoom/Meet/etc. | **MANUAL** — see below |
 
 ### Manual: mic sharing
@@ -35,7 +35,7 @@ If this fails, fallback options: investigate `AVAudioSession`-style aggregate ro
 swift run device-spike 60   # watch default input; plug/switch mic while running
 ```
 
-Validates Core Audio `kAudioHardwarePropertyDefaultInputDevice` listener. See `tasks/upil-appa-device-selection.md`.
+Validates Core Audio `kAudioHardwarePropertyDefaultInputDevice` listener. See `tasks/manbok-device-selection.md`.
 
 ```bash
 swift run device-usage-spike      # poll runningSomewhere only

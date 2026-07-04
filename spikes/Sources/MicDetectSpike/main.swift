@@ -1,11 +1,11 @@
-// Spike: diagnose why upil-appa daemon never transitions from watching → capturing.
+// Spike: diagnose why manbok daemon never transitions from watching → capturing.
 //
 // Tests three hypotheses:
 //   H1: App (e.g. Pipit) never sets IsRunningInput=true in CoreAudio HAL
 //   H2: IsRunningInput flickers too briefly for 500ms poll to catch
 //   H3: HAL state goes stale after sleep/wake
 //
-// Uses the SAME CoreAudio HAL APIs as ProcessAudioMonitor in UpilAppaPlatform.
+// Uses the SAME CoreAudio HAL APIs as ProcessAudioMonitor in ManbokPlatform.
 // Polls at 100ms (5x faster than daemon's 500ms) to catch brief flickers.
 // Also registers HAL listeners for IsRunningInput changes.
 //

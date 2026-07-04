@@ -1,27 +1,27 @@
-# upil-appa — common dev/daemon commands (run `make help`)
+# manbok — common dev/daemon commands (run `make help`)
 .PHONY: help build release test verify install uninstall install-launchagent uninstall-launchagent authorize dev stop-quiet start start-bg start-fg start-fg-always start-always-on stop status sessions dump dump-list
 
-LAUNCH_AGENT_LABEL := com.upil.appa
+LAUNCH_AGENT_LABEL := com.manbok.app
 LAUNCH_AGENT_PLIST := $(HOME)/Library/LaunchAgents/$(LAUNCH_AGENT_LABEL).plist
 GUI_DOMAIN := gui/$(shell id -u)
 
-BIN := .build/debug/upil-appa
-RELEASE_BIN := .build/release/upil-appa
+BIN := .build/debug/manbok
+RELEASE_BIN := .build/release/manbok
 MINUTES ?=
 
 # User-local install (no sudo). Override: make install PREFIX=/opt/homebrew
 PREFIX ?= $(HOME)/.local
 BINDIR ?= $(PREFIX)/bin
-INSTALLED_BIN := $(BINDIR)/upil-appa
+INSTALLED_BIN := $(BINDIR)/manbok
 
 help:
-	@echo "upil-appa"
+	@echo "manbok"
 	@echo ""
 	@echo "  make build            swift build (debug)"
 	@echo "  make release          swift build -c release"
 	@echo "  make test             swift test"
 	@echo "  make verify           test + build"
-	@echo "  make install          release → $(BINDIR)/upil-appa (restarts LaunchAgent if present)"
+	@echo "  make install          release → $(BINDIR)/manbok (restarts LaunchAgent if present)"
 	@echo "  make install-launchagent  install + user LaunchAgent (login, Aqua session)"
 	@echo "  make uninstall-launchagent remove LaunchAgent"
 	@echo "  make authorize        request mic permission (Terminal; before background daemon)"
@@ -35,7 +35,7 @@ help:
 	@echo "  make start-always-on  always-on daemon (background)"
 	@echo "  make stop             stop daemon"
 	@echo "  make status           watching | listening | stopped"
-	@echo "  make sessions         list sessions (same as: upil-appa dump --list)"
+	@echo "  make sessions         list sessions (same as: manbok dump --list)"
 	@echo "  make dump             export newest session (default)"
 	@echo "  make dump TARGET=all  export full ring"
 	@echo "  make dump TARGET=-1   prior session (-2 = two back; omit = newest)"
@@ -87,12 +87,12 @@ install-launchagent: release
 	install -m 755 "$(RELEASE_BIN)" "$(INSTALLED_BIN)"
 	@"$(INSTALLED_BIN)" authorize
 	-@launchctl bootout $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)" 2>/dev/null || true
-	@sed -e 's|REPLACE_WITH_UPIL_APPA_PATH|$(INSTALLED_BIN)|g' \
+	@sed -e 's|REPLACE_WITH_MANBOK_PATH|$(INSTALLED_BIN)|g' \
 		-e 's|REPLACE_WITH_HOME|$(HOME)|g' \
-		resources/com.upil.appa.plist > "$(LAUNCH_AGENT_PLIST)"
+		resources/com.manbok.app.plist > "$(LAUNCH_AGENT_PLIST)"
 	@launchctl bootstrap $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)"
 	@echo "LaunchAgent loaded: $(LAUNCH_AGENT_PLIST)"
-	@echo "logs: /tmp/upil-appa.stderr.log  Console: subsystem ai.upil.appa"
+	@echo "logs: /tmp/manbok.stderr.log  Console: subsystem ai.manbok.app"
 	@sleep 1
 	@$(INSTALLED_BIN) status
 

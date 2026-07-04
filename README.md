@@ -1,10 +1,10 @@
-# upil-appa
+# manbok
 
 > *because Man-bok never misses a word*
 
 Background microphone ring buffer for **macOS** (Apple Silicon). Keeps the last **10 minutes** of speech-grade audio in RAM and exports a WAV on demand — useful when another app's recorder glitches or you want a safety copy of what you said.
 
-## Why *upil-appa*?
+## Why *manbok*?
 
 Named after [**Jung Man-bok**](https://en.wikipedia.org/wiki/Crash_Landing_on_You#People_in_the_North_Korean_Forces) (정만복), the wiretapper in [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You) — always listening, never missing a word. His son is **Jung U-pil** (우필); his wife calls him **"U-pil appa"** (우필 아빠), the usual Korean "[child's name] + appa" way of addressing a father. This project is that nickname as a Mac listener with an on-demand **`dump`**.
 
@@ -17,7 +17,7 @@ Named after [**Jung Man-bok**](https://en.wikipedia.org/wiki/Crash_Landing_on_Yo
 ### One-liner
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/madaboutcode/upil-appa/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/madaboutcode/manbok/main/install.sh | bash
 ```
 
 This clones, builds a release binary, installs it to `~/.local/bin`, and sets up a LaunchAgent so the daemon starts at login.
@@ -25,15 +25,15 @@ This clones, builds a release binary, installs it to `~/.local/bin`, and sets up
 ### From source
 
 ```bash
-git clone https://github.com/madaboutcode/upil-appa.git
-cd upil-appa
+git clone https://github.com/madaboutcode/manbok.git
+cd manbok
 make install-launchagent    # build + install + LaunchAgent
 ```
 
 Or just the binary (no login persistence):
 
 ```bash
-make install                # release build → ~/.local/bin/upil-appa
+make install                # release build → ~/.local/bin/manbok
 ```
 
 Custom prefix: `make install PREFIX=/opt/homebrew`
@@ -62,8 +62,8 @@ make uninstall
 Or manually:
 
 ```bash
-launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.upil.appa.plist
-rm -f ~/Library/LaunchAgents/com.upil.appa.plist ~/.local/bin/upil-appa
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.manbok.app.plist
+rm -f ~/Library/LaunchAgents/com.manbok.app.plist ~/.local/bin/manbok
 ```
 
 ## User Guide
@@ -71,17 +71,17 @@ rm -f ~/Library/LaunchAgents/com.upil.appa.plist ~/.local/bin/upil-appa
 ### Quick start
 
 ```bash
-upil-appa status               # check daemon state
+manbok status               # check daemon state
 # Start recording in another app (Zoom, Voice Memos, etc.)
-upil-appa status               # watching ring=0.3 MB (~9.2s)
-upil-appa dump                 # export latest session → opens in Audacity
-upil-appa stop                 # stop daemon
+manbok status               # watching ring=0.3 MB (~9.2s)
+manbok dump                 # export latest session → opens in Audacity
+manbok stop                 # stop daemon
 ```
 
 If you installed the LaunchAgent, the daemon is already running. Otherwise start it manually:
 
 ```bash
-upil-appa start                # opportunistic daemon (background)
+manbok start                # opportunistic daemon (background)
 ```
 
 ### Foreground mode
@@ -89,7 +89,7 @@ upil-appa start                # opportunistic daemon (background)
 Run with a live terminal meter (useful for debugging — needs a second terminal for dump/stop):
 
 ```bash
-upil-appa start --foreground
+manbok start --foreground
 ```
 
 ### Always-on mode
@@ -97,7 +97,7 @@ upil-appa start --foreground
 Capture continuously without waiting for another app to use the mic:
 
 ```bash
-upil-appa start --always-on
+manbok start --always-on
 ```
 
 ### Sessions
@@ -105,36 +105,36 @@ upil-appa start --always-on
 The ring keeps a 5-second silence gap between recording sessions. Browse and export them:
 
 ```bash
-upil-appa dump --list          # list sessions with relative timestamps
-upil-appa dump                 # export newest session (default)
-upil-appa dump last            # same as bare dump
-upil-appa dump 1               # export by session id (oldest = 1)
-upil-appa dump -1              # session before the newest
-upil-appa dump -2              # two sessions back
-upil-appa dump all             # full ring (session gaps omitted in export)
-upil-appa dump --minutes 5     # last N minutes of ring
+manbok dump --list          # list sessions with relative timestamps
+manbok dump                 # export newest session (default)
+manbok dump last            # same as bare dump
+manbok dump 1               # export by session id (oldest = 1)
+manbok dump -1              # session before the newest
+manbok dump -2              # two sessions back
+manbok dump all             # full ring (session gaps omitted in export)
+manbok dump --minutes 5     # last N minutes of ring
 ```
 
 ### CLI reference
 
 | Command | Description |
 |---------|-------------|
-| `upil-appa start` | Opportunistic daemon (background) |
-| `upil-appa start --foreground` | Same, with live terminal meter |
-| `upil-appa start --always-on` | Continuous capture |
-| `upil-appa authorize` | Request microphone access (run once from Terminal) |
-| `upil-appa stop` | Stop daemon |
-| `upil-appa status` | Phase + ring fill (`watching ring=1.2 MB (~6.0s)`) |
-| `upil-appa dump` | Export newest session |
-| `upil-appa dump all` | Export full ring |
-| `upil-appa dump --list` | List sessions (5s gap markers; relative times) |
-| `upil-appa dump 1` | Export session by id (oldest = 1) |
-| `upil-appa dump last` | Same as bare `dump` |
-| `upil-appa dump -1` | Session before the newest |
-| `upil-appa dump --minutes 5` | Last N minutes of ring |
-| `upil-appa sessions` | Alias for `dump --list` |
+| `manbok start` | Opportunistic daemon (background) |
+| `manbok start --foreground` | Same, with live terminal meter |
+| `manbok start --always-on` | Continuous capture |
+| `manbok authorize` | Request microphone access (run once from Terminal) |
+| `manbok stop` | Stop daemon |
+| `manbok status` | Phase + ring fill (`watching ring=1.2 MB (~6.0s)`) |
+| `manbok dump` | Export newest session |
+| `manbok dump all` | Export full ring |
+| `manbok dump --list` | List sessions (5s gap markers; relative times) |
+| `manbok dump 1` | Export session by id (oldest = 1) |
+| `manbok dump last` | Same as bare `dump` |
+| `manbok dump -1` | Session before the newest |
+| `manbok dump --minutes 5` | Last N minutes of ring |
+| `manbok sessions` | Alias for `dump --list` |
 
-State: `~/.upil-appa/` (pid + Unix socket). Logs: Console.app → `subsystem:ai.upil.appa`; LaunchAgent also writes `/tmp/upil-appa.stderr.log`.
+State: `~/.manbok/` (pid + Unix socket). Logs: Console.app → `subsystem:ai.manbok.app`; LaunchAgent also writes `/tmp/manbok.stderr.log`.
 
 ## How it works
 
@@ -152,8 +152,8 @@ CLI (short-lived) ──IPC──► daemon (long-lived) ──► AVAudioEngine
 Clone and build:
 
 ```bash
-git clone https://github.com/madaboutcode/upil-appa.git
-cd upil-appa
+git clone https://github.com/madaboutcode/manbok.git
+cd manbok
 make build                  # debug build
 make test                   # run tests
 make verify                 # test + build
@@ -177,7 +177,7 @@ All make targets: `make help`
 | `make start` / `start-fg` / `start-always-on` | Run daemon (various modes) |
 | `make stop` / `status` / `sessions` / `dump` | Daemon control |
 
-Architecture: `tasks/upil-appa.design.md`, module `CLAUDE.md` files.
+Architecture: `tasks/manbok.design.md`, module `CLAUDE.md` files.
 
 ## License
 

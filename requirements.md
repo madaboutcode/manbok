@@ -1,8 +1,8 @@
-# upil-appa
+# manbok
 
 > because Man-bok never misses a word
 
-Named after **Jung Man-bok** (정만복), wiretapper in [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You). Son **Jung U-pil** (우필); wife calls him **“U-pil appa”** (우필 아빠). **upil-appa** = that nickname as a macOS ring-buffer listener.
+Named after **Jung Man-bok** (정만복), wiretapper in [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You). Son **Jung U-pil** (우필); wife calls him **“U-pil appa”** (우필 아빠). **manbok** = that nickname as a macOS ring-buffer listener.
 
 A background audio ring buffer for macOS. Continuously captures microphone audio, keeps the last 10 minutes in memory, and lets you dump it to a WAV file on demand.
 
@@ -21,10 +21,10 @@ Speech-to-text software sometimes glitches and doesn't record. You end up having
 ## Commands
 
 ```
-upil-appa start          # start background recording
-upil-appa dump [minutes] # dump last N minutes to WAV (default: all)
-upil-appa stop           # stop background recording
-upil-appa status         # is appa listening?
+manbok start          # start background recording
+manbok dump [minutes] # dump last N minutes to WAV (default: all)
+manbok stop           # stop background recording
+manbok status         # is appa listening?
 ```
 
 ## Technical Constraints

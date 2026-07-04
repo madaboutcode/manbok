@@ -1,9 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-REPO_URL="https://github.com/madaboutcode/upil-appa.git"
+REPO_URL="https://github.com/madaboutcode/manbok.git"
 INSTALL_DIR="$HOME/.local/bin"
-LAUNCH_AGENT_LABEL="com.upil.appa"
+LAUNCH_AGENT_LABEL="com.manbok.app"
 LAUNCH_AGENT_PLIST="$HOME/Library/LaunchAgents/${LAUNCH_AGENT_LABEL}.plist"
 GUI_DOMAIN="gui/$(id -u)"
 
@@ -18,13 +18,13 @@ cleanup() {
   fi
 }
 
-info "upil-appa installer"
+info "manbok installer"
 echo ""
 
 # --- preflight ---
 
 if [ "$(uname -s)" != "Darwin" ]; then
-  die "upil-appa requires macOS. This system is $(uname -s)."
+  die "manbok requires macOS. This system is $(uname -s)."
 fi
 
 if ! xcode-select -p >/dev/null 2>&1; then
@@ -50,8 +50,8 @@ ok "preflight checks passed"
 TMPDIR_CREATED="$(mktemp -d)"
 trap cleanup EXIT
 
-info "cloning upil-appa..."
-if ! git clone --depth 1 "$REPO_URL" "$TMPDIR_CREATED/upil-appa" 2>&1; then
+info "cloning manbok..."
+if ! git clone --depth 1 "$REPO_URL" "$TMPDIR_CREATED/manbok" 2>&1; then
   die "git clone failed. Check your internet connection and try again."
 fi
 ok "cloned"
@@ -59,33 +59,33 @@ ok "cloned"
 # --- build ---
 
 info "building release binary (this may take a minute)..."
-cd "$TMPDIR_CREATED/upil-appa"
+cd "$TMPDIR_CREATED/manbok"
 if ! swift build -c release 2>&1; then
-  err "build failed. Source left at: $TMPDIR_CREATED/upil-appa"
+  err "build failed. Source left at: $TMPDIR_CREATED/manbok"
   TMPDIR_CREATED=""  # prevent cleanup so user can inspect
   exit 1
 fi
-ok "built .build/release/upil-appa"
+ok "built .build/release/manbok"
 
 # --- install binary ---
 
-info "installing to $INSTALL_DIR/upil-appa..."
+info "installing to $INSTALL_DIR/manbok..."
 
 mkdir -p "$INSTALL_DIR"
 
 # stop existing daemon if running
-if [ -x "$INSTALL_DIR/upil-appa" ]; then
-  "$INSTALL_DIR/upil-appa" stop 2>/dev/null || true
+if [ -x "$INSTALL_DIR/manbok" ]; then
+  "$INSTALL_DIR/manbok" stop 2>/dev/null || true
   sleep 0.3
 fi
 
-install -m 755 .build/release/upil-appa "$INSTALL_DIR/upil-appa"
+install -m 755 .build/release/manbok "$INSTALL_DIR/manbok"
 ok "binary installed"
 
 # --- authorize mic ---
 
 info "requesting microphone authorization..."
-"$INSTALL_DIR/upil-appa" authorize 2>/dev/null || true
+"$INSTALL_DIR/manbok" authorize 2>/dev/null || true
 ok "authorize requested (approve the system prompt when it appears)"
 
 # --- LaunchAgent ---
@@ -97,15 +97,15 @@ mkdir -p "$HOME/Library/LaunchAgents"
 # unload existing agent if present
 launchctl bootout "$GUI_DOMAIN" "$LAUNCH_AGENT_PLIST" 2>/dev/null || true
 
-sed -e "s|REPLACE_WITH_UPIL_APPA_PATH|${INSTALL_DIR}/upil-appa|g" \
+sed -e "s|REPLACE_WITH_MANBOK_PATH|${INSTALL_DIR}/manbok|g" \
     -e "s|REPLACE_WITH_HOME|${HOME}|g" \
-    resources/com.upil.appa.plist > "$LAUNCH_AGENT_PLIST"
+    resources/com.manbok.app.plist > "$LAUNCH_AGENT_PLIST"
 
 launchctl bootstrap "$GUI_DOMAIN" "$LAUNCH_AGENT_PLIST"
 ok "LaunchAgent loaded"
 
 sleep 1
-"$INSTALL_DIR/upil-appa" status 2>/dev/null || true
+"$INSTALL_DIR/manbok" status 2>/dev/null || true
 
 # --- PATH check ---
 
@@ -125,24 +125,24 @@ esac
 
 echo ""
 echo "--------------------------------------------"
-echo "  upil-appa installed"
+echo "  manbok installed"
 echo "--------------------------------------------"
 echo ""
-echo "  binary:      $INSTALL_DIR/upil-appa"
+echo "  binary:      $INSTALL_DIR/manbok"
 echo "  LaunchAgent: $LAUNCH_AGENT_PLIST"
-echo "  logs:        /tmp/upil-appa.stderr.log"
-echo "               Console.app -> subsystem: ai.upil.appa"
+echo "  logs:        /tmp/manbok.stderr.log"
+echo "               Console.app -> subsystem: ai.manbok.app"
 echo ""
 echo "  The daemon starts automatically at login."
 echo "  Approve the microphone prompt when it appears."
 echo ""
 echo "  Quick start:"
-echo "    upil-appa status          # check daemon state"
-echo "    upil-appa dump            # export latest recording"
-echo "    upil-appa dump --list     # list sessions"
-echo "    upil-appa stop            # stop daemon"
+echo "    manbok status          # check daemon state"
+echo "    manbok dump            # export latest recording"
+echo "    manbok dump --list     # list sessions"
+echo "    manbok stop            # stop daemon"
 echo ""
 echo "  Uninstall:"
 echo "    launchctl bootout $GUI_DOMAIN $LAUNCH_AGENT_PLIST"
-echo "    rm -f $LAUNCH_AGENT_PLIST $INSTALL_DIR/upil-appa"
+echo "    rm -f $LAUNCH_AGENT_PLIST $INSTALL_DIR/manbok"
 echo ""

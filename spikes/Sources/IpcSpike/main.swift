@@ -70,7 +70,7 @@ func runClient(socketPath: String) throws {
     print("client: \(String(bytes: buf.prefix(n), encoding: .utf8) ?? "")")
 }
 
-let socketPath = "/tmp/upil-appa-spike.sock"
+let socketPath = "/tmp/manbok-spike.sock"
 let mode = CommandLine.arguments.dropFirst().first ?? "client"
 
 if mode == "server" {

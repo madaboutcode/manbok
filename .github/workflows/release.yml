@@ -19,7 +19,7 @@ jobs:
 
       - name: Validate tag matches Version.swift
         run: |
-          grep -q "let appVersion = \"$VERSION\"" Sources/upil-appa/Version.swift || \
+          grep -q "let appVersion = \"$VERSION\"" Sources/manbok/Version.swift || \
             (echo "Tag $GITHUB_REF_NAME doesn't match Version.swift" && exit 1)
 
       - name: Test
@@ -29,12 +29,12 @@ jobs:
         run: swift build -c release
 
       - name: Create tarball
-        run: tar -czf upil-appa-${VERSION}-macos-arm64.tar.gz -C .build/release upil-appa
+        run: tar -czf manbok-${VERSION}-macos-arm64.tar.gz -C .build/release manbok
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref }}
           generate_release_notes: true
-          files: upil-appa-${{ env.VERSION }}-macos-arm64.tar.gz
+          files: manbok-${{ env.VERSION }}-macos-arm64.tar.gz
           make_latest: true

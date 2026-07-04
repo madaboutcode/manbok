@@ -24,10 +24,10 @@ xcuserdata/
 *.swp
 *~
 
-# Local runtime (daemon uses ~/.upil-appa; ignore stray copies and sockets)
-.upil-appa/
+# Local runtime (daemon uses ~/.manbok; ignore stray copies and sockets)
+.manbok/
 *.sock
-/tmp/upil-appa-spike.sock
+/tmp/manbok-spike.sock
 
 # Audio exports and scratch (dump targets system temp; ignore accidental copies in tree)
 *.wav
