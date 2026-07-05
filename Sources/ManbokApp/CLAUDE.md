@@ -14,7 +14,7 @@ App entry point, MenuBarExtra popover, Settings window, PopoverViewModel, icon s
 |--------|-------|
 | root | `ManbokApp.swift` — @main App, MenuBarIcon, AppDelegate |
 | `ViewModels/` | `PopoverViewModel` — polls SessionRegistry, export wrappers |
-| `Views/` | `PopoverContentView`, `HeaderView`, `SessionListView`, `SessionRowView`, `WaveformView`, `EmptyStateView`, `PermissionDeniedView`, `FooterView`, `SettingsView` |
+| `Views/` | `PopoverContentView`, `HeaderView`, `SessionListView`, `SessionRowView`, `WaveformView`, `EmptyStateView`, `PermissionDeniedView`, `FooterView`, `SettingsView`, `Theme` — Listening Post tokens + TapeGaugeView (design source: `tasks/mockups/option-e-listening-post.html`) |
 
 ### Key Types
 
