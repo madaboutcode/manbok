@@ -6,9 +6,12 @@ import ManbokPlatform
 // MARK: - CONTRACT (CommandRouter)
 //
 // GUARANTEES
-// - Maps authorize|start|stop|status|dump|sessions to IPC or daemon launch.
+// - Maps authorize|start|stop|status|dump|sessions to IPC or app launch.
+// - `start` opens Manbok.app via `open -a Manbok` (no posix_spawn daemon).
+// - `start --foreground` runs the old in-process daemon (debug only).
 // - `dump` accepts session targets: id, `last`, `last-N`, or `--list`.
 // - stdout: dump path (one line) or status word; stderr: AppLog diagnostics.
+// - Connection failure → "manbok isn't running" hint (overview.md R9).
 //
 // DOES NOT
 // - Touch AVAudioEngine directly.
@@ -65,11 +68,11 @@ struct AuthorizeCommand: ParsableCommand {
 struct StartCommand: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "start")
 
-    @Flag(name: .long, help: "Keep microphone open continuously (legacy; default is opportunistic)")
-    var alwaysOn = false
-
-    @Flag(name: .long, help: "Run daemon in this terminal (logs on stderr); do not detach")
+    @Flag(name: .long, help: "Run in this terminal (debug only); do not launch the app")
     var foreground = false
+
+    @Flag(name: .long, help: "Keep microphone open continuously (debug/foreground only)")
+    var alwaysOn = false
 
     func run() throws {
         if foreground {
@@ -82,32 +85,37 @@ struct StartCommand: ParsableCommand {
             return
         }
 
-        if DaemonProcess.isRunning() {
-            if let response = try? UnixSocketClient.send(command: .status) {
-                switch response {
-                case .listening, .watching:
-                    cliLog.info("already running")
-                    return
-                default:
-                    break
-                }
+        if let response = try? UnixSocketClient.send(command: .ping), case .pong = response {
+            print("manbok is already running")
+            return
+        }
+
+        warnIfLaunchAgentExists()
+        launchApp()
+    }
+
+    private func launchApp() {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        task.arguments = ["-a", "Manbok"]
+        do {
+            try task.run()
+            task.waitUntilExit()
+            if task.terminationStatus == 0 {
+                cliLog.info("manbok.app launched")
+            } else {
+                cliLog.error("manbok isn't running — open Manbok.app or run 'make install-app'")
             }
-            cliLog.info("replacing stale daemon")
-            try terminateRunningDaemon()
+        } catch {
+            cliLog.error("manbok isn't running — open Manbok.app or run 'make install-app'")
         }
+    }
 
-        guard MicrophoneAuthorization.ensureAuthorized() else {
-            cliLog.error("microphone access denied — \(MicrophoneAuthorization.settingsHint)")
-            throw ExitCode.failure
-        }
-
-        let executable = CommandLine.arguments[0]
-        let args = alwaysOn ? ["always-on"] : []
-        try DaemonProcess.startDaemon(executablePath: executable, daemonArguments: args)
-        if alwaysOn {
-            cliLog.info("daemon started (always-on)")
-        } else {
-            cliLog.info("daemon started (opportunistic — captures when another app uses the mic)")
+    private func warnIfLaunchAgentExists() {
+        let plistPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/LaunchAgents/com.manbok.app.plist").path
+        if FileManager.default.fileExists(atPath: plistPath) {
+            cliLog.info("migrating from LaunchAgent — the app will remove it on launch")
         }
     }
 }
@@ -121,11 +129,11 @@ struct StopCommand: ParsableCommand {
             switch response {
             case .ok:
                 cliLog.info("stopped")
-            case .err(let message):
+            case .error(_, let message):
                 cliLog.error(message)
                 throw ExitCode.failure
             default:
-                cliLog.error("unexpected response: \(response.line)")
+                cliLog.error("unexpected response: \(response.jsonLine)")
                 throw ExitCode.failure
             }
         } catch {
@@ -148,11 +156,11 @@ struct StatusCommand: ParsableCommand {
                 print(statusLine(phase: "watching", ring: ring))
             case .stopped(let ring):
                 print(statusLine(phase: "stopped", ring: ring))
-            case .err(let message):
+            case .error(_, let message):
                 cliLog.error(message)
                 throw ExitCode.failure
             default:
-                cliLog.error("unexpected response: \(response.line)")
+                cliLog.error("unexpected response: \(response.jsonLine)")
                 throw ExitCode.failure
             }
         } catch {
@@ -203,7 +211,7 @@ struct DumpCommand: ParsableCommand {
             throw ExitCode.failure
         }
 
-        let sessionId: Int?
+        let sessionId: UInt64?
         if let target, !target.isEmpty {
             if target.lowercased() == "all" {
                 sessionId = nil
@@ -243,11 +251,11 @@ private func fetchSessions() throws -> [SessionSummary] {
     switch response {
     case .sessions(let list):
         return list
-    case .err(let message):
+    case .error(_, let message):
         cliLog.error(message)
         throw ExitCode.failure
     default:
-        cliLog.error("unexpected response: \(response.line)")
+        cliLog.error("unexpected response: \(response.jsonLine)")
         throw ExitCode.failure
     }
 }
@@ -257,7 +265,7 @@ private func printSessionList() throws {
     print(SessionSummary.table(list))
 }
 
-private func resolveDumpSessionTarget(_ text: String) throws -> Int {
+private func resolveDumpSessionTarget(_ text: String) throws -> UInt64 {
     let selector: DumpSessionSelector
     switch DumpSessionSelectorParser.parse(text) {
     case .success(let parsed):
@@ -287,7 +295,7 @@ private func resolveDumpSessionTarget(_ text: String) throws -> Int {
     }
 }
 
-private func performDump(minutes: Int?, sessionId: Int?) throws {
+private func performDump(minutes: Int?, sessionId: UInt64?) throws {
     do {
         let response = try UnixSocketClient.send(command: .dump(minutes: minutes, sessionId: sessionId))
         switch response {
@@ -298,12 +306,12 @@ private func performDump(minutes: Int?, sessionId: Int?) throws {
             } else {
                 cliLog.warning("could not open Audacity — open the WAV manually")
             }
-        case .err(let message):
+        case .error(let code, let message):
             cliLog.error(message)
-            explainDumpFailure(message)
+            explainDumpFailure(code: code, message: message)
             throw ExitCode.failure
         default:
-            cliLog.error("unexpected response: \(response.line)")
+            cliLog.error("unexpected response: \(response.jsonLine)")
             throw ExitCode.failure
         }
     } catch let error as ExitCode {
@@ -320,8 +328,8 @@ private func terminateRunningDaemon() throws {
     usleep(200_000)
 }
 
-private func explainDumpFailure(_ message: String) {
-    guard message.hasPrefix(ListenerError.emptyBuffer.message) else { return }
+private func explainDumpFailure(code: String, message: String) {
+    guard code == "empty_buffer" else { return }
     if message.contains("watching") || message.contains("stopped") || message.contains("listening") {
         return
     }
@@ -329,15 +337,14 @@ private func explainDumpFailure(_ message: String) {
     switch status {
     case .watching:
         cliLog.error(
-            "daemon is watching — start recording in Zoom/Voice Memos, "
-                + "wait for REC on the meter, then dump from another terminal"
+            "watching — start recording in another app (Zoom, Voice Memos, …), then dump"
         )
     case .listening:
         cliLog.error(
-            "daemon is listening but ring is empty — speak into the mic; check Microphone privacy"
+            "listening but ring is empty — speak into the mic; check Microphone privacy"
         )
     case .stopped:
-        cliLog.error("daemon is stopped — run make start-fg or make start")
+        cliLog.error("manbok isn't running — run 'manbok start' or open Manbok.app")
     default:
         break
     }
@@ -346,11 +353,11 @@ private func explainDumpFailure(_ message: String) {
 private func connectionMessage(_ error: Error) -> String {
     if let socketError = error as? UnixSocketError {
         switch socketError {
-        case .syscall(let detail):
-            return "cannot connect to daemon (\(detail))"
+        case .syscall:
+            return "manbok isn't running — run 'manbok start' or open Manbok.app"
         case .pathTooLong:
-            return "cannot connect to daemon (socket path too long)"
+            return "cannot connect (socket path too long)"
         }
     }
-    return "cannot connect to daemon (\(error.localizedDescription))"
+    return "manbok isn't running — run 'manbok start' or open Manbok.app"
 }
