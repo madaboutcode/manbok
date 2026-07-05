@@ -5,8 +5,6 @@ import ManbokPlatform
 struct HeaderView: View {
     @EnvironmentObject private var orchestrator: CaptureOrchestrator
     @EnvironmentObject private var viewModel: PopoverViewModel
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
@@ -49,7 +47,7 @@ struct HeaderView: View {
                 .foregroundStyle(Theme.amberHot)
         } else if orchestrator.anySessionOpen {
             statusPill(
-                dot: AnyView(PulsingDot(color: Theme.amberHot, reduceMotion: reduceMotion)),
+                dot: AnyView(PulsingDot(color: Theme.amberHot)),
                 text: "Recording",
                 textColor: Theme.amberHot,
                 background: Theme.amber.opacity(0.10),
@@ -57,7 +55,7 @@ struct HeaderView: View {
             )
         } else {
             statusPill(
-                dot: AnyView(StandbyDot(reduceMotion: reduceMotion)),
+                dot: AnyView(StandbyDot()),
                 text: "Watching",
                 textColor: Theme.creamFaint,
                 background: Color.white.opacity(0.03),
@@ -105,7 +103,6 @@ struct HeaderView: View {
 
 private struct PulsingDot: View {
     let color: Color
-    let reduceMotion: Bool
     @State private var isPulsing = false
 
     var body: some View {
@@ -113,34 +110,29 @@ private struct PulsingDot: View {
             .fill(color)
             .frame(width: 6, height: 6)
             .shadow(color: Theme.amberGlow, radius: 6)
-            .opacity(reduceMotion ? 1.0 : (isPulsing ? 0.3 : 1.0))
+            .opacity(isPulsing ? 0.3 : 1.0)
             .animation(
-                reduceMotion ? nil : .easeInOut(duration: 0.8).repeatForever(autoreverses: true),
+                .easeInOut(duration: 0.8).repeatForever(autoreverses: true),
                 value: isPulsing
             )
-            .onAppear {
-                if !reduceMotion { isPulsing = true }
-            }
+            .onAppear { isPulsing = true }
     }
 }
 
 /// Standby lamp for the Watching state: a slow, faint breathe — the ear is
 /// open, nothing is being taped. Deliberately quieter than PulsingDot.
 private struct StandbyDot: View {
-    let reduceMotion: Bool
     @State private var isBreathing = false
 
     var body: some View {
         Circle()
             .fill(Theme.creamFaint)
             .frame(width: 6, height: 6)
-            .opacity(reduceMotion ? 1.0 : (isBreathing ? 0.45 : 1.0))
+            .opacity(isBreathing ? 0.45 : 1.0)
             .animation(
-                reduceMotion ? nil : .easeInOut(duration: 4.5).repeatForever(autoreverses: true),
+                .easeInOut(duration: 4.5).repeatForever(autoreverses: true),
                 value: isBreathing
             )
-            .onAppear {
-                if !reduceMotion { isBreathing = true }
-            }
+            .onAppear { isBreathing = true }
     }
 }

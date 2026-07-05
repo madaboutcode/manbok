@@ -63,8 +63,9 @@ struct PanelBackgroundView: View {
 // MARK: - Tape gauge
 
 /// Reel + tape track + counter. The reel's spoke holes make rotation visible;
-/// it turns only while `spinning` and stops under Reduce Motion. Callers format
-/// the counter text (see HeaderView.formattedMinutes).
+/// it turns only while `spinning`. Callers format the counter text (see
+/// HeaderView.formattedMinutes). Deliberately ignores Reduce Motion: the
+/// owner keeps that setting on system-wide but wants the equipment alive.
 struct TapeGaugeView: View {
     /// Ring fill, 0...1.
     let progress: Double
@@ -72,8 +73,6 @@ struct TapeGaugeView: View {
     let label: String
     /// True while audio is being captured.
     let spinning: Bool
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let secondsPerRevolution: Double = 6
 
@@ -91,7 +90,7 @@ struct TapeGaugeView: View {
     }
 
     private var reel: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !spinning || reduceMotion)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !spinning)) { context in
             let turns = context.date.timeIntervalSinceReferenceDate / Self.secondsPerRevolution
             ReelShape()
                 .rotationEffect(.degrees(spinning ? turns.truncatingRemainder(dividingBy: 1) * 360 : 0))

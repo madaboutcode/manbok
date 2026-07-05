@@ -51,7 +51,6 @@ struct EmptyStateView: View {
 
 /// Three concentric breathing rings around a lamp-lit core — the theme's hero glyph.
 private struct ListenGlyph: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isBreathing = false
 
     var body: some View {
@@ -63,19 +62,17 @@ private struct ListenGlyph: View {
         }
         .frame(width: 108, height: 108)
         .accessibilityHidden(true)
-        .onAppear {
-            if !reduceMotion { isBreathing = true }
-        }
+        .onAppear { isBreathing = true }
     }
 
     private func breathRing(size: CGFloat, opacity: Double, delay: Double) -> some View {
         Circle()
             .strokeBorder(Theme.amber.opacity(opacity), lineWidth: 1)
             .frame(width: size, height: size)
-            .scaleEffect(reduceMotion ? 1.0 : (isBreathing ? 1.05 : 0.9))
-            .opacity(reduceMotion ? 1.0 : (isBreathing ? 1.0 : 0.4))
+            .scaleEffect(isBreathing ? 1.05 : 0.9)
+            .opacity(isBreathing ? 1.0 : 0.4)
             .animation(
-                reduceMotion ? nil : .easeInOut(duration: 3).repeatForever(autoreverses: true).delay(delay),
+                .easeInOut(duration: 3).repeatForever(autoreverses: true).delay(delay),
                 value: isBreathing
             )
     }
