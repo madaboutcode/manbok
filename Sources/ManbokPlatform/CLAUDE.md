@@ -12,17 +12,20 @@ Everything that touches the OS — HAL audio, `~/.manbok/`, temp-dir WAV writes,
 
 ### Mental Model
 
-Implements Core ports (`AudioCapturing`, `DumpSink`) and provides infrastructure the executable wires in `DaemonMain`.
+Implements Core ports (`AudioCapturing`, `DumpSink`) and provides infrastructure the app/executable wire in. `CaptureOrchestrator` drives capture end-to-end — it owns the `AVAudioCapture` tap and feeds bytes into Core's `SessionRegistry`, resolving the foreground app via `AppIdentityResolver` for per-app session boundaries.
 
 ### Layout
 
 | Folder | Role |
 |--------|------|
-| `Capture/` | `AVAudioCapture` — engine tap + converter → 16 kHz mono `Data` |
+| `Capture/` | `AVAudioCapture` (engine tap + converter), `CaptureOrchestrator` (per-app capture lifecycle), `AppIdentityResolver` (bundle ID → display name), `InputDeviceObserver`, `MicrophoneAuthorization`, `OpportunisticCaptureController` (legacy), `ProcessAudioMonitor` |
 | `IPC/` | `UnixSocketServer`, `UnixSocketClient` |
-| `IO/` | `AppStatePaths`, `DumpPaths`, `WavFileWriter`, `PlatformDumpSink` |
+| `IO/` | `AppStatePaths`, `DumpPaths`, `WavFileWriter`, `PlatformDumpSink`, `ExportService` (Finder reveal + clipboard) |
+| `Settings/` | `SettingsStore` (UserDefaults persistence), `LoginItemManager` (SMAppService) |
+| `Runtime/` | `DaemonSession`, `DaemonPresentation`, `DaemonRuntimeEnvironment`, `MigrationService` |
 | `Process/` | `DaemonProcess` — pid file, `posix_spawn` daemon |
-| `Logging/` | `AppLog` — `os.Logger` + stderr mirror |
+| `Logging/` | `AppLog`, `Diagnostics`, `DiagnosticsWriting` |
+| `UI/` | `ActivityPresenting`, `TerminalCaptureMeter`, `TerminalPainter` (debug-only terminal UI) |
 | `External/` | `AudacityLauncher` |
 
 ### Paths
