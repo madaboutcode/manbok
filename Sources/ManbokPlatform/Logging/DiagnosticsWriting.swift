@@ -11,6 +11,7 @@ import os
 // - Paint the foreground meter or touch stdout.
 
 public protocol DiagnosticsWriting: Sendable {
+    func notice(category: AppLog.Category, _ message: String)
     func info(category: AppLog.Category, _ message: String)
     func warning(category: AppLog.Category, _ message: String)
     func error(category: AppLog.Category, _ message: String)
@@ -20,6 +21,10 @@ public protocol DiagnosticsWriting: Sendable {
 /// Console.app only — detached and foreground daemon.
 public struct OSLogOnlyDiagnostics: DiagnosticsWriting {
     public init() {}
+
+    public func notice(category: AppLog.Category, _ message: String) {
+        logger(category).notice("\(message, privacy: .public)")
+    }
 
     public func info(category: AppLog.Category, _ message: String) {
         logger(category).info("\(message, privacy: .public)")
@@ -45,6 +50,11 @@ public struct OSLogOnlyDiagnostics: DiagnosticsWriting {
 /// Console + stderr — interactive CLI subcommands (start/stop/status/dump).
 public struct OSLogAndStderrDiagnostics: DiagnosticsWriting {
     public init() {}
+
+    public func notice(category: AppLog.Category, _ message: String) {
+        logger(category).notice("\(message, privacy: .public)")
+        mirror(category: category, level: "notice", message: message)
+    }
 
     public func info(category: AppLog.Category, _ message: String) {
         logger(category).info("\(message, privacy: .public)")

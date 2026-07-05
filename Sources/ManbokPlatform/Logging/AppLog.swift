@@ -3,9 +3,11 @@ import Foundation
 // MARK: - CONTRACT (AppLog)
 //
 // GUARANTEES
-// - Routes categories cli | daemon | capture through Diagnostics.install sink.
-// - Daemon bootstrap uses OSLogOnlyDiagnostics; CLI uses OSLogAndStderrDiagnostics.
-// - `.debug` stderr mirror only when sink supports it and AppLog.verbose is true.
+// - Routes categories through Diagnostics.install sink.
+// - App target uses OSLogOnlyDiagnostics; CLI uses OSLogAndStderrDiagnostics.
+// - `.notice` maps to Logger.notice (persisted by macOS unified logging).
+// - `.info` maps to Logger.info (NOT persisted — visible only with --info flag or live streaming).
+// - `.debug` maps to Logger.debug (NOT persisted); stderr mirror only when verbose is true.
 //
 // DOES NOT
 // - Write log files, use print(), or emit diagnostics on stdout.
@@ -21,12 +23,20 @@ public struct AppLog {
         case cli
         case daemon
         case capture
+        case app
+        case settings
+        case export
+        case ipc
     }
 
     private let category: Category
 
     public init(category: Category) {
         self.category = category
+    }
+
+    public func notice(_ message: String) {
+        Diagnostics.emit { $0.notice(category: category, message) }
     }
 
     public func info(_ message: String) {
