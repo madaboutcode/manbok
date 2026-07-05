@@ -23,7 +23,7 @@ public enum IPCCommand: Equatable, Sendable {
     case status
     case sessions
     case stop
-    case dump(minutes: Int?, sessionId: Int?)
+    case dump(minutes: Int?, sessionId: UInt64?)
 
     /// Wire form without trailing newline (caller adds `\n` when sending).
     public var wireLine: String {
@@ -65,7 +65,7 @@ public enum IPCCommand: Equatable, Sendable {
         case "STOP":
             return parts.count == 1 ? .stop : nil
         case "DUMP":
-            if parts.count == 3, parts[1].uppercased() == "SESSION", let id = Int(parts[2]), id >= 1 {
+            if parts.count == 3, parts[1].uppercased() == "SESSION", let id = UInt64(parts[2]), id >= 1 {
                 return .dump(minutes: nil, sessionId: id)
             }
             switch parts.count {

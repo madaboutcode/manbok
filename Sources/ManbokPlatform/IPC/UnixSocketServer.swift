@@ -7,21 +7,21 @@ import ManbokCore
 // GUARANTEES
 // - Listens on `AppStatePaths.socketURL` (Unix domain stream socket).
 // - One request per accepted connection: read one line, invoke handler (may be async), write one response line.
-// - UTF-8 line protocol; responses end with `\n`.
+// - Requests are bare-verb UTF-8 lines; responses are NDJSON (one JSON object per line, `\n`-terminated).
 //
 // EXPECTS
-// - Handler maps valid `IPCCommand` to `IPCResponse`; invalid commands may return `.err`.
+// - Handler maps valid `IPCCommand` to `IPCResponse`; invalid commands may return `.error`.
 // - State directory exists or is creatable via `AppStatePaths.ensureDirectory()`.
 //
 // FAILURE BEHAVIOR
 // - Bind/listen/accept I/O errors propagate as `UnixSocketError`.
-// - Malformed request line → handler not called; connection receives `ERR bad command`.
+// - Malformed request line → handler not called; connection receives `{"type":"error","code":"bad_command",...}`.
 //
 // DOES NOT
 // - Stream audio, parse CLI flags, or implement dump use cases (see ListenerService).
 
 private final class ResponseBox: @unchecked Sendable {
-    var value: IPCResponse = .err("internal error")
+    var value: IPCResponse = .error(code: "internal", message: "internal error")
 }
 
 public enum UnixSocketError: Error, Equatable, Sendable {
@@ -36,6 +36,7 @@ public final class UnixSocketServer: @unchecked Sendable {
     private let socketURL: URL
     private let handler: Handler
     private var listenFD: Int32 = -1
+    private let log = AppLog(category: .ipc)
 
     public init(
         socketURL: URL = AppStatePaths.socketURL,
@@ -48,10 +49,12 @@ public final class UnixSocketServer: @unchecked Sendable {
     /// Binds the socket and runs an accept loop until `stop()` or an error.
     public func run() throws {
         listenFD = try Self.openListenSocket(path: socketURL.path)
+        log.notice("listening on \(socketURL.path)")
         defer {
             close(listenFD)
             listenFD = -1
             unlink(socketURL.path)
+            log.notice("socket server stopped")
         }
 
         while listenFD >= 0 {
@@ -60,7 +63,9 @@ public final class UnixSocketServer: @unchecked Sendable {
             let clientFD = accept(listenFD, &clientAddr, &len)
             if clientFD < 0 {
                 if listenFD < 0 { break }
-                throw UnixSocketError.syscall("accept errno=\(errno)")
+                let err = errno
+                log.error("accept failed: errno=\(err)")
+                throw UnixSocketError.syscall("accept errno=\(err)")
             }
 
             Self.serveConnection(fd: clientFD, handler: handler)
@@ -89,9 +94,9 @@ public final class UnixSocketServer: @unchecked Sendable {
             semaphore.wait()
             response = box.value
         } else {
-            response = .err("bad command")
+            response = .error(code: "bad_command", message: "bad command")
         }
-        writeLine(fd: fd, line: response.line)
+        writeLine(fd: fd, line: response.jsonLine)
     }
 
     private static func openListenSocket(path: String) throws -> Int32 {

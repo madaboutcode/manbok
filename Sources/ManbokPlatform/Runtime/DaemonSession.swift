@@ -6,6 +6,8 @@ import ManbokCore
 // GUARANTEES
 // - Owns listener lifecycle, opportunistic vs always-on, IPC server, activity presenter.
 // - Presentation chosen at construction; no foreground checks inside capture code.
+// - IPC dispatch uses NDJSON-encoded IPCCommand/IPCResponse; session identifiers are
+//   stable UInt64 IDs end to end (dump sessionId, sessionNotFound, listSessions).
 //
 // DOES NOT
 // - Parse CLI flags.
@@ -62,7 +64,8 @@ public final class DaemonSession {
             activityPresenter = presenter
 
             let socketServer = UnixSocketServer { [weak self] command in
-                await self?.handle(command: command, service: service) ?? .err("daemon unavailable")
+                await self?.handle(command: command, service: service)
+                    ?? .error(code: "internal", message: "daemon unavailable")
             }
             server = socketServer
             try socketServer.run()
@@ -138,7 +141,7 @@ public final class DaemonSession {
     private func dumpResponse(
         service: ListenerService,
         minutes: Int?,
-        sessionId: Int?
+        sessionId: UInt64?
     ) async -> IPCResponse {
         do {
             let url: URL
@@ -149,9 +152,9 @@ public final class DaemonSession {
             }
             return .okPath(url)
         } catch let error as ListenerError {
-            return .err(dumpErrorMessage(error, service: service))
+            return .error(code: error.code, message: dumpErrorMessage(error, service: service))
         } catch {
-            return .err(error.localizedDescription)
+            return .error(code: "internal", message: error.localizedDescription)
         }
     }
 }

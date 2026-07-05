@@ -62,36 +62,46 @@ final class IPCTests: XCTestCase {
             .stopped(ring: ring),
             .ok,
             .okPath(path),
-            .err("not listening"),
+            .error(code: "not_listening", message: "not listening"),
         ]
         for response in responses {
-            XCTAssertEqual(IPCResponse.parse(line: response.line), response, "round-trip \(response.line)")
+            XCTAssertEqual(IPCResponse.parse(line: response.jsonLine), response, "round-trip \(response.jsonLine)")
         }
     }
 
-    func testStatusParseLegacyWithoutRingBytes() {
-        XCTAssertEqual(
-            IPCResponse.parse(line: "LISTENING"),
-            .listening(ring: RingBufferSummary(filledBytes: 0))
-        )
-        XCTAssertEqual(
-            IPCResponse.parse(line: "WATCHING ring_bytes=0"),
-            .watching(ring: RingBufferSummary(filledBytes: 0))
-        )
+    func testEveryResponseCarriesVersionAndTypeDiscriminator() {
+        let responses: [IPCResponse] = [
+            .pong,
+            .listening(ring: RingBufferSummary(filledBytes: 0)),
+            .watching(ring: RingBufferSummary(filledBytes: 0)),
+            .stopped(ring: RingBufferSummary(filledBytes: 0)),
+            .sessions([]),
+            .ok,
+            .okPath(URL(fileURLWithPath: "/tmp/x.wav")),
+            .error(code: "internal", message: "boom"),
+        ]
+        for response in responses {
+            let data = Data(response.jsonLine.utf8)
+            let object = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
+            XCTAssertEqual(object["v"] as? Int, 1, "\(response.jsonLine) missing v:1")
+            XCTAssertNotNil(object["type"] as? String, "\(response.jsonLine) missing type")
+        }
     }
 
-    func testStatusParseWithRingBytes() {
-        XCTAssertEqual(
-            IPCResponse.parse(line: "LISTENING ring_bytes=192000"),
-            .listening(ring: RingBufferSummary(filledBytes: 192_000))
-        )
-        let wire = IPCResponse.listening(ring: RingBufferSummary(filledBytes: 48_000)).line
-        XCTAssertEqual(IPCResponse.parse(line: wire), .listening(ring: RingBufferSummary(filledBytes: 48_000)))
+    func testStatusWireShape() {
+        let ring = RingBufferSummary(filledBytes: 192_000)
+        let response = IPCResponse.listening(ring: ring)
+        let data = Data(response.jsonLine.utf8)
+        let object = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
+        XCTAssertEqual(object["type"] as? String, "status")
+        XCTAssertEqual(object["phase"] as? String, "listening")
+        let ringObject = object["ring"] as! [String: Any]
+        XCTAssertEqual((ringObject["filled_bytes"] as? NSNumber)?.intValue, 192_000)
+        XCTAssertEqual((ringObject["seconds"] as? NSNumber)?.doubleValue ?? -1, 6.0, accuracy: 0.001)
     }
 
     func testSessionsResponseEmpty() {
-        let wire = IPCResponse.sessions([]).line
-        XCTAssertEqual(wire, "SESSIONS count=0")
+        let wire = IPCResponse.sessions([]).jsonLine
         guard case .sessions(let list) = IPCResponse.parse(line: wire) else {
             return XCTFail("expected sessions")
         }
@@ -101,26 +111,28 @@ final class IPCTests: XCTestCase {
     func testSessionsResponseRoundTripMultiple() {
         let list = [
             SessionSummary(
-                id: 1,
+                id: 7,
                 audioBytes: 32_000,
                 durationSeconds: 2.0,
                 startedSecondsAgo: 600,
                 endedSecondsAgo: 120,
-                isOpen: false
+                isOpen: false,
+                appName: "Zoom"
             ),
             SessionSummary(
-                id: 2,
+                id: 8,
                 audioBytes: 16_000,
                 durationSeconds: 1.0,
                 startedSecondsAgo: 90,
                 endedSecondsAgo: nil,
-                isOpen: true
+                isOpen: true,
+                appName: "OBS"
             ),
         ]
-        let wire = IPCResponse.sessions(list).line
-        XCTAssertTrue(wire.contains("s1="))
-        XCTAssertTrue(wire.contains("s2="))
-        XCTAssertTrue(wire.contains("open:1"))
+        let wire = IPCResponse.sessions(list).jsonLine
+        XCTAssertTrue(wire.contains("\"id\":7"))
+        XCTAssertTrue(wire.contains("\"id\":8"))
+        XCTAssertTrue(wire.contains("\"open\":1"))
 
         guard case .sessions(let parsed) = IPCResponse.parse(line: wire) else {
             return XCTFail("expected sessions response")
@@ -128,31 +140,43 @@ final class IPCTests: XCTestCase {
         XCTAssertEqual(parsed, list)
     }
 
-    func testSessionsResponseSortsById() {
-        let wire = "SESSIONS count=2 s2=id:2,bytes:1000,dur_sec:1.0,start_ago_sec:10,end_ago_sec:5,open:0 s1=id:1,bytes:2000,dur_sec:2.0,start_ago_sec:20,end_ago_sec:15,open:0"
-        guard case .sessions(let parsed) = IPCResponse.parse(line: wire) else {
-            return XCTFail("expected sessions")
-        }
-        XCTAssertEqual(parsed.map(\.id), [1, 2])
+    func testSessionsResponseNullEndAgoForOpenSession() {
+        let open = SessionSummary(
+            id: 8,
+            audioBytes: 16_000,
+            durationSeconds: 1.0,
+            startedSecondsAgo: 90,
+            endedSecondsAgo: nil,
+            isOpen: true,
+            appName: "OBS"
+        )
+        let wire = IPCResponse.sessions([open]).jsonLine
+        XCTAssertTrue(wire.contains("\"end_ago_sec\":null"))
     }
 
     func testResponseParseRejectsInvalid() {
         XCTAssertNil(IPCResponse.parse(line: ""))
-        XCTAssertNil(IPCResponse.parse(line: "OK path="))
-        XCTAssertNil(IPCResponse.parse(line: "SESSIONS"))
-        XCTAssertNil(IPCResponse.parse(line: "MAYBE"))
+        XCTAssertNil(IPCResponse.parse(line: "not json"))
+        XCTAssertNil(IPCResponse.parse(line: "{\"v\":1}"))
+        XCTAssertNil(IPCResponse.parse(line: "{\"v\":1,\"type\":\"maybe\"}"))
+        XCTAssertNil(IPCResponse.parse(line: "{\"v\":1,\"type\":\"ok_path\"}"))
     }
 
-    func testSessionsResponseSkipsMalformedTokens() {
-        guard case .sessions(let list) = IPCResponse.parse(line: "SESSIONS count=1 s1=not-a-token") else {
-            return XCTFail("expected sessions envelope")
-        }
-        XCTAssertTrue(list.isEmpty)
+    func testParseIgnoresExtraFieldsForwardCompat() {
+        let wire = "{\"v\":1,\"type\":\"pong\",\"extra\":\"field\"}"
+        XCTAssertEqual(IPCResponse.parse(line: wire), .pong)
     }
 
-    func testErrMessagePreservesSpaces() {
-        let message = "ring buffer is empty (watching)"
-        XCTAssertEqual(IPCResponse.parse(line: "ERR \(message)"), .err(message))
+    func testParseMissingVersionStillAccepted() {
+        // Missing `v` is OK for forward compat on parse; only serialize guarantees it.
+        let wire = "{\"type\":\"ok\"}"
+        XCTAssertEqual(IPCResponse.parse(line: wire), .ok)
+    }
+
+    func testErrorMessagePreservesSpacesAndCode() {
+        let response = IPCResponse.error(code: "empty_buffer", message: "ring buffer is empty (watching)")
+        let wire = response.jsonLine
+        XCTAssertEqual(IPCResponse.parse(line: wire), response)
     }
 
     func testParseDumpZeroMinutes() {
@@ -162,6 +186,6 @@ final class IPCTests: XCTestCase {
     func testStoppedStatusRoundTrip() {
         let ring = RingBufferSummary(filledBytes: 96_000)
         let response = IPCResponse.stopped(ring: ring)
-        XCTAssertEqual(IPCResponse.parse(line: response.line), response)
+        XCTAssertEqual(IPCResponse.parse(line: response.jsonLine), response)
     }
 }

@@ -39,7 +39,8 @@ final class UnixSocketIPCTests: XCTestCase {
                 durationSeconds: 0.6,
                 startedSecondsAgo: 30,
                 endedSecondsAgo: 5,
-                isOpen: false
+                isOpen: false,
+                appName: "Zoom"
             ),
         ]
         try withServer(handler: { command in
@@ -70,7 +71,7 @@ final class UnixSocketIPCTests: XCTestCase {
             defer { close(fd) }
             writeLine(fd: fd, line: "NOT-A-VERB")
             let line = try XCTUnwrap(readLine(fd: fd))
-            XCTAssertEqual(IPCResponse.parse(line: line), .err("bad command"))
+            XCTAssertEqual(IPCResponse.parse(line: line), .error(code: "bad_command", message: "bad command"))
         })
     }
 
