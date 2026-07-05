@@ -8,12 +8,14 @@ struct PopoverContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             HeaderView()
-            Divider()
+            Rectangle().fill(Theme.line).frame(height: 1)
             content
-            Divider()
+            Rectangle().fill(Theme.line).frame(height: 1)
             FooterView()
         }
         .frame(width: 320)
+        .background(PanelBackgroundView().ignoresSafeArea())
+        .environment(\.colorScheme, .dark)
         .onAppear { viewModel.startPolling() }
         .onDisappear { viewModel.stopPolling() }
     }

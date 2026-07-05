@@ -6,11 +6,11 @@ struct PermissionDeniedView: View {
         VStack(spacing: 10) {
             Text("Mic access needed")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(Theme.amberHot)
                 .accessibilityAddTraits(.isHeader)
             Text("manbok needs microphone access to keep audio.")
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.creamFaint)
                 .multilineTextAlignment(.center)
             Button("Open System Settings…") {
                 NSWorkspace.shared.open(
@@ -18,6 +18,7 @@ struct PermissionDeniedView: View {
                 )
             }
             .buttonStyle(.borderedProminent)
+            .tint(Theme.amber)
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

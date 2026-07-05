@@ -48,21 +48,28 @@ struct SessionRowView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(snapshot.displayName.isEmpty ? "Unknown app" : snapshot.displayName)
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 12.5, weight: .bold))
+                        .foregroundStyle(Theme.cream)
                         .lineLimit(1)
                     if snapshot.isOpen {
-                        Text("· Recording")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.red)
+                        Text("LIVE")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(Theme.amberHot)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Theme.amber.opacity(0.14))
+                            )
                     }
                     Spacer(minLength: 0)
                     Text(timeRangeText)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
+                        .font(Theme.mono(10.5))
+                        .foregroundStyle(Theme.creamDim)
                 }
                 Text(durationText)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
+                    .font(Theme.mono(10))
+                    .foregroundStyle(Theme.creamFaint)
 
                 waveformArea
                 playbackTimeRow
@@ -73,6 +80,7 @@ struct SessionRowView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .background(liveRowBackground)
         .contentShape(Rectangle())
         .focusable(true)
         .focusEffectDisabled()
@@ -105,6 +113,27 @@ struct SessionRowView: View {
         .accessibilityAction(named: "Play audio") { viewModel.playSession(snapshot) }
         .accessibilityAction(named: "Dump WAV file") { performDump() }
         .accessibilityAction(named: "Copy WAV file") { performCopy() }
+        .padding(.vertical, 2)
+    }
+
+    /// Warm amber card background for the row currently being recorded — see
+    /// option-e-listening-post.html `.row.live`. Absent for non-live rows.
+    @ViewBuilder
+    private var liveRowBackground: some View {
+        if snapshot.isOpen {
+            RoundedRectangle(cornerRadius: 9)
+                .fill(
+                    LinearGradient(
+                        colors: [Theme.amber.opacity(0.09), Theme.amber.opacity(0.03)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9)
+                        .strokeBorder(Theme.amber.opacity(0.22), lineWidth: 1)
+                )
+                .shadow(color: Theme.amber.opacity(0.06), radius: 16)
+        }
     }
 
     @ViewBuilder
@@ -127,14 +156,14 @@ struct SessionRowView: View {
         if isThisPlaying {
             HStack {
                 Text(formatPlaybackTime(viewModel.playback.currentTime))
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .font(Theme.mono(10, weight: .medium))
+                    .foregroundStyle(Theme.amberHot)
                 Text("/")
                     .font(.system(size: 9))
-                    .foregroundStyle(.quaternary)
+                    .foregroundStyle(Theme.creamFaint)
                 Text(formatPlaybackTime(viewModel.playback.duration))
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .font(Theme.mono(10, weight: .medium))
+                    .foregroundStyle(Theme.amberHot)
                 Spacer()
             }
         }
@@ -146,22 +175,26 @@ struct SessionRowView: View {
             if copiedFeedback {
                 Label("Copied", systemImage: "checkmark")
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Theme.tapeGreen)
             } else {
                 HStack(spacing: 4) {
                     Button(action: { viewModel.playSession(snapshot) }) {
-                        Group {
+                        ZStack {
+                            actionButtonChrome(tinted: true)
                             if isPreparing {
                                 ProgressView()
                                     .controlSize(.small)
                                     .scaleEffect(0.6)
+                                    .tint(Theme.amber)
                             } else {
                                 Image(systemName: isThisPlaying && viewModel.playback.isPlaying
                                       ? "pause.fill" : "play.fill")
                                     .font(.system(size: 10))
+                                    .foregroundStyle(Theme.amber)
                             }
                         }
                         .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .disabled(isPreparing)
@@ -170,15 +203,27 @@ struct SessionRowView: View {
                                         ? "Pause" : "Play")
 
                     Button(action: performDump) {
-                        Image(systemName: "arrow.down.circle")
-                            .frame(width: 24, height: 24)
+                        ZStack {
+                            actionButtonChrome(tinted: false)
+                            Image(systemName: "arrow.down.circle")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Theme.creamDim)
+                        }
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Dump WAV file")
 
                     Button(action: performCopy) {
-                        Image(systemName: "doc.on.doc")
-                            .frame(width: 24, height: 24)
+                        ZStack {
+                            actionButtonChrome(tinted: false)
+                            Image(systemName: "doc.on.doc")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Theme.creamDim)
+                        }
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Copy WAV file")
@@ -189,12 +234,25 @@ struct SessionRowView: View {
             if let errorMessage {
                 Text(errorMessage)
                     .font(.system(size: 10))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Theme.danger)
                     .accessibilityAddTraits(.updatesFrequently)
                     .accessibilityLabel("Export error: \(errorMessage)")
             }
         }
         .frame(minWidth: 78, minHeight: 24, alignment: .trailing)
+    }
+
+    /// 21×21 instrument-panel button chrome drawn inside a 24pt hit target
+    /// (see option-e-listening-post.html `.icon-btn`). `tinted` applies the
+    /// amber play/pause treatment; other actions use the neutral hairline.
+    private func actionButtonChrome(tinted: Bool) -> some View {
+        RoundedRectangle(cornerRadius: 6)
+            .fill(Color.white.opacity(0.02))
+            .frame(width: 21, height: 21)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(tinted ? Theme.amber.opacity(0.3) : Theme.lineStrong, lineWidth: 1)
+            )
     }
 
     private func formatPlaybackTime(_ seconds: TimeInterval) -> String {

@@ -8,17 +8,32 @@ struct HeaderView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("manbok")
-                    .font(.system(size: 13, weight: .semibold))
+                wordmark
                 Spacer()
                 stateBadge
             }
-            ringFillBar
+            TapeGaugeView(progress: ringProgress, label: ringLabel, spinning: orchestrator.anySessionOpen)
+                .padding(.top, 12)
+            MicroLabel(text: "Tape · Channels \(viewModel.sessions.count)")
+                .padding(.top, 8)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 12)
+    }
+
+    private var wordmark: some View {
+        HStack(alignment: .lastTextBaseline, spacing: 7) {
+            Text("manbok")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Theme.cream)
+            Text("만복")
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.creamFaint)
+                .opacity(0.7)
+        }
     }
 
     @ViewBuilder
@@ -26,50 +41,53 @@ struct HeaderView: View {
         if orchestrator.micPermission == .denied {
             Label("Mic access needed", systemImage: "exclamationmark.triangle.fill")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.orange)
+                .foregroundStyle(Theme.amberHot)
         } else if orchestrator.anySessionOpen {
-            HStack(spacing: 4) {
-                PulsingDot(reduceMotion: reduceMotion)
-                Text("Recording")
-                    .font(.system(size: 11, weight: .medium))
-            }
-            .foregroundStyle(.red)
+            statusPill(
+                dot: AnyView(PulsingDot(color: Theme.amberHot, reduceMotion: reduceMotion)),
+                text: "Recording",
+                textColor: Theme.amberHot,
+                background: Theme.amber.opacity(0.10),
+                border: Theme.amber.opacity(0.25)
+            )
         } else {
-            Text("Watching")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
+            statusPill(
+                dot: AnyView(Circle().fill(Theme.creamFaint).frame(width: 6, height: 6)),
+                text: "Watching",
+                textColor: Theme.creamFaint,
+                background: Color.white.opacity(0.03),
+                border: Theme.lineStrong
+            )
         }
     }
 
-    private var ringFillBar: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            GeometryReader { geo in
-                let fraction = viewModel.ringCapacity > 0
-                    ? CGFloat(viewModel.ringFilled) / CGFloat(viewModel.ringCapacity)
-                    : 0
-
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.primary.opacity(0.06))
-                        .frame(height: 3)
-
-                    Capsule()
-                        .fill(Color.accentColor.opacity(0.5))
-                        .frame(width: max(0, geo.size.width * fraction), height: 3)
-                }
-            }
-            .frame(height: 3)
-
-            Group {
-                if viewModel.ringFilled == 0 {
-                    Text("Ring empty")
-                } else {
-                    Text("\(formattedMinutes(viewModel.ringFilled)) / \(formattedMinutes(viewModel.ringCapacity))")
-                }
-            }
-            .font(.system(size: 10))
-            .foregroundStyle(.secondary)
+    private func statusPill(dot: AnyView, text: String, textColor: Color, background: Color, border: Color) -> some View {
+        HStack(spacing: 6) {
+            dot
+            Text(text)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(textColor)
         }
+        .padding(.leading, 7)
+        .padding(.trailing, 8)
+        .padding(.vertical, 3)
+        .background(
+            Capsule()
+                .fill(background)
+                .overlay(Capsule().strokeBorder(border, lineWidth: 1))
+        )
+    }
+
+    private var ringProgress: Double {
+        viewModel.ringCapacity > 0
+            ? Double(viewModel.ringFilled) / Double(viewModel.ringCapacity)
+            : 0
+    }
+
+    private var ringLabel: String {
+        viewModel.ringFilled == 0
+            ? "Ring empty"
+            : "\(formattedMinutes(viewModel.ringFilled)) / \(formattedMinutes(viewModel.ringCapacity))"
     }
 
     private func formattedMinutes(_ bytes: Int) -> String {
@@ -81,13 +99,15 @@ struct HeaderView: View {
 }
 
 private struct PulsingDot: View {
+    let color: Color
     let reduceMotion: Bool
     @State private var isPulsing = false
 
     var body: some View {
         Circle()
-            .fill(Color.red)
+            .fill(color)
             .frame(width: 6, height: 6)
+            .shadow(color: Theme.amberGlow, radius: 6)
             .opacity(reduceMotion ? 1.0 : (isPulsing ? 0.3 : 1.0))
             .animation(
                 reduceMotion ? nil : .easeInOut(duration: 0.8).repeatForever(autoreverses: true),

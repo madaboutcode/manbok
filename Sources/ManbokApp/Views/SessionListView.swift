@@ -17,7 +17,7 @@ struct SessionListView: View {
                         nextID: index < sessions.count - 1 ? sessions[index + 1].stableId : nil
                     )
                     if index < sessions.count - 1 {
-                        Divider().padding(.leading, 12)
+                        Rectangle().fill(Theme.line).frame(height: 1).padding(.leading, 12)
                     }
                 }
             }
