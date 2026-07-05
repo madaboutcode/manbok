@@ -29,6 +29,10 @@ struct SessionRowView: View {
         viewModel.playingSessionId == snapshot.stableId
     }
 
+    private var isPreparing: Bool {
+        isThisPlaying && !viewModel.playback.isPlaying && viewModel.playback.duration == 0
+    }
+
     private var buttonsVisible: Bool {
         isHovered || isFocused || isThisPlaying
     }
@@ -146,13 +150,23 @@ struct SessionRowView: View {
             } else {
                 HStack(spacing: 4) {
                     Button(action: { viewModel.playSession(snapshot) }) {
-                        Image(systemName: isThisPlaying && viewModel.playback.isPlaying
-                              ? "pause.fill" : "play.fill")
-                            .font(.system(size: 10))
-                            .frame(width: 24, height: 24)
+                        Group {
+                            if isPreparing {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .scaleEffect(0.6)
+                            } else {
+                                Image(systemName: isThisPlaying && viewModel.playback.isPlaying
+                                      ? "pause.fill" : "play.fill")
+                                    .font(.system(size: 10))
+                            }
+                        }
+                        .frame(width: 24, height: 24)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(isThisPlaying && viewModel.playback.isPlaying
+                    .disabled(isPreparing)
+                    .accessibilityLabel(isPreparing ? "Loading"
+                                        : isThisPlaying && viewModel.playback.isPlaying
                                         ? "Pause" : "Play")
 
                     Button(action: performDump) {
