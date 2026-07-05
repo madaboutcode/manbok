@@ -14,7 +14,12 @@ struct HeaderView: View {
                 Spacer()
                 stateBadge
             }
-            TapeGaugeView(progress: ringProgress, label: ringLabel, spinning: orchestrator.anySessionOpen)
+            // Tape moves whenever audio moves: capturing new audio or replaying it.
+            TapeGaugeView(
+                progress: ringProgress,
+                label: ringLabel,
+                spinning: orchestrator.anySessionOpen || viewModel.playback.isPlaying
+            )
                 .padding(.top, 12)
             MicroLabel(text: "Tape · Channels \(viewModel.sessions.count)")
                 .padding(.top, 8)
@@ -52,7 +57,7 @@ struct HeaderView: View {
             )
         } else {
             statusPill(
-                dot: AnyView(Circle().fill(Theme.creamFaint).frame(width: 6, height: 6)),
+                dot: AnyView(StandbyDot(reduceMotion: reduceMotion)),
                 text: "Watching",
                 textColor: Theme.creamFaint,
                 background: Color.white.opacity(0.03),
@@ -115,6 +120,27 @@ private struct PulsingDot: View {
             )
             .onAppear {
                 if !reduceMotion { isPulsing = true }
+            }
+    }
+}
+
+/// Standby lamp for the Watching state: a slow, faint breathe — the ear is
+/// open, nothing is being taped. Deliberately quieter than PulsingDot.
+private struct StandbyDot: View {
+    let reduceMotion: Bool
+    @State private var isBreathing = false
+
+    var body: some View {
+        Circle()
+            .fill(Theme.creamFaint)
+            .frame(width: 6, height: 6)
+            .opacity(reduceMotion ? 1.0 : (isBreathing ? 0.45 : 1.0))
+            .animation(
+                reduceMotion ? nil : .easeInOut(duration: 4.5).repeatForever(autoreverses: true),
+                value: isBreathing
+            )
+            .onAppear {
+                if !reduceMotion { isBreathing = true }
             }
     }
 }
