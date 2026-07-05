@@ -4,7 +4,6 @@ import ManbokPlatform
 
 struct FooterView: View {
     private let log = AppLog(category: .app)
-    @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -23,7 +22,7 @@ struct FooterView: View {
             Button(action: {
                 log.notice("settings: button tapped")
                 NSApplication.shared.activate()
-                openSettings()
+                openWindow(id: "settings")
             }) {
                 FooterHoverLabel(title: "Settings…")
             }
@@ -36,18 +35,18 @@ struct FooterView: View {
                 AppDelegate.shared?.allowTermination = true
                 NSApplication.shared.terminate(nil)
             }) {
-                FooterHoverLabel(title: "Quit", tint: .red)
+                FooterHoverLabel(title: "Quit", tint: Theme.danger)
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 }
 
 private struct FooterHoverLabel: View {
     let title: String
-    var tint: Color = .primary
+    var tint: Color = Theme.creamDim
     @State private var isHovered = false
 
     var body: some View {

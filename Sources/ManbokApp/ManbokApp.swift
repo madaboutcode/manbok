@@ -57,11 +57,18 @@ struct ManbokApp: App {
         .windowStyle(.hiddenTitleBar)
         .defaultPosition(.center)
 
-        Settings {
+        // Plain Window instead of a Settings scene: this is an LSUIElement app
+        // with no app menu, so the scene's menu-item/Cmd+, integration buys
+        // nothing — and its window insists on repainting system titlebar
+        // chrome over our theme. hiddenTitleBar removes the contested surface.
+        Window("Manbok Settings", id: "settings") {
             SettingsView(registry: registry)
                 .environmentObject(settings)
                 .environmentObject(orchestrator)
         }
+        .windowResizability(.contentSize)
+        .windowStyle(.hiddenTitleBar)
+        .defaultPosition(.center)
     }
 
     private func startIPCServer(registry: SessionRegistry, orchestrator: CaptureOrchestrator) {
