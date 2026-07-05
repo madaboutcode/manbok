@@ -19,6 +19,7 @@ struct EmptyStateView: View {
                 .multilineTextAlignment(.center)
                 .lineSpacing(3)
                 .frame(maxWidth: 210)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 6)
 
             TapeGaugeView(progress: ringProgress, label: ringLabel, spinning: false)
