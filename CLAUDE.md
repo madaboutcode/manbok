@@ -24,6 +24,10 @@ make dump               # export newest session (default)
 make dump TARGET=all    # full ring
 make dump TARGET=-1     # prior session
 make dump MINUTES=5     # last N minutes of ring
+
+make app                # build + assemble Manbok.app (.build/Manbok.app)
+make install-app        # app → ~/Applications/Manbok.app
+make run-app             # build + open Manbok.app (foreground GUI, no daemon)
 ```
 
 Mic permission: System Settings → Privacy & Security → Microphone (first capture).
@@ -36,13 +40,14 @@ Foreground meter: TTY UI on stdout; daemon diagnostics → Console (`subsystem:a
 
 ### What This Project Does
 
-Always-on listener daemon records mono 16 kHz PCM into a fixed-size byte ring (~19.2 MB). No disk until `dump`. CLI controls the daemon over a Unix socket and opens the WAV in Audacity for trimming.
+Native macOS menu bar app (SwiftUI) that always-on-records mono 16 kHz PCM per foreground app into a shared byte ring (5–120 min, configurable). No disk until export. A CLI still exists for scripting/debugging and talks to the running app over a Unix socket.
 
 ### System Mental Model
 
 ```text
-CLI (short-lived) ──IPC──► daemon (long-lived) ──► AVAudioEngine ──► ring buffer
-                              └── dump ──► temp WAV ──► CLI opens Audacity
+CLI (short-lived) ──IPC──► App (long-lived) ──► CaptureOrchestrator ──► AVAudioEngine ──► ring buffer
+                              ├── PopoverViewModel ──► SwiftUI views
+                              └── dump ──► temp WAV ──► Finder reveal / clipboard
 ```
 
 State lives in `~/.manbok/` (pid + socket). Dump files go to the system temp directory.
@@ -53,6 +58,7 @@ State lives in `~/.manbok/` (pid + socket). Dump files go to the system temp dir
 |------|------|-----------|
 | `Sources/ManbokCore/` | Domain, ports, application use cases, IPC types | Yes |
 | `Sources/ManbokPlatform/` | AVFoundation capture, sockets, files, logging, daemon spawn | Yes |
+| `Sources/ManbokApp/` | SwiftUI app: entry point, views, view model | Yes |
 | `Sources/manbok/` | CLI + daemon entry (`Main`, `DaemonMain`) | Yes |
 | `Tests/` | XCTest for Core + Platform | — |
 | `tasks/` | Internal planning files (not tracked) | — |
@@ -79,7 +85,7 @@ Daemon/IPC issues: read `docs/claude-references/runtime.md`.
 - **Layers:** Core has no AVFoundation; Platform implements Core ports; executable only routes CLI/daemon.
 - **Contracts:** `// MARK: - CONTRACT` blocks at top of component files — keep aligned with design.
 - **Logging:** `AppLog` + `os.Logger` subsystem `ai.manbok.app`; diagnostics on **stderr**, primary output on **stdout**.
-- **IPC:** Line protocol — `PING`, `STATUS`, `STOP`, `DUMP [minutes]` → see `Sources/ManbokCore/IPC/`.
+- **IPC:** Bare-verb requests (`PING`, `STATUS`, `STOP`, `DUMP [minutes]`); NDJSON responses (one JSON object per line, `v:1` + `type` discriminator) → see `Sources/ManbokCore/IPC/`.
 - **Dependencies:** Native macOS only in libraries; **ArgumentParser** only on the `manbok` executable.
 
 ## Constraints
