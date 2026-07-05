@@ -1,5 +1,5 @@
 # manbok — common dev/daemon commands (run `make help`)
-.PHONY: help build release test verify install uninstall install-launchagent uninstall-launchagent authorize dev stop-quiet start start-bg start-fg start-fg-always start-always-on stop status sessions dump dump-list
+.PHONY: help build release test verify install uninstall install-launchagent uninstall-launchagent authorize dev stop-quiet start start-bg start-fg start-fg-always start-always-on stop status sessions dump dump-list app install-app run-app
 
 LAUNCH_AGENT_LABEL := com.manbok.app
 LAUNCH_AGENT_PLIST := $(HOME)/Library/LaunchAgents/$(LAUNCH_AGENT_LABEL).plist
@@ -37,6 +37,10 @@ help:
 	@echo "  make status           watching | listening | stopped"
 	@echo "  make sessions         list sessions (same as: manbok dump --list)"
 	@echo "  make dump             export newest session (default)"
+	@echo "  make app              build + assemble Manbok.app"
+	@echo "  make install-app      app → ~/Applications/Manbok.app"
+	@echo "  make run-app          build + open Manbok.app"
+	@echo ""
 	@echo "  make dump TARGET=all  export full ring"
 	@echo "  make dump TARGET=-1   prior session (-2 = two back; omit = newest)"
 	@echo "  make dump MINUTES=5   last N minutes of ring"
@@ -157,3 +161,22 @@ endif
 
 dump-list: $(BIN)
 	@$(BIN) dump --list
+
+# --- App targets ---
+
+APP_BUNDLE := .build/Manbok.app
+
+app: release-app
+	@scripts/assemble-app.sh .build release
+
+release-app:
+	swift build -c release --product ManbokApp
+
+install-app: app
+	@install -d "$(HOME)/Applications"
+	@rm -rf "$(HOME)/Applications/Manbok.app"
+	@cp -R "$(APP_BUNDLE)" "$(HOME)/Applications/Manbok.app"
+	@echo "installed ~/Applications/Manbok.app"
+
+run-app: app
+	@open "$(APP_BUNDLE)"

@@ -6,6 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "manbok", targets: ["manbok"]),
+        .executable(name: "ManbokApp", targets: ["ManbokApp"]),
         .library(name: "ManbokCore", targets: ["ManbokCore"]),
         .library(name: "ManbokPlatform", targets: ["ManbokPlatform"]),
     ],
@@ -35,6 +36,14 @@ let package = Package(
                     "-Xlinker", "Sources/manbok/Info.plist",
                 ], .when(platforms: [.macOS])),
             ]
+        ),
+        .executableTarget(
+            name: "ManbokApp",
+            dependencies: [
+                "ManbokCore",
+                "ManbokPlatform",
+            ],
+            exclude: ["CLAUDE.md"]
         ),
         .testTarget(
             name: "ManbokCoreTests",
