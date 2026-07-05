@@ -25,8 +25,12 @@ struct SessionRowView: View {
         focusedSessionID.wrappedValue == snapshot.stableId
     }
 
+    private var isThisPlaying: Bool {
+        viewModel.playingSessionId == snapshot.stableId
+    }
+
     private var buttonsVisible: Bool {
-        isHovered || isFocused
+        isHovered || isFocused || isThisPlaying
     }
 
     var body: some View {
@@ -56,7 +60,8 @@ struct SessionRowView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
 
-                WaveformView(peaks: snapshot.peaks, isOpen: snapshot.isOpen)
+                waveformArea
+                playbackTimeRow
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -74,6 +79,9 @@ struct SessionRowView: View {
             case .return:
                 performDump()
                 return .handled
+            case .space:
+                viewModel.playSession(snapshot)
+                return .handled
             case .downArrow:
                 if let nextID { focusedSessionID.wrappedValue = nextID }
                 return .handled
@@ -90,8 +98,42 @@ struct SessionRowView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabelText)
+        .accessibilityAction(named: "Play audio") { viewModel.playSession(snapshot) }
         .accessibilityAction(named: "Dump WAV file") { performDump() }
         .accessibilityAction(named: "Copy WAV file") { performCopy() }
+    }
+
+    @ViewBuilder
+    private var waveformArea: some View {
+        if isThisPlaying {
+            PlaybackWaveformView(
+                peaks: snapshot.peaks,
+                isOpen: snapshot.isOpen,
+                fraction: viewModel.playback.progressFraction
+            ) { fraction in
+                viewModel.playback.seek(toFraction: fraction)
+            }
+        } else {
+            WaveformView(peaks: snapshot.peaks, isOpen: snapshot.isOpen)
+        }
+    }
+
+    @ViewBuilder
+    private var playbackTimeRow: some View {
+        if isThisPlaying {
+            HStack {
+                Text(formatPlaybackTime(viewModel.playback.currentTime))
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                Text("/")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.quaternary)
+                Text(formatPlaybackTime(viewModel.playback.duration))
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+        }
     }
 
     @ViewBuilder
@@ -102,17 +144,27 @@ struct SessionRowView: View {
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.green)
             } else {
-                HStack(spacing: 6) {
+                HStack(spacing: 4) {
+                    Button(action: { viewModel.playSession(snapshot) }) {
+                        Image(systemName: isThisPlaying && viewModel.playback.isPlaying
+                              ? "pause.fill" : "play.fill")
+                            .font(.system(size: 10))
+                            .frame(width: 24, height: 24)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(isThisPlaying && viewModel.playback.isPlaying
+                                        ? "Pause" : "Play")
+
                     Button(action: performDump) {
                         Image(systemName: "arrow.down.circle")
-                            .frame(width: 28, height: 24)
+                            .frame(width: 24, height: 24)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Dump WAV file")
 
                     Button(action: performCopy) {
                         Image(systemName: "doc.on.doc")
-                            .frame(width: 28, height: 24)
+                            .frame(width: 24, height: 24)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Copy WAV file")
@@ -128,7 +180,18 @@ struct SessionRowView: View {
                     .accessibilityLabel("Export error: \(errorMessage)")
             }
         }
-        .frame(minWidth: 68, minHeight: 24, alignment: .trailing)
+        .frame(minWidth: 78, minHeight: 24, alignment: .trailing)
+    }
+
+    private func formatPlaybackTime(_ seconds: TimeInterval) -> String {
+        let total = Int(seconds)
+        let h = total / 3600
+        let m = (total % 3600) / 60
+        let s = total % 60
+        if h > 0 {
+            return String(format: "%d:%02d:%02d", h, m, s)
+        }
+        return String(format: "%d:%02d", m, s)
     }
 
     private var timeRangeText: String {

@@ -1,5 +1,5 @@
 import Foundation
-import ManbokCore
+@preconcurrency import ManbokCore
 import ManbokPlatform
 import SwiftUI
 
@@ -31,6 +31,9 @@ public final class PopoverViewModel: ObservableObject {
     @Published public private(set) var sessions: [SessionRegistry.SessionSnapshot] = []
     @Published public private(set) var ringFilled: Int = 0
     @Published public private(set) var ringCapacity: Int = 0
+    @Published public private(set) var playingSessionId: UInt64?
+
+    public let playback = AudioPlaybackService()
 
     let registry: SessionRegistry
     let orchestrator: CaptureOrchestrator
@@ -62,6 +65,7 @@ public final class PopoverViewModel: ObservableObject {
     public func stopPolling() {
         pollTimer?.cancel()
         pollTimer = nil
+        stopPlayback()
     }
 
     public func refreshSessions() {
@@ -108,6 +112,48 @@ public final class PopoverViewModel: ObservableObject {
             log.error("copy failed for session \(snapshot.stableId): \(error)")
             return false
         }
+    }
+
+    public func playSession(_ snapshot: SessionRegistry.SessionSnapshot) {
+        if playingSessionId == snapshot.stableId && playback.isPlaying {
+            playback.pause()
+            return
+        }
+        if playingSessionId == snapshot.stableId && !playback.isPlaying && playback.duration > 0 {
+            playback.resume()
+            return
+        }
+
+        let stableId = snapshot.stableId
+        let reg = registry
+        playingSessionId = stableId
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let pcm = reg.snapshotForSession(stableId: stableId),
+                  !pcm.isEmpty else {
+                Task { @MainActor [weak self] in
+                    self?.log.warning("playback: session \(stableId) empty or expired")
+                    self?.playingSessionId = nil
+                }
+                return
+            }
+            let wav = WavPCMEncoder.encode(pcm: pcm)
+            Task { @MainActor [weak self] in
+                guard let self, self.playingSessionId == stableId else { return }
+                do {
+                    try self.playback.play(wavData: wav)
+                    self.log.notice("playback: started session \(stableId)")
+                } catch {
+                    self.log.error("playback: failed — \(error)")
+                    self.playingSessionId = nil
+                }
+            }
+        }
+    }
+
+    public func stopPlayback() {
+        playback.stop()
+        playingSessionId = nil
     }
 
     private static func slug(from displayName: String) -> String {
