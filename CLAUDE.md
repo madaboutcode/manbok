@@ -80,6 +80,8 @@ Deep architecture: read `ARCHITECTURE.md` when touching layers, IPC, or capture.
 
 Daemon/IPC issues: read `docs/claude-references/runtime.md`.
 
+Logging/diagnostics: read `docs/claude-references/logging.md` (log levels, querying, gotchas).
+
 ## Conventions
 
 - **Layers:** Core has no AVFoundation; Platform implements Core ports; executable only routes CLI/daemon.
