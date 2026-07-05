@@ -13,7 +13,7 @@ import ManbokCore
 // - Recreates the converter if the hardware format changes mid-session.
 //
 // EXPECTS
-// - sink handles Data on the capture thread (RecordingSession serializes).
+// - sink handles Data on the capture thread (ListenerService/SessionRegistry serializes).
 //
 // FAILURE BEHAVIOR
 // - start throws if microphone permission denied or engine cannot start.
