@@ -3,15 +3,15 @@ import Foundation
 // MARK: - CONTRACT (DumpSessionSelector)
 //
 // GUARANTEES
-// - Parses CLI session targets: 1-based id (`1`), `last` (= newest), or `-N` (N sessions before newest).
+// - Parses CLI session targets: stable id (`7`), `last` (= newest), or `-N` (N sessions before newest).
 // - `-1` = previous session (not Python “last element”).
-// - Resolves against chronological session list (oldest first).
+// - Resolves against newest-first session list (as returned by SESSIONS).
 //
 // DOES NOT
 // - Talk to IPC or export WAV.
 
 public enum DumpSessionSelector: Equatable, Sendable {
-    case byId(Int)
+    case byId(UInt64)
     /// 0 = newest; 1 = one before newest (`-1` on CLI); 2 = two before (`-2`), etc.
     case fromEnd(offset: Int)
 }
@@ -19,7 +19,7 @@ public enum DumpSessionSelector: Equatable, Sendable {
 public enum DumpSessionSelectorError: Error, Equatable, Sendable {
     case invalidSyntax(String)
     case noSessions
-    case unknownSession(id: Int)
+    case unknownSession(id: UInt64)
     case offsetOutOfRange(offset: Int, sessionCount: Int)
 }
 
@@ -34,13 +34,15 @@ public enum DumpSessionSelectorParser {
             return .success(.fromEnd(offset: 0))
         }
 
-        if let value = Int(trimmed) {
-            if value >= 1 {
-                return .success(.byId(value))
+        if trimmed.hasPrefix("-") {
+            if let offset = Int(trimmed), offset <= -1 {
+                return .success(.fromEnd(offset: -offset))
             }
-            if value <= -1 {
-                return .success(.fromEnd(offset: -value))
-            }
+            return .failure(.invalidSyntax(text))
+        }
+
+        if let id = UInt64(trimmed), id >= 1 {
+            return .success(.byId(id))
         }
 
         return .failure(.invalidSyntax(text))
@@ -49,7 +51,7 @@ public enum DumpSessionSelectorParser {
     public static func resolve(
         _ selector: DumpSessionSelector,
         in sessions: [SessionSummary]
-    ) -> Result<Int, DumpSessionSelectorError> {
+    ) -> Result<UInt64, DumpSessionSelectorError> {
         guard !sessions.isEmpty else {
             return .failure(.noSessions)
         }
@@ -65,8 +67,8 @@ public enum DumpSessionSelectorParser {
             guard offset >= 0, offset < sessions.count else {
                 return .failure(.offsetOutOfRange(offset: offset, sessionCount: sessions.count))
             }
-            let position = sessions.count - 1 - offset
-            return .success(sessions[position].id)
+            // Sessions are newest-first; position 0 is the newest.
+            return .success(sessions[offset].id)
         }
     }
 }

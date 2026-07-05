@@ -8,14 +8,14 @@ Pure domain + application logic. **No AVFoundation, no FileManager paths in use 
 
 ### What This Module Owns
 
-Fixed-format PCM ring buffer, WAV header encoding, dump byte-range math, listener use cases, and IPC message types (parse/serialize only — no sockets here).
+Fixed-format PCM ring buffer, WAV header encoding, dump byte-range math, listener use cases, and IPC message types (bare-verb request parsing, NDJSON response serialization/parsing — no sockets here).
 
 ### Mental Model
 
 ```text
-AudioCapturing (port) ──► RecordingSession ──► ByteRingBuffer
-                                ▲
-ListenerService ────────────────┘
+AudioCapturing (port) ──► SessionRegistry ──► ByteRingBuffer
+                               ▲
+ListenerService ───────────────┘ (legacy/debug)
        └── dump ──► WavPCMEncoder + DumpSink (port)
 ```
 
@@ -23,16 +23,20 @@ ListenerService ────────────────┘
 
 | Folder | Files |
 |--------|--------|
-| `Domain/` | `AudioFormat`, `ByteRingBuffer`, `DumpRange`, `WavPCMEncoder` |
+| `Domain/` | `AudioFormat`, `ByteRingBuffer`, `BufferPolicy`, `DumpRange`, `DumpSessionSelector`, `RingBufferSummary`, `SessionSummary` (+Display), `WaveformSampler`, `WavPCMEncoder`, `AppEvent` |
+| `Audio/` | `AudioActivitySnapshot`, `SpeechActivityDetector` |
 | `Ports/` | `AudioCapturing`, `DumpSink` |
-| `Application/` | `RecordingSession`, `ListenerService` |
+| `Application/` | `SessionRegistry`, `ListenerService` |
 | `IPC/` | `IPCCommand`, `IPCResponse` |
 
 ### Key Types
 
 - `AudioFormat.capacityBytes` → 19_200_000 (10 min @ 16 kHz mono s16le)
-- `ListenerError` — `.notListening`, `.emptyBuffer`
+- `ListenerError` — `.notListening`, `.emptyBuffer`, `.sessionNotFound(UInt64)`
 - `ByteRingBuffer.slice(lastBytes:)` → 1–2 `Data` segments in time order
+- `SessionRegistry` — one open session per bundle ID over a shared ring; stable monotonic `UInt64` ids; replaces `RecordingSession`
+- `BufferPolicy.Preset` — ring size presets (`min5`...`min120`); `sessionsLost` computes resize impact before committing
+- `WaveformSampler` — finalizes peak data for a closed session's waveform display
 
 ### Tests
 
@@ -45,7 +49,7 @@ swift test --filter ManbokCoreTests
 ## Constraints
 
 - New I/O → new port in `Ports/`, implement in `ManbokPlatform`.
-- `RecordingSession` owns serialization of ring writes (queue).
+- `SessionRegistry` owns serialization of ring writes (queue).
 - `ListenerService.dump` requires non-empty PCM in the ring (works after capture stops).
 - No `print()` in Core — logging belongs at edges (`AppLog`).
 

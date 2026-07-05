@@ -2,7 +2,7 @@ import XCTest
 @testable import ManbokCore
 
 final class DumpSessionSelectorTests: XCTestCase {
-    private func summary(id: Int) -> SessionSummary {
+    private func summary(id: UInt64) -> SessionSummary {
         SessionSummary(
             id: id,
             audioBytes: 1000,
@@ -36,7 +36,8 @@ final class DumpSessionSelectorTests: XCTestCase {
     }
 
     func testResolveFromEnd() throws {
-        let sessions = [summary(id: 1), summary(id: 2), summary(id: 3)]
+        // Newest-first, matching SESSIONS wire ordering.
+        let sessions = [summary(id: 3), summary(id: 2), summary(id: 1)]
         let newest = try DumpSessionSelectorParser.resolve(.fromEnd(offset: 0), in: sessions).get()
         let prev = try DumpSessionSelectorParser.resolve(.fromEnd(offset: 1), in: sessions).get()
         XCTAssertEqual(newest, 3)

@@ -1,28 +1,6 @@
 import Foundation
 
 extension SessionSummary {
-    /// CLI/IPC: `id:1,dur_sec:9.2,start_ago_sec:300,end_ago_sec:120,open:0,app:Zoom`
-    public var ipcToken: String {
-        let endPart: String
-        if let endedSecondsAgo {
-            endPart = "end_ago_sec:\(Self.formatSeconds(endedSecondsAgo))"
-        } else {
-            endPart = "end_ago_sec:"
-        }
-        var parts = [
-            "id:\(id)",
-            "bytes:\(audioBytes)",
-            "dur_sec:\(String(format: "%.1f", durationSeconds))",
-            "start_ago_sec:\(Self.formatSeconds(startedSecondsAgo))",
-            endPart,
-            "open:\(isOpen ? 1 : 0)",
-        ]
-        if let appName {
-            parts.append("app:\(appName)")
-        }
-        return parts.joined(separator: ",")
-    }
-
     /// Human line for `manbok dump --list` (stdout).
     /// Compact single-line (no rule/box). Prefer `SessionSummary.table(...)` for the list command.
     public func displayLine() -> String {
@@ -31,7 +9,7 @@ extension SessionSummary {
         let started = Self.shortRelative(secondsAgo: startedSecondsAgo)
         let app = appName ?? ""
         // Compact, aligned single line using same short labels as the ruled table.
-        return String(format: "%3d  %6@  %5@  %7@  %@", id, dur, ended, started, app)
+        return String(format: "%3@  %6@  %5@  %7@  %@", "\(id)", dur, ended, started, app)
     }
 
     /// Modern ruled list for `manbok dump --list` / `sessions`.
@@ -119,10 +97,6 @@ extension SessionSummary {
         return ([headerLine, ruleLine] + dataLines)
             .map { indent + $0 }
             .joined(separator: "\n")
-    }
-
-    private static func formatSeconds(_ value: TimeInterval) -> String {
-        value.isFinite ? String(format: "%.0f", value) : "inf"
     }
 
     /// Compact relative time for table cells (no prefix, no "ago").

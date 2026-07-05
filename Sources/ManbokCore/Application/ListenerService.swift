@@ -8,6 +8,8 @@ import Foundation
 // - dump(minutes:) writes via DumpSink after WavPCMEncoder; never writes when ring empty.
 // - stopCapture idempotent.
 // - startCapture when already listening → no-op success.
+// - listSessions()/dump(sessionId:) use SessionRegistry's stable UInt64 ids directly, newest-first
+//   (see docs/specs/interfaces/ipc.md §2.3, §4).
 //
 // EXPECTS:
 // - AudioCapturing and DumpSink injected at construction.
@@ -23,7 +25,7 @@ import Foundation
 public enum ListenerError: Error, Equatable, Sendable {
     case notListening
     case emptyBuffer
-    case sessionNotFound(Int)
+    case sessionNotFound(UInt64)
 
     public var message: String {
         switch self {
@@ -35,21 +37,40 @@ public enum ListenerError: Error, Equatable, Sendable {
             return "session \(id) not found"
         }
     }
+
+    /// Stable IPC error code (see docs/specs/interfaces/ipc.md §3).
+    public var code: String {
+        switch self {
+        case .notListening: return "not_listening"
+        case .emptyBuffer: return "empty_buffer"
+        case .sessionNotFound: return "session_not_found"
+        }
+    }
 }
 
 /// Daemon use cases: capture lifecycle and ring dump to WAV.
 public final class ListenerService {
     private let capture: AudioCapturing
     private let dumpSink: DumpSink
-    private let session = RecordingSession()
+    private let registry = SessionRegistry()
     private let stateQueue = DispatchQueue(label: "ai.manbok.app.listener-service")
     private var listening = false
     private var speechDetector = SpeechActivityDetector()
     private var lastSpeechAt: Date?
     /// Last frame at or above VAD threshold (used when speech was never flagged).
     private var lastActiveAt: Date?
+    private var lastAppendAt: Date?
     private var chunkCount = 0
     private var activitySnapshot = AudioActivitySnapshot.idle
+
+    /// Transitional shim: SessionRegistry is keyed per-app bundleID, but
+    /// OpportunisticCaptureController (pre-Phase-2) still drives a single continuous "union"
+    /// session through setSessionAppName/closeSession with no bundleID at all. This fixed key
+    /// stands in for that one session. Remove once CaptureOrchestrator (Phase 2 task 2.1) calls
+    /// SessionRegistry directly with real per-app bundle ids.
+    private let legacyBundleID = "ai.manbok.app.legacy-session"
+    private var legacySessionIsOpen = false
+    private var legacyPendingDisplayName = ""
 
     public init(capture: AudioCapturing, dumpSink: DumpSink) {
         self.capture = capture
@@ -66,12 +87,15 @@ public final class ListenerService {
 
     /// PCM bytes currently in the ring (preserved across stopCapture / watching).
     public var ringFilledBytes: Int {
-        session.filledBytes
+        registry.filledBytes
     }
 
     /// Time since last audio chunk was appended to the ring.
     public var secondsSinceLastAudio: TimeInterval {
-        session.secondsSinceLastAppend
+        stateQueue.sync {
+            guard let lastAppendAt else { return .infinity }
+            return Date().timeIntervalSince(lastAppendAt)
+        }
     }
 
     /// Time since last speech frame (VAD-lite); `.infinity` if none yet this session.
@@ -128,12 +152,22 @@ public final class ListenerService {
 
     /// Finalizes the current recording session as metadata (no bytes written to ring).
     public func closeSession(appName: String? = nil) {
-        session.closeSession(appName: appName)
+        stateQueue.sync {
+            if let appName { legacyPendingDisplayName = appName }
+            legacySessionIsOpen = false
+            legacyPendingDisplayName = ""
+        }
+        if let appName {
+            registry.setDisplayName(bundleID: legacyBundleID, displayName: appName)
+        }
+        registry.closeSession(bundleID: legacyBundleID)
     }
 
     /// Sets the app name for the currently open session.
     public func setSessionAppName(_ name: String?) {
-        session.setOpenSessionAppName(name)
+        guard let name else { return }
+        stateQueue.sync { legacyPendingDisplayName = name }
+        registry.setDisplayName(bundleID: legacyBundleID, displayName: name)
     }
 
     public func stopCapture() {
@@ -156,7 +190,12 @@ public final class ListenerService {
     private func ingestPCM(_ data: Data) {
         stateQueue.sync {
             guard listening else { return }
-            session.append(data)
+            lastAppendAt = Date()
+            if !legacySessionIsOpen {
+                registry.openSession(bundleID: legacyBundleID, displayName: legacyPendingDisplayName)
+                legacySessionIsOpen = true
+            }
+            registry.append(data)
             chunkCount += 1
             var detector = speechDetector
             let metrics = detector.analyze(pcm: data)
@@ -196,18 +235,30 @@ public final class ListenerService {
         )
     }
 
+    /// Newest-first session list, stable ids passed straight through from SessionRegistry.
     public func listSessions() -> [SessionSummary] {
-        session.listSessions()
+        let now = Date()
+        return registry.listSessions().map { snapshot in
+            SessionSummary(
+                id: snapshot.stableId,
+                audioBytes: snapshot.audioBytes,
+                durationSeconds: snapshot.durationSeconds,
+                startedSecondsAgo: now.timeIntervalSince(snapshot.startedAt),
+                endedSecondsAgo: snapshot.endedAt.map { now.timeIntervalSince($0) },
+                isOpen: snapshot.isOpen,
+                appName: snapshot.displayName.isEmpty ? nil : snapshot.displayName
+            )
+        }
     }
 
     public func dump(minutes: Int?) async throws -> URL {
-        let pcm = session.snapshotForDump(minutes: minutes)
+        let pcm = registry.snapshotForDump(minutes: minutes)
         guard !pcm.isEmpty else { throw ListenerError.emptyBuffer }
         return try writeWAV(pcm: pcm)
     }
 
-    public func dump(sessionId: Int) async throws -> URL {
-        guard let pcm = session.snapshotForSession(id: sessionId), !pcm.isEmpty else {
+    public func dump(sessionId: UInt64) async throws -> URL {
+        guard let pcm = registry.snapshotForSession(stableId: sessionId), !pcm.isEmpty else {
             throw ListenerError.sessionNotFound(sessionId)
         }
         return try writeWAV(pcm: pcm)

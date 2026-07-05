@@ -21,11 +21,6 @@ public struct RingBufferSummary: Sendable, Equatable {
         return Double(filledBytes) / Double(AudioFormat.bytesPerSecond)
     }
 
-    /// Wire suffix: `ring_bytes=192000`
-    public var ipcSuffix: String {
-        "ring_bytes=\(filledBytes)"
-    }
-
     /// CLI / meter: `ring=1.2 MB (~6.0s)`
     public var displaySuffix: String {
         guard filledBytes > 0 else { return "ring=empty" }

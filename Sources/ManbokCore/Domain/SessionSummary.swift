@@ -1,8 +1,8 @@
 import Foundation
 
-/// One captured session slice in the ring (1-based id assigned at list time).
+/// One captured session slice in the ring (stable id assigned at session open).
 public struct SessionSummary: Sendable, Equatable {
-    public let id: Int
+    public let id: UInt64
     public let audioBytes: Int
     public let durationSeconds: Double
     /// Seconds before `now` that capture for this session began.
@@ -14,7 +14,7 @@ public struct SessionSummary: Sendable, Equatable {
     public let appName: String?
 
     public init(
-        id: Int,
+        id: UInt64,
         audioBytes: Int,
         durationSeconds: Double,
         startedSecondsAgo: TimeInterval,
