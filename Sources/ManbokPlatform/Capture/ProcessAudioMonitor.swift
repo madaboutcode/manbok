@@ -48,6 +48,7 @@ public final class ProcessAudioMonitor {
 
             let bundleID = readCFString(objID, kAudioProcessPropertyBundleID) ?? ""
             if Self.alwaysOnProcesses.contains(bundleID) { continue }
+            if Self.ignoredBundleIDPrefixes.contains(where: { bundleID.hasPrefix($0) }) { continue }
             result.append(AudioProcessInfo(pid: pid, bundleID: bundleID, isRunningInput: true))
         }
         return result
@@ -65,6 +66,13 @@ public final class ProcessAudioMonitor {
         "com.apple.SiriNCService",               // Siri notification center
         "com.apple.accessibility.heard",         // Live Listen (hearing aid feature)
         "com.apple.cmio.ContinuityCaptureAgent", // Continuity Camera agent
+    ]
+
+    private static let ignoredBundleIDPrefixes: [String] = [
+        "com.apple.Sound-Settings.",             // System Settings → Sound input meter
+        "com.apple.systempreferences.",          // System Settings panels
+        "com.apple.audio.",                      // Audio system helpers
+        "com.apple.preference.",                 // Legacy preference panes
     ]
 
     private static let knownApps: [String: String] = [

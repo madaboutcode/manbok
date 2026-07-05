@@ -301,11 +301,6 @@ private func performDump(minutes: Int?, sessionId: UInt64?) throws {
         switch response {
         case .okPath(let url):
             print(url.path)
-            if AudacityLauncher.open(path: url.path) {
-                cliLog.info("opened in Audacity")
-            } else {
-                cliLog.warning("could not open Audacity — open the WAV manually")
-            }
         case .error(let code, let message):
             cliLog.error(message)
             explainDumpFailure(code: code, message: message)
