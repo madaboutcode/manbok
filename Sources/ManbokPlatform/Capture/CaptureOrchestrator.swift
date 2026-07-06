@@ -17,6 +17,14 @@ import ManbokCore
 //   AVCaptureDevice.authorizationStatus(for: .audio).
 // - Engine starts on first arrival (registry empty and no timers); stops once every session
 //   is closed and no drain timers remain.
+// - Capture self-heals while sessions are open: restarts on default-input change, on
+//   AVAudioEngineConfigurationChange, and on byte-flow stall (watchdog on the poll tick —
+//   engine.isRunning is untrustworthy, byte flow is ground truth). Sessions stay OPEN
+//   across restarts; the ring just gets a short gap.
+// - Restarts are rate-limited with exponential backoff (CaptureRestartPolicy): a device
+//   that can't hold capture converges to one attempt per 30s — never a flap loop, never
+//   a strobing mic indicator. Repeated unhealthy restarts escalate to .error logs.
+// - Logs input-device identity (name + id) at notice level on every capture (re)start.
 // - Both @Published properties are updated on the main thread.
 //
 // EXPECTS:
@@ -24,14 +32,18 @@ import ManbokCore
 // - start()/stop() are idempotent and safe to call from any thread.
 //
 // FAILURE BEHAVIOR:
-// - capture.start throws -> retry after 1s (same backoff as OpportunisticCaptureController);
+// - capture.start throws -> retried on subsequent polls at the policy's backoff;
 //   sessions are not opened for an arrival until capture is actually running.
+// - Device-change signals arriving inside the backoff window are suppressed; the
+//   watchdog is the backstop (spike-proven: a debounce alone can swallow the terminal
+//   stop event — see tasks/decisions-20260706-device-change-robustness.md).
 //
 // DOES NOT:
 // - Own the ring or session storage (SessionRegistry does).
 // - Route IPC or touch UI.
 // - Run VAD (stays in ListenerService, used only for the foreground meter).
-// - Observe default-input device changes (InputDeviceObserver) — can be layered on later.
+// - Pin capture to a specific (non-default) device — capture follows the system default
+//   input; per-app device following is queued (tasks/next-follow-app-mic.md).
 
 public enum MicPermissionState: Sendable, Equatable {
     case authorized
@@ -49,7 +61,11 @@ public enum MicPermissionState: Sendable, Equatable {
 }
 
 /// Per-app capture lifecycle: set-diff polling drives SessionRegistry open/close directly.
-public final class CaptureOrchestrator: ObservableObject {
+///
+/// @unchecked Sendable: all mutable state is confined to `queue` (poll/session/capture
+/// state), protected by `dataClock` (lastDataAtStorage, written from the audio thread),
+/// or written only on the main queue (@Published, via the shadow-copy publish pattern).
+public final class CaptureOrchestrator: ObservableObject, @unchecked Sendable {
     private let capture: AudioCapturing
     private let registry: SessionRegistry
     private let monitor: ProcessAudioMonitor
@@ -65,9 +81,23 @@ public final class CaptureOrchestrator: ObservableObject {
     private var previousBundleIDs: Set<String> = []
     private var knownPIDs: [String: pid_t] = [:]
     private var isCapturing = false
-    private var captureRetryAfter: Date?
     private var lastPermissionCheck: Date?
     private let permissionCheckInterval: TimeInterval = 30.0
+
+    // Self-healing capture (mutated only on `queue`, except lastDataAt — see dataClock).
+    private var restartPolicy: CaptureRestartPolicy
+    private var captureStartedAt: Date?
+    private var removeDeviceListener: (() -> Void)?
+    private var configChangeObserver: NSObjectProtocol?
+
+    // Written from the audio tap thread, read on `queue` by the watchdog.
+    private let dataClock = NSLock()
+    private var lastDataAtStorage: Date?
+    private var lastDataAt: Date? {
+        dataClock.lock()
+        defer { dataClock.unlock() }
+        return lastDataAtStorage
+    }
 
     // Shadow copies, mutated only on `queue`, so publish() never reads the @Published
     // properties (those are written on the main queue) from a background thread.
@@ -83,7 +113,8 @@ public final class CaptureOrchestrator: ObservableObject {
         monitor: ProcessAudioMonitor = ProcessAudioMonitor(),
         resolver: AppIdentityResolver = .shared,
         pollInterval: TimeInterval = 2.0,
-        gracePeriod: TimeInterval = 5.0
+        gracePeriod: TimeInterval = 5.0,
+        restartPolicy: CaptureRestartPolicy = CaptureRestartPolicy()
     ) {
         self.capture = capture
         self.registry = registry
@@ -91,6 +122,7 @@ public final class CaptureOrchestrator: ObservableObject {
         self.resolver = resolver
         self.pollInterval = pollInterval
         self.gracePeriod = gracePeriod
+        self.restartPolicy = restartPolicy
     }
 
     public func start() {
@@ -101,6 +133,24 @@ public final class CaptureOrchestrator: ObservableObject {
             source.setEventHandler { [weak self] in self?.poll() }
             source.resume()
             pollTimer = source
+
+            // Device-change signals. Both funnel into the same rate-limited restart path;
+            // the poll-tick watchdog is the backstop for anything these miss or suppress.
+            removeDeviceListener = InputDeviceObserver.addDefaultInputChangeHandler { [weak self] in
+                self?.queue.async { [weak self] in
+                    self?.deviceEnvironmentChanged(reason: "default input changed")
+                }
+            }
+            configChangeObserver = NotificationCenter.default.addObserver(
+                forName: .AVAudioEngineConfigurationChange,
+                object: nil, // capture engine is recreated per (re)start; ours is the only engine in-process
+                queue: nil
+            ) { [weak self] _ in
+                self?.queue.async { [weak self] in
+                    self?.deviceEnvironmentChanged(reason: "engine configuration changed")
+                }
+            }
+
             log.notice("orchestrator started — polling every \(pollInterval)s")
         }
     }
@@ -109,6 +159,12 @@ public final class CaptureOrchestrator: ObservableObject {
         queue.sync {
             pollTimer?.cancel()
             pollTimer = nil
+            removeDeviceListener?()
+            removeDeviceListener = nil
+            if let observer = configChangeObserver {
+                NotificationCenter.default.removeObserver(observer)
+                configChangeObserver = nil
+            }
             for (_, timer) in drainTimers { timer.cancel() }
             drainTimers.removeAll()
             if isCapturing {
@@ -120,7 +176,7 @@ public final class CaptureOrchestrator: ObservableObject {
             }
             previousBundleIDs.removeAll()
             knownPIDs.removeAll()
-            captureRetryAfter = nil
+            resetCaptureHealth()
             publish(anySessionOpen: false)
         }
     }
@@ -149,6 +205,22 @@ public final class CaptureOrchestrator: ObservableObject {
         }
 
         previousBundleIDs = currentBundleIDs
+
+        // Self-healing: while sessions should be recording, capture must be alive AND
+        // producing bytes. Recovers from failed starts (nothing else retries once
+        // arrivals stop changing) and from silent engine death (isRunning lies; byte
+        // flow is ground truth).
+        let shouldCapture = registry.anySessionOpen || !drainTimers.isEmpty
+        if shouldCapture {
+            if !isCapturing {
+                startCapture()
+            } else if let startedAt = captureStartedAt,
+                      restartPolicy.isStalled(lastDataAt: lastDataAt, captureStartedAt: startedAt, now: now),
+                      restartPolicy.mayRestart(now: now) {
+                restartCapture(reason: "watchdog: no audio ≥\(Int(restartPolicy.watchdogThreshold))s")
+            }
+        }
+
         publish(anySessionOpen: registry.anySessionOpen || !drainTimers.isEmpty)
     }
 
@@ -193,18 +265,51 @@ public final class CaptureOrchestrator: ObservableObject {
 
     private func startCapture() {
         guard !isCapturing else { return }
-        if let retryAfter = captureRetryAfter, Date() < retryAfter { return }
+        let now = Date()
+        guard restartPolicy.mayRestart(now: now) else { return } // retried next poll tick
+        let wasFlowing = lastDataAt.map {
+            now.timeIntervalSince($0) < restartPolicy.watchdogThreshold
+        } ?? false
+        restartPolicy.recordRestart(now: now, wasFlowing: wasFlowing)
+        if restartPolicy.consecutiveUnhealthyRestarts >= 3 {
+            log.error(
+                "capture unhealthy — attempt #\(restartPolicy.consecutiveUnhealthyRestarts + 1),"
+                    + " backing off to \(Int(restartPolicy.currentDelay))s"
+            )
+        }
         do {
             try capture.start { [weak self] data in
-                self?.registry.append(data)
+                guard let self else { return }
+                self.registry.append(data)
+                self.dataClock.lock()
+                self.lastDataAtStorage = Date()
+                self.dataClock.unlock()
             }
             isCapturing = true
-            captureRetryAfter = nil
-            log.notice("capture started")
+            captureStartedAt = now
+            log.notice("capture started — input=\(currentInputDescription())")
         } catch {
-            captureRetryAfter = Date().addingTimeInterval(1.0)
-            log.error("capture start failed (retry in 1s): \(error)")
+            log.error("capture start failed (retry in \(Int(restartPolicy.currentDelay))s): \(error)")
         }
+    }
+
+    private func restartCapture(reason: String) {
+        guard isCapturing else { return }
+        log.notice("capture restarting (\(reason)) — input=\(currentInputDescription())")
+        capture.stop()
+        isCapturing = false
+        startCapture()
+    }
+
+    private func deviceEnvironmentChanged(reason: String) {
+        guard isCapturing else { return } // idle: next arrival starts a fresh engine anyway
+        let now = Date()
+        guard restartPolicy.mayRestart(now: now) else {
+            // Suppressed signals are safe: the watchdog catches a dead engine next tick.
+            log.info("restart suppressed (\(reason)) — within backoff window")
+            return
+        }
+        restartCapture(reason: reason)
     }
 
     private func stopCaptureIfIdle() {
@@ -212,7 +317,21 @@ public final class CaptureOrchestrator: ObservableObject {
         guard !registry.anySessionOpen, drainTimers.isEmpty else { return }
         capture.stop()
         isCapturing = false
+        resetCaptureHealth()
         log.notice("capture stopped — all sessions closed")
+    }
+
+    private func resetCaptureHealth() {
+        restartPolicy.reset()
+        captureStartedAt = nil
+        dataClock.lock()
+        lastDataAtStorage = nil
+        dataClock.unlock()
+    }
+
+    private func currentInputDescription() -> String {
+        guard let id = InputDeviceObserver.defaultInputDeviceID() else { return "unknown" }
+        return "\(InputDeviceObserver.deviceName(id)) (\(id))"
     }
 
     // MARK: - Published state

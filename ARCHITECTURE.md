@@ -544,10 +544,11 @@ manbok/                     # CLI executable — thin IPC client
 - App appears → `registry.openSession(bundleID:displayName:)` using `AppIdentityResolver`. App disappears → starts a per-app drain timer; expiry → `registry.closeSession(bundleID:)`; reclaimed before expiry → timer cancelled, no session churn.
 - Publishes `anySessionOpen: Bool` (true through drain — one-signal rule) and `micPermission: MicPermissionState`, both updated on the main thread for SwiftUI.
 - Capture engine starts on first arrival, stops once every session is closed and no drain timers remain.
+- Capture self-heals while sessions are open (spike-validated 2026-07-06, see `tasks/decisions-20260706-device-change-robustness.md`): restarts on default-input change (`InputDeviceObserver`), on `AVAudioEngineConfigurationChange`, and on byte-flow stall detected by a watchdog on the poll tick — `engine.isRunning` is untrustworthy, byte flow is ground truth. Sessions stay open across restarts (short ring gap only). Restarts are rate-limited with exponential backoff (`CaptureRestartPolicy`, health = byte flow, not elapsed time) so a device that can't hold capture converges to one attempt per 30s — never a flap loop. Input-device identity logged at notice level on every (re)start.
 
 **EXPECTS:** `AudioCapturing`, `SessionRegistry`, `ProcessAudioMonitor`, `AppIdentityResolver` injected. `start()`/`stop()` idempotent, callable from any thread.
 
-**FAILURE BEHAVIOR:** `capture.start` throws → retry after 1s; sessions not opened for an arrival until capture is actually running.
+**FAILURE BEHAVIOR:** `capture.start` throws → retried on subsequent polls at the policy backoff; sessions not opened for an arrival until capture is actually running. Device-change signals inside the backoff window are suppressed (the watchdog is the backstop — a debounce alone can swallow the terminal stop event).
 
 **DOES NOT:** Own the ring or session storage; route IPC; touch UI; run VAD (stays in `ListenerService`, used only for the `--foreground` meter).
 
