@@ -15,12 +15,18 @@ import ManbokCore
 //   registry.anySessionOpen OR any drain timer is active.
 // - Publishes micPermission: MicPermissionState, refreshed at poll cadence from
 //   AVCaptureDevice.authorizationStatus(for: .audio).
-// - Engine starts on first arrival (registry empty and no timers); stops once every session
-//   is closed and no drain timers remain.
-// - Capture self-heals while sessions are open: restarts on default-input change, on
+// - Engine runs iff at least one external app currently holds the mic: starts on first
+//   arrival, stops on the poll tick the last app departs. Draining sessions stay open
+//   WITHOUT the engine — holding a warm engine on a drained BT-HFP route fights the OS's
+//   delayed SCO teardown and strobes the mic indicator (verified via ControlCenter
+//   sensor-indicator logs, 2026-07-06). An app reclaimed during drain gets a fresh engine
+//   start on its arrival tick (its session was never closed; the ring has a gap for the
+//   away period).
+// - Capture self-heals while running: restarts on default-input change, on
 //   AVAudioEngineConfigurationChange, and on byte-flow stall (watchdog on the poll tick —
-//   engine.isRunning is untrustworthy, byte flow is ground truth). Sessions stay OPEN
-//   across restarts; the ring just gets a short gap.
+//   engine.isRunning is untrustworthy, byte flow is ground truth). Drain-only state has no
+//   engine, so there is nothing to heal there. Sessions stay OPEN across restarts; the
+//   ring just gets a short gap.
 // - Restarts are rate-limited with exponential backoff (CaptureRestartPolicy): a device
 //   that can't hold capture converges to one attempt per 30s — never a flap loop, never
 //   a strobing mic indicator. Repeated unhealthy restarts escalate to .error logs.
@@ -205,20 +211,25 @@ public final class CaptureOrchestrator: ObservableObject, @unchecked Sendable {
         }
 
         previousBundleIDs = currentBundleIDs
+        if !arrived.isEmpty, !isCapturing {
+            // Start failed (or was backoff-blocked) for these arrivals — leave them
+            // unseen so the next tick treats them as arrivals again and retries.
+            previousBundleIDs.subtract(arrived)
+        }
 
-        // Self-healing: while sessions should be recording, capture must be alive AND
-        // producing bytes. Recovers from failed starts (nothing else retries once
-        // arrivals stop changing) and from silent engine death (isRunning lies; byte
-        // flow is ground truth).
-        let shouldCapture = registry.anySessionOpen || !drainTimers.isEmpty
-        if shouldCapture {
-            if !isCapturing {
-                startCapture()
-            } else if let startedAt = captureStartedAt,
-                      restartPolicy.isStalled(lastDataAt: lastDataAt, captureStartedAt: startedAt, now: now),
-                      restartPolicy.mayRestart(now: now) {
-                restartCapture(reason: "watchdog: no audio ≥\(Int(restartPolicy.watchdogThreshold))s")
-            }
+        // Capture mirrors external mic use: the engine runs iff an app currently holds
+        // the mic. Draining sessions stay open for reclaim, but the engine lets go
+        // immediately — a warm engine on a drained BT-HFP route fights coreaudiod's
+        // delayed SCO teardown and strobes the mic indicator.
+        if currentBundleIDs.isEmpty {
+            stopCapture(reason: "no app holds the mic")
+        } else if !isCapturing {
+            startCapture() // recovers a failed watchdog/device-change restart at the policy's backoff
+        } else if let startedAt = captureStartedAt,
+                  restartPolicy.isStalled(lastDataAt: lastDataAt, captureStartedAt: startedAt, now: now),
+                  restartPolicy.mayRestart(now: now) {
+            // Watchdog: an app holds the mic, so silence means our engine stalled.
+            restartCapture(reason: "watchdog: no audio ≥\(Int(restartPolicy.watchdogThreshold))s")
         }
 
         publish(anySessionOpen: registry.anySessionOpen || !drainTimers.isEmpty)
@@ -257,7 +268,6 @@ public final class CaptureOrchestrator: ObservableObject, @unchecked Sendable {
         registry.closeSession(bundleID: bundleID)
         knownPIDs.removeValue(forKey: bundleID)
         log.notice("session closed — \(bundleID)")
-        stopCaptureIfIdle()
         publish(anySessionOpen: registry.anySessionOpen || !drainTimers.isEmpty)
     }
 
@@ -312,13 +322,12 @@ public final class CaptureOrchestrator: ObservableObject, @unchecked Sendable {
         restartCapture(reason: reason)
     }
 
-    private func stopCaptureIfIdle() {
+    private func stopCapture(reason: String) {
         guard isCapturing else { return }
-        guard !registry.anySessionOpen, drainTimers.isEmpty else { return }
         capture.stop()
         isCapturing = false
         resetCaptureHealth()
-        log.notice("capture stopped — all sessions closed")
+        log.notice("capture stopped — \(reason)")
     }
 
     private func resetCaptureHealth() {

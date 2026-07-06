@@ -32,7 +32,6 @@ struct FooterView: View {
 
             Button(action: {
                 log.notice("quit: user requested termination")
-                AppDelegate.shared?.allowTermination = true
                 NSApplication.shared.terminate(nil)
             }) {
                 FooterHoverLabel(title: "Quit", tint: Theme.danger)

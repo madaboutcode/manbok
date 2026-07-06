@@ -38,45 +38,47 @@ struct SessionRowView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            AppIconView(
-                bundleID: snapshot.bundleID,
-                displayName: snapshot.displayName.isEmpty ? "?" : snapshot.displayName
-            )
-            .padding(.top, 1)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top, spacing: 8) {
+                AppIconView(
+                    bundleID: snapshot.bundleID,
+                    displayName: snapshot.displayName.isEmpty ? "?" : snapshot.displayName
+                )
+                .padding(.top, 1)
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(snapshot.displayName.isEmpty ? "Unknown app" : snapshot.displayName)
-                        .font(.system(size: 12.5, weight: .bold))
-                        .foregroundStyle(Theme.cream)
-                        .lineLimit(1)
-                    if snapshot.isOpen {
-                        Text("LIVE")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(Theme.amberHot)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Theme.amber.opacity(0.14))
-                            )
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(snapshot.displayName.isEmpty ? "Unknown app" : snapshot.displayName)
+                            .font(.system(size: 12.5, weight: .bold))
+                            .foregroundStyle(Theme.cream)
+                            .lineLimit(1)
+                        if snapshot.isOpen {
+                            Text("LIVE")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(Theme.amberHot)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Theme.amber.opacity(0.14))
+                                )
+                        }
+                        Spacer(minLength: 0)
+                        Text(timeRangeText)
+                            .font(Theme.mono(10.5))
+                            .foregroundStyle(Theme.creamDim)
                     }
-                    Spacer(minLength: 0)
-                    Text(timeRangeText)
-                        .font(Theme.mono(10.5))
-                        .foregroundStyle(Theme.creamDim)
+                    Text(durationText)
+                        .font(Theme.mono(10))
+                        .foregroundStyle(Theme.creamFaint)
                 }
-                Text(durationText)
-                    .font(Theme.mono(10))
-                    .foregroundStyle(Theme.creamFaint)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-                waveformArea
-                playbackTimeRow
+                actionArea
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
 
-            actionArea
+            waveformArea
+            playbackTimeRow
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -239,7 +241,7 @@ struct SessionRowView: View {
                     .accessibilityLabel("Export error: \(errorMessage)")
             }
         }
-        .frame(minWidth: 78, minHeight: 24, alignment: .trailing)
+        .frame(minHeight: 24, alignment: .trailing)
     }
 
     /// 21×21 instrument-panel button chrome drawn inside a 24pt hit target
