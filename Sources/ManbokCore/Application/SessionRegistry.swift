@@ -98,6 +98,30 @@ public final class SessionRegistry {
         self.ring = ByteRingBuffer(capacityBytes: ringCapacity)
     }
 
+    /// Rebuilds a registry from a checkpoint: seeds the ring with `ringData`, restores every
+    /// persisted session as closed, and recomputes peaks from PCM (peaks are never persisted).
+    public init(restoredFrom manifest: CheckpointManifest, ringData: Data) {
+        self.ring = ByteRingBuffer(
+            capacityBytes: manifest.ringCapacityBytes,
+            seededTotalBytesWritten: manifest.ringTotalBytesWritten,
+            initialData: ringData
+        )
+        self.closedSessions = manifest.sessions.map { session in
+            let pcm = ring.read(fromTotalOffset: session.startTotalOffset, count: session.audioBytes)
+            return ClosedSession(
+                stableId: session.stableId,
+                bundleID: session.bundleID,
+                displayName: session.displayName,
+                startTotalOffset: session.startTotalOffset,
+                audioBytes: session.audioBytes,
+                startedAt: session.startedAt,
+                endedAt: session.endedAt,
+                peaks: WaveformSampler.peaks(from: pcm, buckets: Self.waveformBuckets)
+            )
+        }
+        self.nextStableId = manifest.nextStableId
+    }
+
     public var filledBytes: Int {
         queue.sync { ring.filledBytes }
     }
@@ -251,6 +275,50 @@ public final class SessionRegistry {
             let byteCount = DumpRange.byteCount(minutes: minutes, filledBytes: ring.filledBytes)
             let segments = ring.slice(lastBytes: byteCount)
             return segments.reduce(into: Data()) { $0.append($1) }
+        }
+    }
+
+    /// Snapshot of the ring + all sessions for persistence. Read-only: open sessions are frozen
+    /// into the returned manifest as ended, but the live registry is left unchanged.
+    public func checkpoint() -> (manifest: CheckpointManifest, ringData: Data) {
+        queue.sync {
+            let frozenAt = Date()
+            var persisted: [PersistedSession] = closedSessions.map {
+                PersistedSession(
+                    stableId: $0.stableId,
+                    bundleID: $0.bundleID,
+                    displayName: $0.displayName,
+                    startTotalOffset: $0.startTotalOffset,
+                    audioBytes: $0.audioBytes,
+                    startedAt: $0.startedAt,
+                    endedAt: $0.endedAt
+                )
+            }
+            persisted += openSessions.values.compactMap { open in
+                let effectiveStart = max(open.startTotalOffset, ring.oldestValidOffset)
+                let effectiveBytes = Int(ring.totalBytesWritten - effectiveStart)
+                guard effectiveBytes > 0 else { return nil }
+                return PersistedSession(
+                    stableId: open.stableId,
+                    bundleID: open.bundleID,
+                    displayName: open.displayName,
+                    startTotalOffset: effectiveStart,
+                    audioBytes: effectiveBytes,
+                    startedAt: open.startedAt,
+                    endedAt: frozenAt
+                )
+            }
+
+            let ringData = ring.slice(lastBytes: ring.filledBytes).reduce(into: Data()) { $0.append($1) }
+            let manifest = CheckpointManifest(
+                savedAt: frozenAt,
+                ringCapacityBytes: ring.capacityBytes,
+                ringFilledBytes: ring.filledBytes,
+                ringTotalBytesWritten: ring.totalBytesWritten,
+                nextStableId: nextStableId,
+                sessions: persisted
+            )
+            return (manifest, ringData)
         }
     }
 

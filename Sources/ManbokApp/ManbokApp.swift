@@ -21,7 +21,20 @@ struct ManbokApp: App {
         let settingsStore = SettingsStore()
         Self.log.notice("app init: buffer preset=\(settingsStore.bufferPreset.rawValue)")
         let capacity = BufferPolicy.capacityBytes(for: settingsStore.bufferPreset)
-        let reg = SessionRegistry(ringCapacity: capacity)
+
+        let reg: SessionRegistry
+        if let (manifest, pcm) = StatePersistenceService.restore() {
+            Self.log.notice("app init: restoring checkpoint — \(manifest.sessions.count) sessions, \(pcm.count) bytes PCM")
+            reg = SessionRegistry(restoredFrom: manifest, ringData: pcm)
+            StatePersistenceService.clear()
+            if manifest.ringCapacityBytes != capacity {
+                Self.log.notice("app init: preset changed, resizing \(manifest.ringCapacityBytes) → \(capacity)")
+                try? reg.resize(to: settingsStore.bufferPreset)
+            }
+        } else {
+            reg = SessionRegistry(ringCapacity: capacity)
+        }
+
         let capture = AVAudioCapture()
         let orch = CaptureOrchestrator(capture: capture, registry: reg)
         let vm = PopoverViewModel(registry: reg, orchestrator: orch)
@@ -33,7 +46,22 @@ struct ManbokApp: App {
 
         startIPCServer(registry: reg, orchestrator: orch)
         orch.start()
-        Self.log.notice("app init: complete — ring capacity=\(capacity) bytes")
+
+        appDelegate.saveCheckpoint = {
+            Self.performCheckpoint(registry: reg)
+        }
+
+        Self.log.notice("app init: complete — ring capacity=\(capacity) bytes, sessions=\(reg.listSessions().count)")
+    }
+
+    private static nonisolated func performCheckpoint(registry: SessionRegistry) {
+        let checkpointLog = AppLog(category: .app)
+        let (manifest, ringData) = registry.checkpoint()
+        do {
+            try StatePersistenceService.save(manifest: manifest, ringData: ringData)
+        } catch {
+            checkpointLog.error("checkpoint save failed: \(error.localizedDescription)")
+        }
     }
 
     var body: some Scene {
@@ -106,7 +134,8 @@ struct ManbokApp: App {
                 response = .sessions(summaries)
 
             case .stop:
-                ipcLog.notice("stop received — shutting down")
+                ipcLog.notice("stop received — saving checkpoint and shutting down")
+                Self.performCheckpoint(registry: registry)
                 orchestrator.stop()
                 DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) {
                     exit(0)
@@ -218,7 +247,7 @@ struct MenuBarIcon: View {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static var shared: AppDelegate?
     private let log = AppLog(category: .app)
-    var allowTermination = false
+    var saveCheckpoint: (() -> Void)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Self.shared = self
@@ -232,12 +261,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        if allowTermination {
-            log.notice("delegate: termination approved")
-            return .terminateNow
-        }
-        log.notice("delegate: blocked termination attempt (allowTermination=false)")
-        return .terminateCancel
+        log.notice("delegate: saving checkpoint before termination")
+        saveCheckpoint?()
+        log.notice("delegate: checkpoint saved — terminating")
+        return .terminateNow
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

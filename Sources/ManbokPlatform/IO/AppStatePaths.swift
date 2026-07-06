@@ -29,6 +29,14 @@ public enum AppStatePaths {
         stateDirectory.appendingPathComponent(pidFileName)
     }
 
+    public static var ringManifestURL: URL {
+        stateDirectory.appendingPathComponent("ring.json")
+    }
+
+    public static var ringDataURL: URL {
+        stateDirectory.appendingPathComponent("ring.pcm")
+    }
+
     public static func ensureDirectory() throws {
         try FileManager.default.createDirectory(
             at: stateDirectory,

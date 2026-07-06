@@ -50,6 +50,9 @@ spikes/**/*.wav
 .env.*
 !.env.example
 
+# Cloudflare Wrangler tool cache
+.wrangler/
+
 # Internal task/sprint files
 tasks/
 

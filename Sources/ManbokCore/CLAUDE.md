@@ -27,6 +27,7 @@ ListenerService ───────────────┘ (legacy/debug)
 | `Audio/` | `AudioActivitySnapshot`, `SpeechActivityDetector` |
 | `Ports/` | `AudioCapturing`, `DumpSink` |
 | `Application/` | `SessionRegistry`, `ListenerService` |
+| `Persistence/` | `CheckpointManifest` — Codable manifest for quit/launch state persistence |
 | `IPC/` | `IPCCommand`, `IPCResponse` |
 
 ### Key Types
@@ -37,6 +38,7 @@ ListenerService ───────────────┘ (legacy/debug)
 - `SessionRegistry` — one open session per bundle ID over a shared ring; stable monotonic `UInt64` ids; replaces `RecordingSession`
 - `BufferPolicy.Preset` — ring size presets (`min5`...`min120`); `sessionsLost` computes resize impact before committing
 - `WaveformSampler` — finalizes peak data for a closed session's waveform display
+- `CheckpointManifest` — pure Codable schema for persisting ring + session state on quit; peaks are NOT stored (recomputed from PCM on restore)
 
 ### Tests
 

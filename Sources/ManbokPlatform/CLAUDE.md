@@ -18,9 +18,9 @@ Implements Core ports (`AudioCapturing`, `DumpSink`) and provides infrastructure
 
 | Folder | Role |
 |--------|------|
-| `Capture/` | `AVAudioCapture` (engine tap + converter), `CaptureOrchestrator` (per-app capture lifecycle + self-healing restarts on device change / byte-flow stall), `CaptureRestartPolicy` (restart rate-limit + backoff decisions, unit-tested), `AppIdentityResolver` (bundle ID → display name), `InputDeviceObserver`, `MicrophoneAuthorization`, `OpportunisticCaptureController` (legacy), `ProcessAudioMonitor` |
+| `Capture/` | `AVAudioCapture` (engine tap + converter), `CaptureOrchestrator` (per-app capture lifecycle + self-healing restarts on device change / byte-flow stall), `CaptureRestartPolicy` (restart rate-limit + backoff decisions, unit-tested), `AppIdentityCatalog` (bundle ID → {display name, icon bundle ID} static table + icon-candidate stemming, pure/unit-tested), `AppIdentityResolver` (bundle ID → display name; tier 1 delegates to the catalog), `InputDeviceObserver`, `MicrophoneAuthorization`, `OpportunisticCaptureController` (legacy), `ProcessAudioMonitor` |
 | `IPC/` | `UnixSocketServer`, `UnixSocketClient` |
-| `IO/` | `AppStatePaths`, `DumpPaths`, `WavFileWriter`, `PlatformDumpSink`, `ExportService` (Finder reveal + clipboard) |
+| `IO/` | `AppStatePaths`, `DumpPaths`, `WavFileWriter`, `PlatformDumpSink`, `ExportService` (Finder reveal + clipboard), `StatePersistenceService` (checkpoint save/restore/clear) |
 | `Settings/` | `SettingsStore` (UserDefaults persistence), `LoginItemManager` (SMAppService) |
 | `Runtime/` | `DaemonSession`, `DaemonPresentation`, `DaemonRuntimeEnvironment`, `MigrationService` |
 | `Process/` | `DaemonProcess` — pid file, `posix_spawn` daemon |

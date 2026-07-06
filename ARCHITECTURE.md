@@ -35,7 +35,8 @@ When speech-to-text (or another recorder) drops audio, the user hires **manbok**
    min, default 10). See `docs/decisions/20260704-configurable-ring-buffer.md`. Replacement
    invariant: while listening, buffer length never exceeds the currently-selected preset's
    capacity.
-2. No audio is written to disk until an explicit `dump` (or export).
+2. No audio is written to disk during capture. Disk writes happen only on explicit
+   `dump`/export, or as a checkpoint on graceful quit (`~/.manbok/ring.pcm`).
 3. Dump/export output is standard RIFF WAV, same format as the buffer.
 4. At most one app/listener instance per state directory (single owner of the ring) — enforced
    by `AppDelegate.anotherInstanceRunning()` pinging the existing socket.
@@ -83,7 +84,9 @@ Ring math and WAV layout should not change when IPC changes.
 |---------|--------------|----------|
 | Mic denied | Cannot listen | `start` fails with actionable message; no daemon |
 | Capture glitch / converter error | One buffer chunk | Drop chunk; log at `.error` to stderr/OSLog; keep listening |
-| Daemon crash | Lost buffer | Acceptable — RAM-only by design |
+| App crash / kill -9 | Lost unsaved buffer | Checkpoint restores last clean quit; unsaved audio lost |
+| Graceful quit | Buffer saved | Checkpoint written to `~/.manbok/ring.{json,pcm}` |
+| Corrupt checkpoint | Fresh start | `restore()` returns nil on any validation failure |
 | Dump disk full | Dump only | Return error; listener keeps running |
 | Second `start` | CLI only | Idempotent: report already listening |
 | CLI while daemon down | CLI only | Clear "not listening" / connection error |
@@ -104,10 +107,13 @@ HAL mic (variable rate)
 
 | State | Owner | Persisted? |
 |-------|-------|------------|
-| Ring buffer contents | Daemon only | No |
-| Listening / not listening | Daemon | No (reconstructed: process alive?) |
-| pid, socket path | Daemon writes on start; CLI reads | Yes — `~/.manbok/` |
-| Dump files | CLI or daemon (see open questions) | Yes — user path |
+| Ring buffer contents | App (SessionRegistry) | Yes — checkpoint on quit (`~/.manbok/ring.pcm`) |
+| Session metadata | App (SessionRegistry) | Yes — checkpoint on quit (`~/.manbok/ring.json`) |
+| Waveform peaks | Derived from PCM | No — recomputed on restore |
+| Listening / not listening | App | No (reconstructed: process alive?) |
+| pid, socket path | App writes on start; CLI reads | Yes — `~/.manbok/` |
+| Dump files | CLI or app (see open questions) | Yes — user path |
+| Buffer preset | SettingsStore | Yes — UserDefaults |
 
 ---
 
@@ -133,11 +139,12 @@ Each layer hides one kind of mess. Dependencies point **inward** (interface → 
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
-│ L2  Domain — audio memory model                             │
+│ L2  Domain — audio memory model + persistence schema         │
 │     Hides: wrap arithmetic, WAV structure, time→bytes,       │
-│            waveform peak math, buffer-size policy             │
+│            waveform peak math, buffer-size policy,            │
+│            checkpoint manifest format                         │
 │     Exports: RingBuffer, WavEncoder, AudioFormat, DumpRange, │
-│              BufferPolicy, WaveformSampler                    │
+│              BufferPolicy, WaveformSampler, CheckpointManifest│
 │     Does not know: files, sockets, microphones              │
 └───────────────────────────▲─────────────────────────────────┘
                             │ implements ports
@@ -147,7 +154,8 @@ Each layer hides one kind of mess. Dependencies point **inward** (interface → 
 │            process-identity lookup, UserDefaults, SMAppService│
 │     Implements: AudioCapturing, IPCServing, ProcessControl,   │
 │              AppIdentityResolver, SettingsStore, ExportService,│
-│              LoginItemManager, MigrationService               │
+│              LoginItemManager, MigrationService,              │
+│              StatePersistenceService (checkpoint I/O)         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -372,7 +380,8 @@ ManbokPlatform/
   Capture/
     AVAudioCapture.swift          # implements AudioCapturing
     CaptureOrchestrator.swift     # per-app poll/drain lifecycle — drives SessionRegistry (the app's capture path)
-    AppIdentityResolver.swift     # bundle ID/pid → display name (curated table → PPID walk → cosmetic fallback)
+    AppIdentityCatalog.swift      # curated bundle ID → {display name, icon bundle ID} table + icon-candidate stemming (pure)
+    AppIdentityResolver.swift     # bundle ID/pid → display name (catalog → PPID walk → cosmetic fallback)
     ProcessAudioMonitor.swift     # enumerates other processes holding the mic
     OpportunisticCaptureController.swift  # legacy/debug: union-identity capture for --foreground
     InputDeviceObserver.swift, MicrophoneAuthorization.swift
@@ -543,8 +552,8 @@ manbok/                     # CLI executable — thin IPC client
 
 - App appears → `registry.openSession(bundleID:displayName:)` using `AppIdentityResolver`. App disappears → starts a per-app drain timer; expiry → `registry.closeSession(bundleID:)`; reclaimed before expiry → timer cancelled, no session churn.
 - Publishes `anySessionOpen: Bool` (true through drain — one-signal rule) and `micPermission: MicPermissionState`, both updated on the main thread for SwiftUI.
-- Capture engine starts on first arrival, stops once every session is closed and no drain timers remain.
-- Capture self-heals while sessions are open (spike-validated 2026-07-06, see `tasks/decisions-20260706-device-change-robustness.md`): restarts on default-input change (`InputDeviceObserver`), on `AVAudioEngineConfigurationChange`, and on byte-flow stall detected by a watchdog on the poll tick — `engine.isRunning` is untrustworthy, byte flow is ground truth. Sessions stay open across restarts (short ring gap only). Restarts are rate-limited with exponential backoff (`CaptureRestartPolicy`, health = byte flow, not elapsed time) so a device that can't hold capture converges to one attempt per 30s — never a flap loop. Input-device identity logged at notice level on every (re)start.
+- Capture engine runs iff at least one external app currently holds the mic: starts on first arrival, stops on the poll tick the last app departs. Draining sessions stay open *without* the engine — a warm engine on a drained BT-HFP route fights coreaudiod's delayed SCO teardown and strobes the mic indicator (verified via ControlCenter sensor-indicator logs, 2026-07-06). An app reclaimed during drain gets a fresh engine start on its arrival tick; its session was never closed, the ring just has a gap for the away period.
+- Capture self-heals while running (spike-validated 2026-07-06, see `tasks/decisions-20260706-device-change-robustness.md`): restarts on default-input change (`InputDeviceObserver`), on `AVAudioEngineConfigurationChange`, and on byte-flow stall detected by a watchdog on the poll tick — `engine.isRunning` is untrustworthy, byte flow is ground truth. Drain-only state has no engine, so nothing heals (or flickers) there. Sessions stay open across restarts (short ring gap only). Restarts are rate-limited with exponential backoff (`CaptureRestartPolicy`, health = byte flow, not elapsed time) so a device that can't hold capture converges to one attempt per 30s — never a flap loop. Input-device identity logged at notice level on every (re)start.
 
 **EXPECTS:** `AudioCapturing`, `SessionRegistry`, `ProcessAudioMonitor`, `AppIdentityResolver` injected. `start()`/`stop()` idempotent, callable from any thread.
 
@@ -665,18 +674,46 @@ STOP                    → OK (app exits)
 
 ---
 
+#### `AppIdentityCatalog`
+
+**Responsibility:** Single source of truth for curated app-identity knowledge: bundle ID → `{displayName, iconBundleID}` (~50 common apps, helper bundle IDs mapped to their parent app, e.g. `com.google.chrome.helper` → icon `com.google.chrome`).
+
+**GUARANTEES**
+
+- `entry(for:)` — case-insensitive exact match against a static immutable table; pure (no I/O, no process access), thread-safe.
+- `iconCandidates(for:)` — deterministic ordered candidate list for icon lookup: catalog `iconBundleID`, then suffix-stripped stems of the raw ID (longest first), then the raw ID; case-insensitively deduplicated.
+
+**DOES NOT:** Touch AppKit/NSWorkspace/processes; cache anything.
+
+---
+
 #### `AppIdentityResolver`
 
 **Responsibility:** Resolve a mic-holding process's bundle ID/pid to a display name (e.g. `us.zoom.xos` → "Zoom") for session labels.
 
 **GUARANTEES**
 
-- Chain: (1) curated table (case-insensitive, ~50 common apps); (2) PPID walk (`libproc`/`sysctl`) to parent + `NSRunningApplication.localizedName`; (3) cosmetic fallback (strip helper/extension suffixes, titlecase last path component).
+- Chain: (1) `AppIdentityCatalog` lookup (case-insensitive); (2) PPID walk (`libproc`/`sysctl`) to parent + `NSRunningApplication.localizedName`; (3) cosmetic fallback (strip helper/extension suffixes via the catalog's suffix set, titlecase last path component).
 - Thread-safe; caches runtime resolutions per process lifetime (not persisted).
 
 **FAILURE BEHAVIOR:** PPID walk or `NSRunningApplication` lookup fails → falls through to the next tier; never throws.
 
-**DOES NOT:** Resolve content inside an app (no tab/site names).
+**DOES NOT:** Resolve content inside an app (no tab/site names). Own the identity table (that's `AppIdentityCatalog`).
+
+---
+
+#### `AppIconProvider` (ManbokApp)
+
+**Responsibility:** Session-row icons. Maps a raw (possibly helper) bundle ID to the owning app's real icon, or nil so `AppIconView`'s deterministic letter tile renders.
+
+**GUARANTEES**
+
+- Returns an `NSImage` only when a candidate from `AppIdentityCatalog.iconCandidates(for:)` resolves via `NSWorkspace` to a bundle that *declares* an icon (`CFBundleIconFile`/`CFBundleIconName`) — the synthesized generic icon for faceless helper bundles is never shown.
+- Caches positive and negative results per raw bundle ID (unbounded by design — distinct bundle IDs per run are naturally bounded to the handful of apps that capture audio).
+
+**FAILURE BEHAVIOR:** Any candidate failure → next candidate → nil (letter tile). Never throws.
+
+**DOES NOT:** Know about helper processes (catalog's job) or render fallbacks (view's job).
 
 ---
 
@@ -783,7 +820,8 @@ AppDelegate.applicationDidFinishLaunching → PING existing socket; if answered,
 ```text
 CaptureOrchestrator poll (every 2s) → set-diff vs previous poll
   app arrives  → start capture engine if idle → AppIdentityResolver.resolve → registry.openSession
-  app departs  → start 5s drain timer → (reclaimed: cancel) | (expires: registry.closeSession)
+  app departs  → start 5s drain timer → (reclaimed: cancel, engine restarts) | (expires: registry.closeSession)
+  last app departs → capture engine stops immediately (drains hold sessions open, not the engine)
 registry.append(pcm) on every capture callback → shared ring write → feed each open session's
   incremental waveform sampler
 PopoverViewModel (only while popover visible) polls registry at ~1 Hz → sessions/ringFilled/ringCapacity
