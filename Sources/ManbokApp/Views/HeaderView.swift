@@ -111,11 +111,11 @@ private struct PulsingDot: View {
             .frame(width: 6, height: 6)
             .shadow(color: Theme.amberGlow, radius: 6)
             .opacity(isPulsing ? 0.3 : 1.0)
-            .animation(
-                .easeInOut(duration: 0.8).repeatForever(autoreverses: true),
-                value: isPulsing
-            )
-            .onAppear { isPulsing = true }
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                    isPulsing = true
+                }
+            }
     }
 }
 
@@ -129,10 +129,10 @@ private struct StandbyDot: View {
             .fill(Theme.creamFaint)
             .frame(width: 6, height: 6)
             .opacity(isBreathing ? 0.45 : 1.0)
-            .animation(
-                .easeInOut(duration: 4.5).repeatForever(autoreverses: true),
-                value: isBreathing
-            )
-            .onAppear { isBreathing = true }
+            .onAppear {
+                withAnimation(.easeInOut(duration: 4.5).repeatForever(autoreverses: true)) {
+                    isBreathing = true
+                }
+            }
     }
 }
