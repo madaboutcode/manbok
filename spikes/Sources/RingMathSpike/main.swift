@@ -1,6 +1,6 @@
 import Foundation
 
-// 16 kHz, mono, 16-bit PCM — 10 minutes (requirements.md)
+// 16 kHz, mono, 16-bit PCM — 10 minutes (original MVP numbers)
 let sampleRate = 16_000
 let channels = 1
 let bytesPerSample = 2

@@ -1,6 +1,6 @@
 # manbok — architecture
 
-**Sources:** `requirements.md`, `spikes/README.md` (2026-06-03)
+**Sources:** `docs/specs/` (behavior), `docs/decisions/` (history), `spikes/README.md` (2026-06-03)
 
 ---
 

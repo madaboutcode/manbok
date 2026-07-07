@@ -7,7 +7,7 @@ CONTENTS — Icon · Popover layout · Session rows · Export gestures · Empty 
 Permission state · Accessibility · Edge cases · Verification.
 
 SCOPE — Settings window: `settings.md`. Launch/quit/migration: `lifecycle.md`. Terms:
-`glossary.md`. Supersedes `docs/menu-bar-app-spec.md` §3–5 (June-5 draft).
+`glossary.md`.
 
 ## Icon (glance)
 

@@ -11,8 +11,7 @@ make build              # swift build (debug)
 make release            # swift build -c release → .build/release/manbok
 make test               # swift test
 make verify             # test + build
-make install            # release → ~/.local/bin/manbok (restarts LaunchAgent if present)
-make install-launchagent # install + user LaunchAgent (Aqua session; login persistence)
+make install            # release → ~/.local/bin/manbok
 make authorize          # mic permission for this binary (Terminal)
 
 make start              # opportunistic daemon (background)
@@ -40,7 +39,7 @@ Foreground meter: TTY UI on stdout; daemon diagnostics → Console (`subsystem:a
 
 ### What This Project Does
 
-Native macOS menu bar app (SwiftUI) that always-on-records mono 16 kHz PCM per foreground app into a shared byte ring (5–120 min, configurable). No disk until export. A CLI still exists for scripting/debugging and talks to the running app over a Unix socket.
+Native macOS menu bar app (SwiftUI) that always-on-records mono 16 kHz PCM per foreground app into a shared byte ring (5–120 min, configurable). Capture is RAM-only; export writes WAVs; quit checkpoints the ring to `~/.manbok/` for restore on next launch. A CLI still exists for scripting/debugging and talks to the running app over a Unix socket.
 
 ### System Mental Model
 
@@ -69,7 +68,6 @@ State lives in `~/.manbok/` (pid + socket). Dump files go to the system temp dir
 ```text
 manbok/
 ├── Package.swift          # SPM: ManbokCore, ManbokPlatform, manbok
-├── requirements.md        # Product spec
 ├── ARCHITECTURE.md        # System design (read before multi-file work)
 ├── tasks/                 # Internal planning files (not tracked in git)
 ├── Sources/ …               # See module CLAUDE.md files

@@ -25,6 +25,5 @@ linked here. Keep cross-references live; the acceptance bar is derived from
 
 ## Provenance
 
-First graduated 2026-07-05 from the gated menubar-app cycle artifacts
-(`tasks/2026-07-04-menubar-app/{brd,glossary,flows}.md`) plus decision records. The popover
-supersedes `docs/menu-bar-app-spec.md` (June-5 draft, never gated).
+First graduated 2026-07-05 from the gated menubar-app design cycle (internal planning
+artifacts, not tracked here) plus the decision records in `docs/decisions/`.

@@ -4,13 +4,21 @@
 
 # manbok
 
-You narrate your plan for the day to ChatGPT. It thinks about it, shows a spinner, then: *"Oh, something went wrong!"* Two minutes of talking, gone.
+[![CI](https://github.com/madaboutcode/manbok/actions/workflows/ci.yml/badge.svg)](https://github.com/madaboutcode/manbok/actions/workflows/ci.yml)
+
+These days you talk to your computer as much as you type at it: voice mode with ChatGPT, dictation for anything longer than a sentence.
+
+You speak your plan for the day into ChatGPT's voice mode. It listens, shows a spinner, then: *"Oh, something went wrong!"* Ten minutes of talking, gone.
 
 You dictate a long technical note and the transcript butchers half the jargon. Heard Gemini's new model handles these better. Oops, should you say all that again?
 
 You hop on an impromptu Slack call to walk a teammate through the design: every edge case, every gotcha. That walkthrough was basically a Jira ticket with acceptance criteria. If only it were written down somewhere.
 
-Sound familiar? manbok has you covered. It sits in your macOS menu bar and keeps everything any app recorded from your mic, up to the last two hours of it (configurable), in RAM. Open the popover, hit Dump, and the audio is back as a WAV: replay it, or hand it to a different transcriber and skip the retake. Nothing is written to disk until you export, and quitting wipes it all.
+Sound familiar? That's the catch with speech: text leaves a draft behind. Spoken words are just gone.
+
+So, manbok: a little menu bar app that keeps everything any app recorded from your mic, up to the last two hours of it (configurable), in RAM. Open the popover, hit Dump, and the audio is back as a WAV: replay it, or hand it to a different transcriber and skip the retake. No WAV is written until you ask, and nothing ever leaves your machine.
+
+There's nothing to babysit, either. It's a ring buffer: new audio overwrites the oldest, so nothing accumulates, and capture never touches the disk. It uses a fixed chunk of RAM and that's it. Set it up once and forget it's running.
 
 The name? [**Jung Man-bok**](https://en.wikipedia.org/wiki/Crash_Landing_on_You#People_in_the_North_Korean_Forces) (정만복), the wiretapper in [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You): always listening, never missing a word.
 
@@ -20,48 +28,28 @@ The name? [**Jung Man-bok**](https://en.wikipedia.org/wiki/Crash_Landing_on_You#
 
 ## Install
 
-**Requirements:** macOS 14+ (Sonoma), Apple Silicon, Xcode Command Line Tools (`xcode-select --install`).
-
-### Prebuilt releases
-
-Download from [Releases](https://github.com/madaboutcode/manbok/releases). The app is not yet notarized, so on first open macOS will warn that it can't verify the developer — right-click the app → **Open**, or allow it under **System Settings → Privacy & Security → Open Anyway**. Building from source (below) avoids this entirely.
-
-### From source
-
 ```bash
 git clone https://github.com/madaboutcode/manbok.git
 cd manbok
 make install-app            # build + assemble → ~/Applications/Manbok.app
+open ~/Applications/Manbok.app
 ```
 
-Then open **Manbok.app** — the ear icon appears in your menu bar. Approve the microphone permission prompt on first launch.
+You need macOS 14+ (Sonoma) on Apple Silicon, with the Xcode Command Line Tools
+(`xcode-select --install`).
 
-### Start at login
+The ear icon appears in your menu bar. Approve the microphone prompt on first launch,
+and if you want manbok there every login: popover → Settings → "Start at login." Done.
 
-Open the popover → Settings → check "Start at login."
+<details>
+<summary>Prefer a prebuilt download?</summary>
 
-### CLI (optional)
-
-The CLI binary talks to the running app over a Unix socket:
-
-```bash
-make install                # release build → ~/.local/bin/manbok
-```
-
-If `~/.local/bin` isn't in your PATH:
-
-```bash
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
-```
+Grab `Manbok-<version>-macos-arm64.zip` from [Releases](https://github.com/madaboutcode/manbok/releases) and unzip into `~/Applications`. The app isn't notarized yet, so macOS warns on first open: right-click → **Open**, or **System Settings → Privacy & Security → Open Anyway**. Building from source avoids the warning entirely.
+</details>
 
 ### Uninstall
 
-Quit the app (popover → Quit), then:
-
-```bash
-rm -rf ~/Applications/Manbok.app
-make uninstall              # remove CLI binary
-```
+Quit the app (popover → Quit), then `rm -rf ~/Applications/Manbok.app`.
 
 ## User guide
 
@@ -92,26 +80,26 @@ Click the icon to open the popover.
 - **Buffer duration:** 5 / 10 (default) / 30 / 60 / 120 minutes. RAM cost shown beside each. Applies immediately — shrinking discards the oldest audio.
 - **Start at login:** registers the app as a login item via macOS.
 
-### CLI reference
+### The CLI (optional)
 
-The CLI is a thin client. `manbok start` opens the app; all other commands talk to it over the socket.
+Everything above works without a terminal. If you script things, a thin CLI client talks to the running app over a Unix socket:
+
+```bash
+make install                # → ~/.local/bin/manbok  (make uninstall removes it)
+```
 
 | Command | Description |
 |---------|-------------|
 | `manbok start` | Open Manbok.app (prints "already running" if it is) |
-| `manbok start --foreground` | Debug: in-process daemon with terminal meter |
 | `manbok stop` | Quit the app |
 | `manbok status` | Phase + ring fill |
 | `manbok sessions` | List sessions (stable ids, per-app) |
 | `manbok dump` | Export newest session → WAV path on stdout |
-| `manbok dump 1` | Export by stable session id |
-| `manbok dump -1` | Previous session |
+| `manbok dump 1` | Export by stable session id (`-1` = previous session) |
 | `manbok dump all` | Full ring (no session framing) |
 | `manbok dump --minutes 5` | Last N minutes of ring |
-| `manbok dump --list` | Same as `sessions` |
-| `manbok authorize` | Request mic permission (for debug/foreground use) |
 
-State: `~/.manbok/` (pid + Unix socket). Logs: Console.app, subsystem `ai.manbok.app`.
+State: `~/.manbok/` (pid + Unix socket). Logs: Console.app, subsystem `ai.manbok.app`. Debug modes (foreground daemon with a terminal meter): see `make help`.
 
 ## How it works
 
@@ -125,20 +113,16 @@ CLI (short-lived) ──IPC──► App (long-lived) ──► CaptureOrchestra
 - **Opportunistic capture:** manbok never initiates mic use. Audio enters the ring only while another app holds the mic.
 - **Microphone only:** manbok hears what your mic hears: your voice. On a call, the other side comes through your speakers and is not captured. What you said is saved; what you heard is not.
 - **Per-app sessions:** each app that uses the mic gets its own session with a stable id. Overlapping sessions share the same audio (by design — they're views over one ring).
-- **No audio on disk** until you explicitly export (Dump or Copy in the popover, `dump` in the CLI). Quitting discards everything.
+- **Disk:** capture is RAM-only; WAVs are written only when you export. On quit, the ring is checkpointed to `~/.manbok/` so a restart doesn't lose it — reloaded and deleted on next launch.
 
 ## Development
 
 ```bash
-git clone https://github.com/madaboutcode/manbok.git
-cd manbok
-make build                  # debug build (CLI)
-make test                   # run tests (147 tests)
-make verify                 # test + build
-make app                    # build + assemble Manbok.app
+make verify                 # test + build — run this before a PR
 make run-app                # build + open the app
-make dev                    # build CLI, restart, foreground meter
 ```
+
+Everything else: `make help`. Contribution guidelines: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Project structure
 
@@ -151,32 +135,16 @@ make dev                    # build CLI, restart, foreground meter
 
 Each module has a `CLAUDE.md` with a jumpstart and layout table. Architecture: `ARCHITECTURE.md`.
 
-### Make targets
-
-| Target | What it does |
-|--------|-------------|
-| `make build` | Debug build (CLI) |
-| `make release` | Release build (CLI) |
-| `make test` | `swift test` |
-| `make verify` | test + build |
-| `make app` | Release build + assemble `Manbok.app` |
-| `make install-app` | app → `~/Applications/Manbok.app` |
-| `make run-app` | Build + `open Manbok.app` |
-| `make install` | Release CLI → `~/.local/bin/manbok` |
-| `make dev` | Build CLI, stop, start foreground meter |
-| `make start-fg` | Foreground daemon with terminal meter |
-
-All targets: `make help`
-
 ## Privacy
 
 manbok is an always-on microphone buffer, so here is exactly what it does with audio:
 
 - **Capture is opportunistic.** manbok never opens the microphone on its own. Audio enters the buffer only while *another* app is actively using the mic.
-- **RAM only.** Audio lives in a fixed-size ring buffer in memory (5–120 minutes, your setting). Nothing is written to disk during capture.
+- **RAM while running.** Audio lives in a fixed-size ring buffer in memory (5–120 minutes, your setting). Nothing is written to disk during capture.
 - **Export is explicit.** A WAV file is created only when you click Dump/Copy or run `manbok dump`. Files go to the system temp directory (or your clipboard) — you decide where they end up after that.
+- **Quit keeps your buffer.** On quit, the ring is checkpointed to `~/.manbok/` in your home folder, and reloaded — then deleted — on next launch, so a restart doesn't cost you your audio.
 - **Nothing leaves your machine.** There is no network code in this app. No telemetry, no analytics, no accounts.
-- **Purge is instant.** Quit the app and the buffer is gone.
+- **Full purge:** quit the app, then `rm -rf ~/.manbok`. Gone.
 
 ## License
 

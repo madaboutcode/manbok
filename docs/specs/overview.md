@@ -12,9 +12,10 @@ Ontology: `glossary.md` (authoritative for every term used here).
 ## What the product is
 
 A rolling audio memory in the macOS menu bar. While any other app uses the microphone, the
-App keeps the most recent stretch of audio in a RAM-only Ring, organized into per-app
+App keeps the most recent stretch of audio in an in-memory Ring, organized into per-app
 Sessions, and lets the user export any Session as a WAV — from the popover or the CLI —
-without manbok ever initiating mic use or writing audio to disk on its own.
+without manbok ever initiating mic use. The only disk artifacts are user exports and the
+quit Checkpoint (restored, then removed, at next launch).
 
 ## REQUIREMENTS
 
@@ -22,8 +23,10 @@ without manbok ever initiating mic use or writing audio to disk on its own.
   window, and a standard About panel. It has no Dock icon and no main window.
 - R2 — Capture is opportunistic only: audio enters the Ring exactly while at least one other
   app holds the mic. manbok never initiates mic use (glossary boundary 1).
-- R3 — Audio reaches disk only by explicit user export (Dump/Copy in the popover; `dump` in
-  the CLI). Quitting discards the Ring and all Sessions irrecoverably (glossary boundary 3).
+- R3 — During capture, audio reaches disk only by explicit user export (Dump/Copy in the
+  popover; `dump` in the CLI). On quit the Ring and Sessions are checkpointed to
+  `~/.manbok/`, then restored and the checkpoint deleted at next launch — a restart loses
+  nothing; deleting `~/.manbok/` while quit erases everything (glossary boundary 3).
 - R4 — Sessions are per-app: one open session per app, several open concurrently when apps
   overlap on the mic; each is a view over the shared Ring's audio. Overlapping sessions
   exported separately each contain the full shared audio (by design).

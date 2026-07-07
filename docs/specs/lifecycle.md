@@ -27,17 +27,17 @@ Wire protocol: `interfaces/ipc.md`.
   login-time presence; no LaunchAgent is ever (re)installed.
 - R6 — `manbok start` behavior per `overview.md` R8; a CLI-triggered launch is a normal
   launch (R1–R4 all apply).
-- R7 — **Quit** (popover footer, or CLI `stop`): immediate — capture ends, ring and all
-  sessions vanish (RAM-only by design), socket closes, process exits. No confirmation
-  dialog; the glossary's quit semantics are the contract.
+- R7 — **Quit** (popover footer, or CLI `stop`): immediate — capture ends, the ring and
+  sessions are checkpointed to `~/.manbok/` for restore at next launch, socket closes,
+  process exits. No confirmation dialog; the glossary's quit semantics are the contract.
 
 ## EDGE CASES
 
 - E1 — App launched while an old CLI-era daemon still runs and holds the socket: migration
   (R4) stops it; the App ends up the sole owner. At no point do two processes capture
   simultaneously.
-- E2 — Quit while a session is open: no export, no prompt — the audio is discarded with the
-  ring (R7). Anything worth keeping is the user's export before quitting.
+- E2 — Quit while a session is open: no export, no prompt — the ring and sessions ride the
+  checkpoint (R7) and are back after relaunch. Export is still the only way to a WAV.
 
 ## VERIFICATION
 

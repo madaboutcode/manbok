@@ -20,7 +20,7 @@ only in RAM, and lets the user see it — session by session — and grab any pi
 What it is NOT (nearest wrong framings):
 
 - **Not a voice recorder.** It never initiates mic use, never decides to record, and never
-  writes audio to disk on its own. Recording apps make files; manbok makes *recovery possible*.
+  produces audio files on its own. Recording apps make files; manbok makes *recovery possible*.
 - **Not a mic-usage monitor.** Detecting which app holds the mic is how sessions get their
   identity, not a surveillance feature of the product.
 - **Not a terminal daemon with a UI bolted on.** The menu bar app IS the product and IS the
@@ -61,7 +61,7 @@ Start-at-login setting; migration removes any installed plist).
 | **resize** (ring) | Changing Buffer duration takes effect immediately, preserving the newest audio that fits. Closed sessions that no longer fit expire per the rule above. |
 | **dump / copy** | Export a session as a WAV file: to the temp directory (revealed in Finder), or to the clipboard as a file URL. |
 | **start at login** | The App registers itself as a macOS login item; toggled in Settings. |
-| **quit** | The App exits: capture ends, the ring and every session vanish (RAM-only by design), the socket closes. Reachable from the Popover footer; CLI `stop` performs the same quit remotely. |
+| **quit** | The App exits: capture ends, the ring and sessions are checkpointed to `~/.manbok/` (restored, then deleted, at next launch), the socket closes. Reachable from the Popover footer; CLI `stop` performs the same quit remotely. |
 
 ## Icon states (glance vocabulary)
 
@@ -74,12 +74,14 @@ disappears when permission returns.
 
 1. **manbok never initiates mic use.** It records only while another app holds the mic.
    Opportunistic capture is not a mode; it is the product.
-2. **No audio reaches disk except by explicit user export.** Dump (either GUI gesture, or via
-   CLI) is the only door.
-3. **Sessions have no existence outside the ring.** No persistence, no history, no database.
-   A session's lifetime is exactly the *expire* rule above: a closed session vanishes whole
-   once its beginning is overwritten (even if later bytes linger until overwritten in turn);
-   the open session shrinks from the front.
+2. **No WAV reaches disk except by explicit user export.** Dump (either GUI gesture, or via
+   CLI) is the only door. The quit Checkpoint (`~/.manbok/`, raw ring + manifest, consumed
+   and deleted at next launch) is the sole other disk artifact, and it is never a WAV.
+3. **Sessions have no existence outside the ring.** No history, no database; the quit
+   Checkpoint is a verbatim snapshot of ring + sessions consumed at next launch, not a
+   history. A session's lifetime is exactly the *expire* rule above: a closed session
+   vanishes whole once its beginning is overwritten (even if later bytes linger until
+   overwritten in turn); the open session shrinks from the front.
 4. **Editing is outside the product.** The GUI hands the user a file and stops; it never opens
    Audacity or any editor (that remains a CLI habit only).
 5. **The vocabulary is platform-free.** No concept on this page is defined by UI, clipboard,
