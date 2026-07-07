@@ -8,6 +8,8 @@ You narrate your plan for the day to ChatGPT. It thinks about it, shows a spinne
 
 You dictate a long technical note and the transcript butchers half the jargon. Heard Gemini's new model handles these better. Oops, should you say all that again?
 
+An impromptu Slack huddle turns into a proper design discussion with a teammate. Man, all of that would make a great Jira ticket right about now. But nobody recorded the call.
+
 Sound familiar? manbok has you covered. It sits in your macOS menu bar and keeps everything any app recorded from your mic, up to the last two hours of it (configurable), in RAM. Open the popover, hit Dump, and the audio is back as a WAV: replay it, or hand it to a different transcriber and skip the retake. Nothing is written to disk until you export, and quitting wipes it all.
 
 The name? [**Jung Man-bok**](https://en.wikipedia.org/wiki/Crash_Landing_on_You#People_in_the_North_Korean_Forces) (정만복), the wiretapper in [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You): always listening, never missing a word.
