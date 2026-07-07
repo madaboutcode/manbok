@@ -8,7 +8,7 @@ You narrate your plan for the day to ChatGPT. It thinks about it, shows a spinne
 
 You dictate a long technical note and the transcript butchers half the jargon. Heard Gemini's new model handles these better. Oops, should you say all that again?
 
-An impromptu Slack huddle turns into a proper design discussion with a teammate. Man, all of that would make a great Jira ticket right about now. But nobody recorded the call.
+You hop on an impromptu Slack call and end up doing most of the talking, walking a teammate through the design: every edge case, every gotcha. That monologue was basically a Jira ticket with acceptance criteria. If only it were written down somewhere.
 
 Sound familiar? manbok has you covered. It sits in your macOS menu bar and keeps everything any app recorded from your mic, up to the last two hours of it (configurable), in RAM. Open the popover, hit Dump, and the audio is back as a WAV: replay it, or hand it to a different transcriber and skip the retake. Nothing is written to disk until you export, and quitting wipes it all.
 
