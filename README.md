@@ -4,7 +4,13 @@
 
 # manbok
 
+**A rewind button for your Mac's microphone.**
+
 [![CI](https://github.com/madaboutcode/manbok/actions/workflows/ci.yml/badge.svg)](https://github.com/madaboutcode/manbok/actions/workflows/ci.yml)
+
+<p align="center">
+  <img src="docs/images/popover-sessions.png" width="360" alt="manbok popover: per-app sessions with waveforms, a live Zoom session recording, and the tape gauge showing 7:12 of 30:00">
+</p>
 
 These days you talk to your computer as much as you type at it: voice mode with ChatGPT, dictation for anything longer than a sentence.
 
@@ -14,17 +20,13 @@ You dictate a long technical note and the transcript butchers half the jargon. H
 
 You hop on an impromptu Slack call to walk a teammate through the design: every edge case, every gotcha. That walkthrough was basically a Jira ticket with acceptance criteria. If only it were written down somewhere.
 
-Sound familiar? That's the catch with speech: text leaves a draft behind. Spoken words are just gone.
+Sounds familiar?
 
 So, manbok: a little menu bar app that keeps everything any app recorded from your mic, up to the last two hours of it (configurable), in RAM. Open the popover, hit Dump, and the audio is back as a WAV: replay it, or hand it to a different transcriber and skip the retake. No WAV is written until you ask, and nothing ever leaves your machine.
 
 There's nothing to babysit, either. It's a ring buffer: new audio overwrites the oldest, so nothing accumulates, and capture never touches the disk. It uses a fixed chunk of RAM and that's it. Set it up once and forget it's running.
 
 The name? [**Jung Man-bok**](https://en.wikipedia.org/wiki/Crash_Landing_on_You#People_in_the_North_Korean_Forces) (정만복), the wiretapper in [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You): always listening, never missing a word.
-
-<p align="center">
-  <img src="docs/images/popover-sessions.png" width="360" alt="manbok popover: per-app sessions with waveforms, a live Zoom session recording, and the tape gauge showing 7:12 of 30:00">
-</p>
 
 ## Install
 
