@@ -8,7 +8,7 @@ You narrate your plan for the day to ChatGPT. It thinks about it, shows a spinne
 
 You dictate a long technical note and the transcript butchers half the jargon. Heard Gemini's new model handles these better. Oops, should you say all that again?
 
-You hop on an impromptu Slack call and end up doing most of the talking, walking a teammate through the design: every edge case, every gotcha. That monologue was basically a Jira ticket with acceptance criteria. If only it were written down somewhere.
+You hop on an impromptu Slack call to walk a teammate through the design: every edge case, every gotcha. That walkthrough was basically a Jira ticket with acceptance criteria. If only it were written down somewhere.
 
 Sound familiar? manbok has you covered. It sits in your macOS menu bar and keeps everything any app recorded from your mic, up to the last two hours of it (configurable), in RAM. Open the popover, hit Dump, and the audio is back as a WAV: replay it, or hand it to a different transcriber and skip the retake. Nothing is written to disk until you export, and quitting wipes it all.
 
@@ -123,6 +123,7 @@ CLI (short-lived) ──IPC──► App (long-lived) ──► CaptureOrchestra
 
 - **Audio:** mono 16 kHz, 16-bit PCM (~32 KB/s). Ring overwrites oldest data when full.
 - **Opportunistic capture:** manbok never initiates mic use. Audio enters the ring only while another app holds the mic.
+- **Microphone only:** manbok hears what your mic hears: your voice. On a call, the other side comes through your speakers and is not captured. What you said is saved; what you heard is not.
 - **Per-app sessions:** each app that uses the mic gets its own session with a stable id. Overlapping sessions share the same audio (by design — they're views over one ring).
 - **No audio on disk** until you explicitly export (Dump or Copy in the popover, `dump` in the CLI). Quitting discards everything.
 
