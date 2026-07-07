@@ -6,7 +6,7 @@
 
 You narrate your plan for the day to ChatGPT. It thinks about it, shows a spinner, then: *"Oh, something went wrong!"* Two minutes of talking, gone.
 
-You dictate a long technical note and the transcript butchers half the jargon. There's a transcriber that handles tech vocabulary better, but it never heard the audio. Do you say it all again?
+You dictate a long technical note and the transcript butchers half the jargon. Heard Gemini's new model handles these better. Oops, should you say all that again?
 
 Sound familiar? manbok has you covered. It sits in your macOS menu bar and keeps everything any app recorded from your mic, up to the last two hours of it (configurable), in RAM. Open the popover, hit Dump, and the audio is back as a WAV: replay it, or hand it to a different transcriber and skip the retake. Nothing is written to disk until you export, and quitting wipes it all.
 
