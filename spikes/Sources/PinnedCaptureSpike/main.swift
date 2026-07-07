@@ -76,6 +76,18 @@ private func readUInt32(
     return status == noErr ? value : nil
 }
 
+private func readFloat64(
+    _ objectID: AudioObjectID,
+    _ selector: AudioObjectPropertySelector,
+    scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal
+) -> Float64? {
+    var addr = AudioObjectPropertyAddress(mSelector: selector, mScope: scope, mElement: kAudioObjectPropertyElementMain)
+    var value: Float64 = 0
+    var size = UInt32(MemoryLayout<Float64>.size)
+    let status = AudioObjectGetPropertyData(objectID, &addr, 0, nil, &size, &value)
+    return status == noErr ? value : nil
+}
+
 private func readPID(_ objectID: AudioObjectID, _ selector: AudioObjectPropertySelector) -> pid_t? {
     var addr = AudioObjectPropertyAddress(mSelector: selector, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
     var value: pid_t = 0
@@ -410,19 +422,31 @@ private final class AUHALCapture: CaptureBackend {
         guard status == noErr else { throw AUHALError.osStatus("CurrentDevice -> \(deviceLabel(deviceID))", status) }
         emit("auhal: pinned CurrentDevice to \(deviceLabel(deviceID))")
 
-        // Read (not force-override) the client-side stream format: output scope of the input
-        // element (1) is the format AudioUnitRender hands back to us. JUDGMENT CALL: we log
-        // whatever the AU reports rather than setting our own AudioStreamBasicDescription —
-        // HAL output units default to a sane client format, and extractPCM-equivalent handling
-        // below copes with both Float32 and Int16 if a device ever reports something else.
+        // Read the AU's default client-side stream format: output scope of the input element (1)
+        // is the format AudioUnitRender hands back to us. AUHAL's default client format is the
+        // canonical 44.1kHz float32 — it does NOT auto-adopt the pinned device's nominal sample
+        // rate just because CurrentDevice was set. AUHAL will convert channel count/interleaving
+        // on the input side but NOT sample rate; a mismatched client sample rate here is what
+        // produces -10863 (kAudioUnitErr_CannotDoInCurrentContext) on every AudioUnitRender call.
+        // Fix: read the device's actual nominal sample rate and override the client format's
+        // mSampleRate to match, before MaximumFramesPerSlice/callback/Initialize.
         var format = AudioStreamBasicDescription()
         var formatSize = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
         status = AudioUnitGetProperty(unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1, &format, &formatSize)
         guard status == noErr else { throw AUHALError.osStatus("GetStreamFormat(output, element 1)", status) }
+
+        if let nominalRate = readFloat64(deviceID, kAudioDevicePropertyNominalSampleRate), format.mSampleRate != nominalRate {
+            let defaultRate = format.mSampleRate
+            format.mSampleRate = nominalRate
+            status = AudioUnitSetProperty(unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1, &format, formatSize)
+            guard status == noErr else { throw AUHALError.osStatus("SetStreamFormat(output, element 1, \(Int(nominalRate))Hz)", status) }
+            emit("auhal: overrode client sample rate \(Int(defaultRate))Hz -> \(Int(nominalRate))Hz to match device nominal rate")
+        }
+
         streamFormat = format
         let isFloat = (format.mFormatFlags & kAudioFormatFlagIsFloat) != 0
         let isNonInterleaved = (format.mFormatFlags & kAudioFormatFlagIsNonInterleaved) != 0
-        emit("auhal: client stream format = \(Int(format.mSampleRate))Hz \(format.mChannelsPerFrame)ch float=\(isFloat) bits=\(format.mBitsPerChannel) interleaved=\(!isNonInterleaved) (using AU default, not overriding)")
+        emit("auhal: client stream format = \(Int(format.mSampleRate))Hz \(format.mChannelsPerFrame)ch float=\(isFloat) bits=\(format.mBitsPerChannel) interleaved=\(!isNonInterleaved)")
 
         var maxFramesVar = maxFrames
         status = AudioUnitSetProperty(unit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &maxFramesVar, UInt32(MemoryLayout<UInt32>.size))

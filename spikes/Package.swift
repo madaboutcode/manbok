@@ -16,6 +16,8 @@ let package = Package(
         .executable(name: "mic-detect-spike", targets: ["MicDetectSpike"]),
         .executable(name: "device-switch-spike", targets: ["DeviceSwitchSpike"]),
         .executable(name: "pinned-capture-spike", targets: ["PinnedCaptureSpike"]),
+        .executable(name: "vpio-contention-spike", targets: ["VpioContentionSpike"]),
+        .executable(name: "tap-load-spike", targets: ["TapLoadSpike"]),
     ],
     targets: [
         .executableTarget(name: "CaptureSpike", dependencies: []),
@@ -29,5 +31,7 @@ let package = Package(
         .executableTarget(name: "MicDetectSpike", dependencies: []),
         .executableTarget(name: "DeviceSwitchSpike", dependencies: []),
         .executableTarget(name: "PinnedCaptureSpike", dependencies: []),
+        .executableTarget(name: "VpioContentionSpike", dependencies: []),
+        .executableTarget(name: "TapLoadSpike", dependencies: []),
     ]
 )
