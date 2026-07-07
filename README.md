@@ -1,8 +1,16 @@
+<p align="center">
+  <img src="docs/images/logo.png" width="160" alt="manbok — an amber ear inside glowing rings">
+</p>
+
 # manbok
 
 > *because Man-bok never misses a word*
 
 A rolling audio memory in your macOS menu bar. While any other app uses the microphone, manbok keeps the most recent stretch of audio in RAM — and lets you export any session as a WAV from the popover or the CLI. No audio on disk unless you say so.
+
+<p align="center">
+  <img src="docs/images/popover-sessions.png" width="360" alt="manbok popover: per-app sessions with waveforms, a live Zoom session recording, and the tape gauge showing 7:12 of 30:00">
+</p>
 
 ## Why *manbok*?
 
@@ -11,6 +19,10 @@ Named after [**Jung Man-bok**](https://en.wikipedia.org/wiki/Crash_Landing_on_Yo
 ## Install
 
 **Requirements:** macOS 14+ (Sonoma), Apple Silicon, Xcode Command Line Tools (`xcode-select --install`).
+
+### Prebuilt releases
+
+Download from [Releases](https://github.com/madaboutcode/manbok/releases). The app is not yet notarized, so on first open macOS will warn that it can't verify the developer — right-click the app → **Open**, or allow it under **System Settings → Privacy & Security → Open Anyway**. Building from source (below) avoids this entirely.
 
 ### From source
 
@@ -60,6 +72,11 @@ make uninstall              # remove CLI binary
 | Ear + slash | **Mic access needed** — permission denied or revoked |
 
 Click the icon to open the popover.
+
+<p align="center">
+  <img src="docs/images/popover-empty.png" width="300" alt="Empty state: Listening…"
+  >&nbsp;<img src="docs/images/popover-noaccess.png" width="300" alt="Permission denied state: Mic access needed">
+</p>
 
 ### The popover
 
@@ -148,6 +165,16 @@ Each module has a `CLAUDE.md` with a jumpstart and layout table. Architecture: `
 
 All targets: `make help`
 
+## Privacy
+
+manbok is an always-on microphone buffer, so here is exactly what it does with audio:
+
+- **Capture is opportunistic.** manbok never opens the microphone on its own. Audio enters the buffer only while *another* app is actively using the mic.
+- **RAM only.** Audio lives in a fixed-size ring buffer in memory (5–120 minutes, your setting). Nothing is written to disk during capture.
+- **Export is explicit.** A WAV file is created only when you click Dump/Copy or run `manbok dump`. Files go to the system temp directory (or your clipboard) — you decide where they end up after that.
+- **Nothing leaves your machine.** There is no network code in this app. No telemetry, no analytics, no accounts.
+- **Purge is instant.** Quit the app and the buffer is gone.
+
 ## License
 
-Private repository — all rights reserved unless otherwise agreed by the owner.
+[MIT](LICENSE) — do what you like; attribution appreciated.

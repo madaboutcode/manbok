@@ -1,7 +1,8 @@
 # docs/specs/ — spec authority
 
-Before creating, editing, or extracting any spec under this directory, you MUST invoke the
-`writing-specs` skill.
+Before creating, editing, or extracting any spec under this directory, invoke the
+`writing-specs` skill if it is available in your environment; otherwise follow the format
+rules below strictly.
 
 Read `README.md` in this directory for the spec index and update protocol.
 

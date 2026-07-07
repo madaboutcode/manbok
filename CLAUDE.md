@@ -107,13 +107,13 @@ make verify
 
 ## Design & Documentation
 
-- Before multi-component features, read `~/.agents/skills/software-design/SKILL.md` and follow its process.
+- Before multi-component features, read the `software-design` skill (`~/.agents/skills/software-design/SKILL.md`) if available and follow its process.
 - System design source of truth: `ARCHITECTURE.md`.
 - Maintain CONTRACT blocks in source files when changing guarantees.
 - When behavior changes, update `ARCHITECTURE.md` and relevant module `CLAUDE.md`.
 
 ## Testing
 
-- Read `~/.agents/skills/writing-unit-tests/SKILL.md` before writing tests.
+- Read the `writing-unit-tests` skill (`~/.agents/skills/writing-unit-tests/SKILL.md`) if available before writing tests.
 - Test contracts: GUARANTEES and FAILURE BEHAVIOR from CONTRACT blocks.
 - Ring wrap test is slow (~7s) — do not delete without a faster equivalent.
