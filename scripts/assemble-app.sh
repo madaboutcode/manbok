@@ -6,6 +6,9 @@ APP_NAME="Manbok"
 BUNDLE_ID="ai.manbok.app"
 BUILD_DIR="${1:-.build}"
 CONFIG="${2:-release}"
+# Version: 3rd positional arg wins, then VERSION env var, then a dev default.
+# Kept as an optional trailing arg so existing 2-arg callers (Makefile) are unaffected.
+VERSION="${3:-${VERSION:-0.0.0-dev}}"
 
 BINARY="${BUILD_DIR}/${CONFIG}/${PRODUCT}"
 APP_BUNDLE="${BUILD_DIR}/${APP_NAME}.app"
@@ -42,9 +45,9 @@ cat > "${CONTENTS}/Info.plist" <<PLIST
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>${VERSION}</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>${VERSION}</string>
   <key>LSUIElement</key>
   <true/>
   <key>NSMicrophoneUsageDescription</key>

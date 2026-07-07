@@ -31,10 +31,37 @@ jobs:
       - name: Create tarball
         run: tar -czf manbok-${VERSION}-macos-arm64.tar.gz -C .build/release manbok
 
+      - name: Build app product
+        run: swift build -c release --product ManbokApp
+
+      - name: Assemble app bundle
+        run: scripts/assemble-app.sh .build release "$VERSION"
+
+      - name: Zip app bundle
+        run: ditto -c -k --keepParent .build/Manbok.app Manbok-${VERSION}-macos-arm64.zip
+
+      - name: Write release notes
+        run: |
+          cat > release-notes.md <<EOF
+          ## Install
+
+          **CLI:** download \`manbok-${VERSION}-macos-arm64.tar.gz\`, extract, and place \`manbok\` on your \`PATH\`.
+
+          **App:** download \`Manbok-${VERSION}-macos-arm64.zip\` and unzip. The app is ad-hoc signed, not notarized — macOS will warn on first open. To open it anyway:
+          - Right-click the app → Open, or
+          - System Settings → Privacy & Security → "Open Anyway", or
+          - \`xattr -d com.apple.quarantine ~/Downloads/Manbok.app\`
+
+          Building from source (\`make install-app\`) avoids this entirely.
+          EOF
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref }}
+          body_path: release-notes.md
           generate_release_notes: true
-          files: manbok-${{ env.VERSION }}-macos-arm64.tar.gz
+          files: |
+            manbok-${{ env.VERSION }}-macos-arm64.tar.gz
+            Manbok-${{ env.VERSION }}-macos-arm64.zip
           make_latest: true
