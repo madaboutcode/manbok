@@ -16,6 +16,8 @@ Read `CLAUDE.md` here before writing or editing any spec.
 | `lifecycle.md` | Launch, first-run permission, single instance, quit, LaunchAgent migration. |
 | `capture.md` | Which mic gets recorded (per-app device following) and the self-healing guarantees: stall recovery, digital-silence recovery, no-flapping bounds. |
 | `interfaces/ipc.md` | The Unix-socket IPC boundary at validation precision (verbs, NDJSON responses, error codes). |
+| `interfaces/capture-worker.md` | The pinned audio capture worker boundary: targets, chunks, errors, start/stop, bound device. |
+| `interfaces/capture-waist.md` | The lifecycle-to-supervisor waist: demand entries, status/health, the apply protocol, arrival deferral. |
 
 ## Update protocol
 
