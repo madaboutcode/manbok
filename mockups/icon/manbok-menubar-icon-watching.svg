@@ -1,5 +1,5 @@
 <!-- manbok menu bar icon — WATCHING (template: tint via currentColor; gray in menu bar).
-     Derived from mockups/audiology.svg (stakeholder pick 2026-07-04): background circle
+     Ear glyph: original artwork by the project author (MIT, with the project): background circle
      dropped, sound-wave arcs dropped (they belong to the recording variant), fill = currentColor.
      Build note: recenter/rescale when producing the asset-catalog template image. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" fill="currentColor">

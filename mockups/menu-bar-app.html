@@ -8,8 +8,8 @@
      Replaces the missing mockups/menu-bar-app.html the June-5 spec referenced.
      Supersedes June-5 §3: no blue-dot icon state.
      rev2 2026-07-04: ux-review.md absorbed (C1 C2 M1 M3 M4 M6 N2 N3 N4); icon motif = EAR
-     (stakeholder) — the inline ear here is a placeholder; final artwork derives from one of
-     the three candidate SVGs in this folder. */
+     (stakeholder) — final artwork lives in mockups/icon/ (original artwork by the
+     project author, MIT with the project). */
   :root {
     --bg: #1e1e20; --surface: rgba(40,40,44,.92); --border: rgba(255,255,255,.10);
     --text: rgba(255,255,255,.90); --text2: rgba(255,255,255,.55);
@@ -23,7 +23,7 @@
   .panel .note { font-size:11.5px; color:var(--text2); margin-top:10px; max-width:340px; }
   code { font-size:11px; }
 
-  /* ear glyph — derived from audiology.svg (stakeholder pick 2026-07-04) */
+  /* ear glyph — original artwork by the project author (stakeholder pick 2026-07-04) */
   .ear { width:17px; height:17px; vertical-align:-3px; color:#9a9aa0; }
   .ear.rec { color:var(--red); }
   .ear use { fill:currentColor; }
@@ -113,9 +113,9 @@
   .drag-ghost { display:inline-flex; gap:8px; align-items:center; background:rgba(50,50,54,.95); border:1px solid var(--border);
                 border-radius:8px; padding:8px 12px; font-size:12px; }
 </style>
-<!-- ear glyph from audiology.svg: #ear-glyph = ear alone (watching); #ear-waves = the
-     sound-wave arcs added while recording (shape change, not color-only). Standalone icon
-     files: mockups/icon/manbok-menubar-icon-{watching,recording,noaccess}.svg -->
+<!-- ear glyph (original artwork by the project author): #ear-glyph = ear alone (watching);
+     #ear-waves = the sound-wave arcs added while recording (shape change, not color-only).
+     Standalone icon files: mockups/icon/manbok-menubar-icon-{watching,recording,noaccess}.svg -->
 <svg width="0" height="0" style="position:absolute">
   <defs>
     <g id="ear-glyph">
@@ -147,8 +147,8 @@
     <svg class="ear" viewBox="0 0 72 72"><use href="#ear-glyph"/><line class="slash" x1="12" y1="62" x2="60" y2="12"/></svg>
     <span class="lbl">mic access needed — warning slash overlay</span>
   </div>
-  <p class="note">Motif: an ear (eavesdropping) — stakeholder call 2026-07-04; artwork derived
-  from <b>audiology.svg</b> (stakeholder pick): watching = ear alone; recording = ear <i>+
+  <p class="note">Motif: an ear (eavesdropping) — stakeholder call 2026-07-04; original
+  artwork by the project author: watching = ear alone; recording = ear <i>+
   sound waves</i> — shape and color change together, never color alone. Standalone assets:
   mockups/icon/manbok-menubar-icon-*.svg. One signal drives icon, badge, and rows: <i>any
   session open?</i> — red persists through drain grace (ux-review C1). No animation, no third

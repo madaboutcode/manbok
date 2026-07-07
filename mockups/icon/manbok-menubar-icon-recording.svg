@@ -1,5 +1,5 @@
 <!-- manbok menu bar icon — RECORDING (tinted red #ff453a at runtime; currentColor here).
-     Derived from mockups/audiology.svg (stakeholder pick 2026-07-04): background circle
+     Ear glyph: original artwork by the project author (MIT, with the project): background circle
      dropped; ear + all three sound-wave arcs kept — the waves are the recording variant's
      shape change, so watching/recording differ by shape AND color (a11y: not color-alone). -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" fill="currentColor">
