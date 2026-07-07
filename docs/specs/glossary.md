@@ -42,7 +42,7 @@ What it is NOT (nearest wrong framings):
 | **CLI** | `manbok` in a terminal — a thin client. `status`/`dump`/`stop` talk to the App over the Unix socket; `start` means "open the App". |
 | **PCM stream** | The canonical in-RAM audio: mono 16 kHz 16-bit little-endian samples (~1.9 MB/min). Everything the ring holds is this format, regardless of the mic's native format. |
 | **WAV** | The export container: the dumped PCM span wrapped in a standard WAV header. The only file format manbok produces. |
-| **Mic** | The system default input device, as held by *other* apps. manbok taps it only while at least one other app holds it. |
+| **Mic** (of a session) | The input device the session's app is actually recording from — resolved per app at capture time, falling back to the system default input only when per-app resolution is unavailable. manbok taps it only while at least one other app holds it. *(Evolved 2026-07-07 — was "the system default input device"; see docs/decisions/20260707-capture-follows-app-mic.md. Capture robustness behavior: `capture.md`.)* |
 
 **Retired vocabulary:** *Listener/Daemon* as a distinct noun (absorbed into App); *always-on
 capture* (dropped — opportunistic capture is the product; reversal recorded in
