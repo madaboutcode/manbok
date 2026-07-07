@@ -4,9 +4,13 @@
 
 # manbok
 
-**Your dictation app just glitched and ate the sentence you spoke. manbok has it.**
+You narrate your plan for the day to ChatGPT. It thinks about it, shows a spinner, then: *"Oh, something went wrong!"* Two minutes of talking, gone.
 
-manbok is a macOS menu bar app that keeps the last few minutes of microphone audio in RAM — automatically, whenever *any* app is using the mic. Speech-to-text dropped your words? Meeting app died mid-sentence? Open the popover, hit Dump, and the audio is back as a WAV. Nothing is ever written to disk unless you export it, and quitting wipes everything.
+You dictate a long technical note and the transcript butchers half the jargon. There's a transcriber that handles tech vocabulary better, but it never heard the audio. Do you say it all again?
+
+Sound familiar? manbok has you covered. It sits in your macOS menu bar and keeps everything any app recorded from your mic, up to the last two hours of it (configurable), in RAM. Open the popover, hit Dump, and the audio is back as a WAV: replay it, or hand it to a different transcriber and skip the retake. Nothing is written to disk until you export, and quitting wipes it all.
+
+The name? [**Jung Man-bok**](https://en.wikipedia.org/wiki/Crash_Landing_on_You#People_in_the_North_Korean_Forces) (정만복), the wiretapper in [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You): always listening, never missing a word.
 
 <p align="center">
   <img src="docs/images/popover-sessions.png" width="360" alt="manbok popover: per-app sessions with waveforms, a live Zoom session recording, and the tape gauge showing 7:12 of 30:00">
@@ -160,12 +164,6 @@ Each module has a `CLAUDE.md` with a jumpstart and layout table. Architecture: `
 | `make start-fg` | Foreground daemon with terminal meter |
 
 All targets: `make help`
-
-## Why "manbok"?
-
-> *because Man-bok never misses a word*
-
-Named after [**Jung Man-bok**](https://en.wikipedia.org/wiki/Crash_Landing_on_You#People_in_the_North_Korean_Forces) (정만복), the wiretapper in [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You) — always listening, never missing a word.
 
 ## Privacy
 
