@@ -215,6 +215,7 @@ public final class CaptureOrchestrator: ObservableObject, @unchecked Sendable {
             // Start failed (or was backoff-blocked) for these arrivals — leave them
             // unseen so the next tick treats them as arrivals again and retries.
             previousBundleIDs.subtract(arrived)
+            log.notice("arrivals deferred (capture not running): \(arrived.joined(separator: ", "))")
         }
 
         // Capture mirrors external mic use: the engine runs iff an app currently holds
@@ -258,7 +259,7 @@ public final class CaptureOrchestrator: ObservableObject, @unchecked Sendable {
             source.setEventHandler { [weak self] in self?.expireDrain(bundleID: bundleID) }
             source.resume()
             drainTimers[bundleID] = source
-            log.info("drain started — \(bundleID) grace=\(gracePeriod)s")
+            log.notice("drain started — \(bundleID) grace=\(gracePeriod)s")
         }
     }
 
@@ -297,7 +298,7 @@ public final class CaptureOrchestrator: ObservableObject, @unchecked Sendable {
             }
             isCapturing = true
             captureStartedAt = now
-            log.notice("capture started — input=\(currentInputDescription())")
+            log.notice("capture started — sysDefault=\(currentInputDescription())")
         } catch {
             log.error("capture start failed (retry in \(Int(restartPolicy.currentDelay))s): \(error)")
         }
@@ -305,7 +306,7 @@ public final class CaptureOrchestrator: ObservableObject, @unchecked Sendable {
 
     private func restartCapture(reason: String) {
         guard isCapturing else { return }
-        log.notice("capture restarting (\(reason)) — input=\(currentInputDescription())")
+        log.notice("capture restarting (\(reason)) — sysDefault=\(currentInputDescription())")
         capture.stop()
         isCapturing = false
         startCapture()
@@ -316,7 +317,7 @@ public final class CaptureOrchestrator: ObservableObject, @unchecked Sendable {
         let now = Date()
         guard restartPolicy.mayRestart(now: now) else {
             // Suppressed signals are safe: the watchdog catches a dead engine next tick.
-            log.info("restart suppressed (\(reason)) — within backoff window")
+            log.notice("restart suppressed (\(reason)) — within backoff window")
             return
         }
         restartCapture(reason: reason)

@@ -47,6 +47,10 @@ public final class ProcessAudioMonitor {
             guard isRunningInput else { continue }
 
             let bundleID = readCFString(objID, kAudioProcessPropertyBundleID) ?? ""
+            if bundleID.isEmpty {
+                log.info("skipping process obj=\(objID) pid=\(pid): empty bundle ID")
+                continue
+            }
             if Self.alwaysOnProcesses.contains(bundleID) { continue }
             if Self.ignoredBundleIDPrefixes.contains(where: { bundleID.hasPrefix($0) }) { continue }
             result.append(AudioProcessInfo(pid: pid, bundleID: bundleID, isRunningInput: true))

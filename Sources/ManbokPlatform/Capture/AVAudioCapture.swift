@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreAudio
 import Foundation
 import ManbokCore
 
@@ -51,6 +52,11 @@ public final class AVAudioCapture: NSObject, AudioCapturing {
     private var lastInputFormat: AVAudioFormat?
     private var sink: ((Data) -> Void)?
     private var isCapturing = false
+    private var firstBufferLogged = false
+    private var tapFrameCount: UInt64 = 0
+    private var sinkFrameCount: UInt64 = 0
+    private var peakRawRMS: Float = 0
+    private var lastPeriodicLog: UInt64 = 0
 
     private lazy var targetFormat = AVAudioFormat(
         commonFormat: .pcmFormatInt16,
@@ -85,6 +91,12 @@ public final class AVAudioCapture: NSObject, AudioCapturing {
             self?.handleTap(buffer: buffer)
         }
 
+        firstBufferLogged = false
+        tapFrameCount = 0
+        sinkFrameCount = 0
+        peakRawRMS = 0
+        lastPeriodicLog = 0
+
         do {
             try newEngine.start()
         } catch {
@@ -95,7 +107,8 @@ public final class AVAudioCapture: NSObject, AudioCapturing {
             throw AVAudioCaptureError.engineStartFailed(error.localizedDescription)
         }
 
-        log.info("capture started → \(AudioFormat.sampleRate) Hz mono s16 (converter created on first frame)")
+        let deviceDesc = Self.actualInputDevice(input)
+        log.notice("engine tapping device: \(deviceDesc)")
     }
 
     public func stop() {
@@ -103,6 +116,7 @@ public final class AVAudioCapture: NSObject, AudioCapturing {
 
         isCapturing = false
         sink = nil
+        firstBufferLogged = false
 
         engine?.inputNode.removeTap(onBus: 0)
         engine?.stop()
@@ -112,13 +126,39 @@ public final class AVAudioCapture: NSObject, AudioCapturing {
         converter = nil
         lastInputFormat = nil
 
-        log.info("capture stopped")
+        let tapSec = Double(tapFrameCount) / Double(AudioFormat.sampleRate)
+        let sinkSec = Double(sinkFrameCount) / Double(AudioFormat.sampleRate)
+        log.notice(
+            "capture stopped — tap=\(String(format: "%.1f", tapSec))s"
+                + " sink=\(String(format: "%.1f", sinkSec))s"
+                + " peakRawRMS=\(String(format: "%.4f", peakRawRMS))"
+        )
     }
 
     private func handleTap(buffer: AVAudioPCMBuffer) {
         guard isCapturing, let sink else { return }
 
         let inputFormat = buffer.format
+        let rawRMS = Self.rms(of: buffer)
+        peakRawRMS = max(peakRawRMS, rawRMS)
+
+        // Log raw input level on first buffer — diagnoses silence-at-source vs converter issues
+        if !firstBufferLogged {
+            firstBufferLogged = true
+            log.notice(
+                "first buffer: format=\(inputFormat.sampleRate)Hz ch=\(inputFormat.channelCount)"
+                    + " frames=\(buffer.frameLength) rawRMS=\(String(format: "%.4f", rawRMS))"
+            )
+        }
+
+        // Periodic signal check every ~5s (80000 frames at 16kHz target ≈ 5s)
+        let targetFramesSoFar = tapFrameCount
+        if targetFramesSoFar - lastPeriodicLog >= 80_000 {
+            lastPeriodicLog = targetFramesSoFar
+            log.notice("signal check: rawRMS=\(String(format: "%.4f", rawRMS)) peakRMS=\(String(format: "%.4f", peakRawRMS)) tap=\(tapFrameCount)f")
+        }
+
+        tapFrameCount += UInt64(buffer.frameLength)
 
         // F1: create or recreate converter if format changed (device reconfigured mid-session)
         if converter == nil || inputFormat != lastInputFormat {
@@ -128,7 +168,7 @@ public final class AVAudioCapture: NSObject, AudioCapturing {
             }
             converter = newConverter
             lastInputFormat = inputFormat
-            log.info(
+            log.notice(
                 "converter created: \(inputFormat.sampleRate) Hz ch=\(inputFormat.channelCount)"
                     + " → \(AudioFormat.sampleRate) Hz mono s16"
             )
@@ -158,12 +198,49 @@ public final class AVAudioCapture: NSObject, AudioCapturing {
             return
         }
 
-        guard let channel = out.int16ChannelData?[0] else { return }
+        guard let channel = out.int16ChannelData?[0] else {
+            log.warning("dropped frame: converter output has no int16 channel data")
+            return
+        }
         let frameCount = Int(out.frameLength)
-        guard frameCount > 0 else { return }
+        guard frameCount > 0 else {
+            log.warning("dropped frame: converter produced 0 frames")
+            return
+        }
+
+        sinkFrameCount += UInt64(frameCount)
 
         let byteCount = frameCount * AudioFormat.bytesPerFrame
         let pcm = Data(bytes: channel, count: byteCount)
         sink(pcm)
+    }
+
+    // MARK: - Diagnostics
+
+    private static func actualInputDevice(_ inputNode: AVAudioInputNode) -> String {
+        let au = inputNode.audioUnit
+        guard let au else { return "no audio unit" }
+        var deviceID: AudioDeviceID = 0
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let status = AudioUnitGetProperty(
+            au,
+            kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global,
+            0,
+            &deviceID,
+            &size
+        )
+        guard status == noErr else { return "query failed (OSStatus \(status))" }
+        let name = InputDeviceObserver.deviceName(deviceID)
+        return "\(name) (\(deviceID))"
+    }
+
+    private static func rms(of buffer: AVAudioPCMBuffer) -> Float {
+        guard let data = buffer.floatChannelData, buffer.frameLength > 0 else { return 0 }
+        let samples = data[0]
+        let count = Int(buffer.frameLength)
+        var sumSq: Float = 0
+        for i in 0..<count { sumSq += samples[i] * samples[i] }
+        return sqrtf(sumSq / Float(count))
     }
 }
