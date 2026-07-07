@@ -4,17 +4,13 @@
 
 # manbok
 
-> *because Man-bok never misses a word*
+**Your dictation app just glitched and ate the sentence you spoke. manbok has it.**
 
-A rolling audio memory in your macOS menu bar. While any other app uses the microphone, manbok keeps the most recent stretch of audio in RAM — and lets you export any session as a WAV from the popover or the CLI. No audio on disk unless you say so.
+manbok is a macOS menu bar app that keeps the last few minutes of microphone audio in RAM — automatically, whenever *any* app is using the mic. Speech-to-text dropped your words? Meeting app died mid-sentence? Open the popover, hit Dump, and the audio is back as a WAV. Nothing is ever written to disk unless you export it, and quitting wipes everything.
 
 <p align="center">
   <img src="docs/images/popover-sessions.png" width="360" alt="manbok popover: per-app sessions with waveforms, a live Zoom session recording, and the tape gauge showing 7:12 of 30:00">
 </p>
-
-## Why *manbok*?
-
-Named after [**Jung Man-bok**](https://en.wikipedia.org/wiki/Crash_Landing_on_You#People_in_the_North_Korean_Forces) (정만복), the wiretapper in [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You) — always listening, never missing a word.
 
 ## Install
 
@@ -164,6 +160,12 @@ Each module has a `CLAUDE.md` with a jumpstart and layout table. Architecture: `
 | `make start-fg` | Foreground daemon with terminal meter |
 
 All targets: `make help`
+
+## Why "manbok"?
+
+> *because Man-bok never misses a word*
+
+Named after [**Jung Man-bok**](https://en.wikipedia.org/wiki/Crash_Landing_on_You#People_in_the_North_Korean_Forces) (정만복), the wiretapper in [*Crash Landing on You*](https://en.wikipedia.org/wiki/Crash_Landing_on_You) — always listening, never missing a word.
 
 ## Privacy
 
