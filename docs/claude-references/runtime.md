@@ -39,13 +39,13 @@ Poor or garbled audio **only under launchd** is usually a **session / HAL routin
 | `~/Library/LaunchAgents/*.plist` | OK **if** `LimitLoadToSessionType` = `Aqua` and `ProcessType` = `Interactive` |
 | `/Library/LaunchDaemons/*.plist` | **Wrong** for mic — system context, degraded or silent capture |
 
-**Do not** run `manbok daemon` from a system LaunchDaemon. Use a **user LaunchAgent** (template: `resources/com.manbok.app.plist`).
+**Do not** run `manbok daemon` from a system LaunchDaemon (system context, degraded capture).
 
-Before enabling the agent:
-
-1. `manbok authorize` from Terminal (TCC prompt needs a user session).
-2. Replace `REPLACE_WITH_MANBOK_PATH` in the plist (e.g. `~/.local/bin/manbok`).
-3. Install: `make install-launchagent` (or copy `resources/com.manbok.app.plist` and `launchctl bootstrap gui/$(id -u) …`)
+**The LaunchAgent mechanism is retired.** The app is the long-lived process now; login
+persistence is the app's Login Item (popover → Settings → "Start at login", via
+`LoginItemManager`). `MigrationService` detects a legacy `com.manbok.app` LaunchAgent plist
+at app launch, boots it out, and deletes it — so hand-installed agents will not survive.
+The table above is kept for debugging session/HAL routing of the foreground daemon.
 
 Compare capture lines in Console:
 
@@ -60,7 +60,7 @@ If launchd shows a different **device name** or **format** than Terminal, you ar
 
 ## Logs
 
-Detached `make start` stdio → `/dev/null`. LaunchAgent logs → `/tmp/manbok.stderr.log` if using the template plist. Otherwise **Console.app** → `subsystem:ai.manbok.app`. Foreground `manbok daemon` mirrors important lines to stderr.
+Detached `make start` stdio → `/dev/null`. Diagnostics: **Console.app** → `subsystem:ai.manbok.app`. Foreground `manbok daemon` mirrors important lines to stderr.
 
 ### Stop-detection trace (`[trace]`)
 

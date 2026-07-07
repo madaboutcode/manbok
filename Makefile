@@ -1,9 +1,5 @@
 # manbok — common dev/daemon commands (run `make help`)
-.PHONY: help build release test verify install uninstall install-launchagent uninstall-launchagent authorize dev stop-quiet start start-bg start-fg start-fg-always start-always-on stop status sessions dump dump-list app install-app run-app
-
-LAUNCH_AGENT_LABEL := com.manbok.app
-LAUNCH_AGENT_PLIST := $(HOME)/Library/LaunchAgents/$(LAUNCH_AGENT_LABEL).plist
-GUI_DOMAIN := gui/$(shell id -u)
+.PHONY: help build release test verify install uninstall authorize dev stop-quiet start start-bg start-fg start-fg-always start-always-on stop status sessions dump dump-list app install-app run-app
 
 BIN := .build/debug/manbok
 RELEASE_BIN := .build/release/manbok
@@ -15,38 +11,28 @@ BINDIR ?= $(PREFIX)/bin
 INSTALLED_BIN := $(BINDIR)/manbok
 
 help:
-	@echo "manbok"
+	@echo "manbok — the app is the product; most people only need the first three."
 	@echo ""
-	@echo "  make build            swift build (debug)"
-	@echo "  make release          swift build -c release"
-	@echo "  make test             swift test"
-	@echo "  make verify           test + build"
-	@echo "  make install          release → $(BINDIR)/manbok (restarts LaunchAgent if present)"
-	@echo "  make install-launchagent  install + user LaunchAgent (login, Aqua session)"
-	@echo "  make uninstall-launchagent remove LaunchAgent"
-	@echo "  make authorize        request mic permission (Terminal; before background daemon)"
-	@echo "  make uninstall        stop daemon, remove installed binary"
-	@echo "  make dev              build, stop if running, start-fg (meter)"
+	@echo "  make install-app      build + install → ~/Applications/Manbok.app"
+	@echo "  make run-app          build + open Manbok.app (no install)"
+	@echo "  make verify           test + build (run before a PR)"
 	@echo ""
-	@echo "  make start-bg         daemon (opportunistic, background)"
-	@echo "  make start            alias for start-bg"
-	@echo "  make start-fg         opportunistic + meter (dump needs another app recording)"
-	@echo "  make start-fg-always  always-on + meter (dump works after REC fills)"
-	@echo "  make start-always-on  always-on daemon (background)"
-	@echo "  make stop             stop daemon"
-	@echo "  make status           watching | listening | stopped"
-	@echo "  make sessions         list sessions (same as: manbok dump --list)"
-	@echo "  make dump             export newest session (default)"
-	@echo "  make app              build + assemble Manbok.app"
-	@echo "  make install-app      app → ~/Applications/Manbok.app"
-	@echo "  make run-app          build + open Manbok.app"
+	@echo "  CLI client (optional):"
+	@echo "  make install          release CLI → $(BINDIR)/manbok"
+	@echo "  make uninstall        remove installed CLI binary"
 	@echo ""
-	@echo "  make dump TARGET=all  export full ring"
-	@echo "  make dump TARGET=-1   prior session (-2 = two back; omit = newest)"
-	@echo "  make dump MINUTES=5   last N minutes of ring"
+	@echo "  Building blocks:"
+	@echo "  make build / release / test / app"
 	@echo ""
-	@echo "Debug:   $(BIN)"
-	@echo "Release: $(RELEASE_BIN)"
+	@echo "  Debug (daemon in a terminal, no app):"
+	@echo "  make dev              build, restart, foreground meter"
+	@echo "  make start-fg         opportunistic + meter (start-fg-always = always-on)"
+	@echo "  make start / start-always-on / stop / status    background daemon control"
+	@echo "  make sessions         list sessions"
+	@echo "  make dump             export newest session (TARGET=all | TARGET=-1 | MINUTES=5)"
+	@echo "  make authorize        mic permission for the CLI binary (needed before daemon use)"
+	@echo ""
+	@echo "Binaries — debug: $(BIN)   release: $(RELEASE_BIN)"
 
 build:
 	swift build
@@ -65,46 +51,13 @@ install: release
 	install -m 755 "$(RELEASE_BIN)" "$(INSTALLED_BIN)"
 	@echo "installed $(INSTALLED_BIN)"
 	@"$(INSTALLED_BIN)" authorize
-	@if [ -f "$(LAUNCH_AGENT_PLIST)" ]; then \
-	  echo "restarting LaunchAgent with updated binary…"; \
-	  launchctl bootout $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)" 2>/dev/null || true; \
-	  launchctl bootstrap $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)"; \
-	  sleep 1; \
-	  "$(INSTALLED_BIN)" status; \
-	else \
-	  echo "no LaunchAgent found — run 'make install-launchagent' for login persistence"; \
-	fi
 	@echo "add to PATH if needed:  export PATH=\"$(BINDIR):\$$PATH\""
+	@echo "login persistence: use the app (popover → Settings → Start at login)"
 
 uninstall:
 	-@if [ -x "$(INSTALLED_BIN)" ]; then "$(INSTALLED_BIN)" stop; fi 2>/dev/null || true
 	@rm -f "$(INSTALLED_BIN)"
 	@echo "removed $(INSTALLED_BIN) (if it existed)"
-
-install-launchagent: release
-	@install -d "$(BINDIR)" "$(HOME)/Library/LaunchAgents"
-	@echo "stopping manual daemon if running…"
-	-@for b in "$(INSTALLED_BIN)" "$(RELEASE_BIN)" "$(BIN)"; do \
-	  if [ -x "$$b" ]; then "$$b" stop; fi; \
-	done 2>/dev/null || true
-	@sleep 0.3
-	install -m 755 "$(RELEASE_BIN)" "$(INSTALLED_BIN)"
-	@"$(INSTALLED_BIN)" authorize
-	-@launchctl bootout $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)" 2>/dev/null || true
-	@sed -e 's|REPLACE_WITH_MANBOK_PATH|$(INSTALLED_BIN)|g' \
-		-e 's|REPLACE_WITH_HOME|$(HOME)|g' \
-		resources/com.manbok.app.plist > "$(LAUNCH_AGENT_PLIST)"
-	@launchctl bootstrap $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)"
-	@echo "LaunchAgent loaded: $(LAUNCH_AGENT_PLIST)"
-	@echo "logs: /tmp/manbok.stderr.log  Console: subsystem ai.manbok.app"
-	@sleep 1
-	@$(INSTALLED_BIN) status
-
-uninstall-launchagent:
-	-@launchctl bootout $(GUI_DOMAIN) "$(LAUNCH_AGENT_PLIST)" 2>/dev/null || true
-	@rm -f "$(LAUNCH_AGENT_PLIST)"
-	-@if [ -x "$(INSTALLED_BIN)" ]; then "$(INSTALLED_BIN)" stop; fi 2>/dev/null || true
-	@echo "LaunchAgent removed (binary left at $(INSTALLED_BIN))"
 
 test:
 	swift test
