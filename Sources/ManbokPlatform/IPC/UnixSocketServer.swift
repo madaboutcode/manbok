@@ -18,7 +18,7 @@ import ManbokCore
 // - Malformed request line → handler not called; connection receives `{"type":"error","code":"bad_command",...}`.
 //
 // DOES NOT
-// - Stream audio, parse CLI flags, or implement dump use cases (see ListenerService).
+// - Stream audio, parse CLI flags, or implement dump use cases (see ManbokApp).
 
 private final class ResponseBox: @unchecked Sendable {
     var value: IPCResponse = .error(code: "internal", message: "internal error")

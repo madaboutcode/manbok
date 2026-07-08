@@ -11,7 +11,7 @@ import ManbokCore
 // - `wav` is pre-encoded RIFF WAV from `WavPCMEncoder`.
 //
 // FAILURE BEHAVIOR
-// - Disk errors from `WavFileWriter.write` propagate to `ListenerService.dump`.
+// - Disk errors from `WavFileWriter.write` propagate to the dump call site.
 //
 // DOES NOT
 // - Encode PCM, read the ring buffer, or choose non-temp paths.

@@ -7,7 +7,7 @@ import Foundation
 // - `AppLog` routes all categories through the installed sink.
 //
 // DOES NOT
-// - Choose presentation; see DaemonRuntimeEnvironment.
+// - Choose presentation; caller picks the DiagnosticsWriting implementation.
 
 public enum Diagnostics {
     private static let lock = NSLock()

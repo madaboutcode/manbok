@@ -22,7 +22,7 @@ import ManbokCore
 //
 // DOES NOT
 // - Encode/decode ring buffer contents beyond raw PCM bytes.
-// - Choose retention policy or call sites for save/restore (see CaptureOrchestrator).
+// - Choose retention policy or call sites for save/restore (see SessionLifecycleController).
 
 /// Persists ring buffer checkpoints (manifest + PCM) to `~/.manbok/`.
 public enum StatePersistenceService {
