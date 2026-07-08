@@ -1,5 +1,5 @@
 # manbok — common dev/daemon commands (run `make help`)
-.PHONY: help build release test verify install uninstall authorize dev stop-quiet start start-bg start-fg start-fg-always start-always-on stop status sessions dump dump-list app install-app run-app
+.PHONY: help build release test test-e2e verify install uninstall authorize dev stop-quiet start start-bg start-fg start-fg-always start-always-on stop status sessions dump dump-list app install-app run-app
 
 BIN := .build/debug/manbok
 RELEASE_BIN := .build/release/manbok
@@ -23,6 +23,7 @@ help:
 	@echo ""
 	@echo "  Building blocks:"
 	@echo "  make build / release / test / app"
+	@echo "  make test-e2e          real speaker→mic loopback proof (interactive, needs audio)"
 	@echo ""
 	@echo "  Debug (daemon in a terminal, no app):"
 	@echo "  make dev              build, restart, foreground meter"
@@ -61,6 +62,9 @@ uninstall:
 
 test:
 	swift test
+
+test-e2e:
+	MANBOK_E2E=1 swift test --filter CaptureE2E
 
 verify: test build
 
