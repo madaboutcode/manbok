@@ -41,15 +41,10 @@ import Foundation
 //
 // IMPLEMENTATION NOTE (caller-migration additions beyond the design's method list):
 // - `snapshotForDump(minutes:)` — raw last-N-minutes ring slice, independent of session
-//   identity. Needed because ListenerService.dump(minutes:) (CLI "dump last N minutes", no
-//   session arg) has no per-app framing; this is a direct port of the old
-//   RecordingSession.snapshotForDump(minutes:).
+//   identity. Needed for the CLI's session-less "dump last N minutes" path, which has no
+//   per-app framing; this is a direct port of the old RecordingSession.snapshotForDump(minutes:).
 // - `setDisplayName(bundleID:displayName:)` — updates an already-open session's label without
-//   touching its byte range. Needed by ListenerService's transitional legacy-session shim
-//   (OpportunisticCaptureController still relabels one "union" session as the joined app set
-//   changes, calling `setSessionAppName` possibly before an app name is known); CaptureOrchestrator
-//   (Phase 2 task 2.1) will supply the correct displayName at `openSession` time from the start
-//   and shouldn't need this.
+//   touching its byte range.
 
 /// Owns the shared byte ring, all per-app sessions, stable ids, and waveform peaks.
 public final class SessionRegistry {

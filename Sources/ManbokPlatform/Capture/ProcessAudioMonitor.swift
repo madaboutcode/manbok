@@ -9,6 +9,9 @@ import os
 //   and known always-on system processes that permanently hold the mic (alwaysOnProcesses).
 // - appName(for:) resolves bundle IDs to human-readable names.
 // - All CoreAudio reads are non-destructive (no engine stop required).
+// - deviceIDs: read per process object via kAudioProcessPropertyDevices at snapshot time;
+//   contains input devices only (D5 — a device qualifies iff it has input streams);
+//   [] on any read failure — never an error. Reads remain non-destructive.
 //
 // EXPECTS:
 // - macOS 14+ (Sonoma) — ProcessObjectList APIs unavailable on earlier versions.
@@ -23,6 +26,7 @@ public struct AudioProcessInfo: Equatable, Sendable {
     public let pid: pid_t
     public let bundleID: String
     public let isRunningInput: Bool
+    public let deviceIDs: [AudioDeviceID]  // input devices this process has open (pdv#); [] on read failure
 }
 
 public final class ProcessAudioMonitor {
@@ -49,7 +53,8 @@ public final class ProcessAudioMonitor {
             let bundleID = readCFString(objID, kAudioProcessPropertyBundleID) ?? ""
             if Self.alwaysOnProcesses.contains(bundleID) { continue }
             if Self.ignoredBundleIDPrefixes.contains(where: { bundleID.hasPrefix($0) }) { continue }
-            result.append(AudioProcessInfo(pid: pid, bundleID: bundleID, isRunningInput: true))
+            let devices = inputDeviceIDs(for: objID)
+            result.append(AudioProcessInfo(pid: pid, bundleID: bundleID, isRunningInput: true, deviceIDs: devices))
         }
         return result
     }
@@ -221,5 +226,23 @@ public final class ProcessAudioMonitor {
         var ids = [AudioObjectID](repeating: 0, count: count)
         guard AudioObjectGetPropertyData(objectID, &addr, 0, nil, &size, &ids) == noErr else { return [] }
         return ids
+    }
+
+    private func inputDeviceIDs(for processObjectID: AudioObjectID) -> [AudioDeviceID] {
+        let allDevices = readObjectIDs(processObjectID, kAudioProcessPropertyDevices)
+        return allDevices.filter { hasInputStreams($0) }
+    }
+
+    private func hasInputStreams(_ deviceID: AudioDeviceID) -> Bool {
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreams,
+            mScope: kAudioObjectPropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(deviceID, &addr, 0, nil, &size) == noErr else {
+            return false
+        }
+        return size > 0
     }
 }

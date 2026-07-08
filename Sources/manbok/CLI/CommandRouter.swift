@@ -8,7 +8,6 @@ import ManbokPlatform
 // GUARANTEES
 // - Maps authorize|start|stop|status|dump|sessions to IPC or app launch.
 // - `start` opens Manbok.app via `open -a Manbok` (no posix_spawn daemon).
-// - `start --foreground` runs the old in-process daemon (debug only).
 // - `dump` accepts session targets: id, `last`, `last-N`, or `--list`.
 // - stdout: dump path (one line) or status word; stderr: AppLog diagnostics.
 // - Connection failure → "manbok isn't running" hint (overview.md R9).
@@ -28,7 +27,6 @@ struct CommandRouter: ParsableCommand {
             StatusCommand.self,
             SessionsCommand.self,
             DumpCommand.self,
-            DaemonCommand.self,
         ]
     )
 }
@@ -68,23 +66,7 @@ struct AuthorizeCommand: ParsableCommand {
 struct StartCommand: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "start")
 
-    @Flag(name: .long, help: "Run in this terminal (debug only); do not launch the app")
-    var foreground = false
-
-    @Flag(name: .long, help: "Keep microphone open continuously (debug/foreground only)")
-    var alwaysOn = false
-
     func run() throws {
-        if foreground {
-            if DaemonProcess.isRunning() {
-                cliLog.error("daemon already running — stop it first")
-                throw ExitCode.failure
-            }
-            cliLog.info("daemon in foreground — meter on TTY; logs in Console (ai.manbok.app)")
-            DaemonMain.runDaemon(presentation: .foregroundMeter, alwaysOn: alwaysOn)
-            return
-        }
-
         if let response = try? UnixSocketClient.send(command: .ping), case .pong = response {
             print("manbok is already running")
             return
@@ -228,24 +210,6 @@ struct DumpCommand: ParsableCommand {
     }
 }
 
-struct DaemonCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(
-        commandName: "daemon",
-        abstract: "Run the listener in the foreground (for debugging)"
-    )
-
-    @Flag(name: .long, help: "Continuous capture (legacy)")
-    var alwaysOn = false
-
-    func run() throws {
-        if DaemonProcess.isRunning() {
-            cliLog.error("daemon already running — stop it first")
-            throw ExitCode.failure
-        }
-        DaemonMain.runDaemon(presentation: .foregroundMeter, alwaysOn: alwaysOn)
-    }
-}
-
 private func fetchSessions() throws -> [SessionSummary] {
     let response = try UnixSocketClient.send(command: .sessions)
     switch response {
@@ -315,12 +279,6 @@ private func performDump(minutes: Int?, sessionId: UInt64?) throws {
         cliLog.error(connectionMessage(error))
         throw ExitCode.failure
     }
-}
-
-private func terminateRunningDaemon() throws {
-    _ = try? UnixSocketClient.send(command: .stop)
-    DaemonProcess.reclaimStaleState()
-    usleep(200_000)
 }
 
 private func explainDumpFailure(code: String, message: String) {

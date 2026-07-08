@@ -6,7 +6,7 @@ import ManbokPlatform
 @main
 struct ManbokApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var orchestrator: CaptureOrchestrator
+    @StateObject private var lifecycle: SessionLifecycleController
     @StateObject private var settings: SettingsStore
     @StateObject private var viewModel: PopoverViewModel
 
@@ -35,17 +35,26 @@ struct ManbokApp: App {
             reg = SessionRegistry(ringCapacity: capacity)
         }
 
-        let capture = AVAudioCapture()
-        let orch = CaptureOrchestrator(capture: capture, registry: reg)
-        let vm = PopoverViewModel(registry: reg, orchestrator: orch)
+        let monitor = ProcessAudioMonitor()
+        let signals = AUHALEnvironmentSignals()
+        let supervisor = CaptureSupervisor(
+            makeWorker: { AUHALWorker() },
+            processSnapshot: { monitor.otherInputProcesses() },
+            signals: signals,
+            appendSink: { reg.append($0) })
+        let lifecycleController = SessionLifecycleController(
+            supervisor: supervisor, registry: reg,
+            processSnapshot: { monitor.otherInputProcesses() })
+        let vm = PopoverViewModel(registry: reg, lifecycle: lifecycleController)
 
         self.registry = reg
-        _orchestrator = StateObject(wrappedValue: orch)
+        _lifecycle = StateObject(wrappedValue: lifecycleController)
         _settings = StateObject(wrappedValue: settingsStore)
         _viewModel = StateObject(wrappedValue: vm)
 
-        startIPCServer(registry: reg, orchestrator: orch)
-        orch.start()
+        startIPCServer(registry: reg, lifecycle: lifecycleController, supervisor: supervisor)
+        supervisor.start()
+        lifecycleController.start()
 
         appDelegate.saveCheckpoint = {
             Self.performCheckpoint(registry: reg)
@@ -67,13 +76,13 @@ struct ManbokApp: App {
     var body: some Scene {
         MenuBarExtra {
             PopoverContentView()
-                .environmentObject(orchestrator)
+                .environmentObject(lifecycle)
                 .environmentObject(settings)
                 .environmentObject(viewModel)
         } label: {
             MenuBarIcon(
-                anySessionOpen: orchestrator.anySessionOpen,
-                micPermission: orchestrator.micPermission
+                anySessionOpen: lifecycle.anySessionOpen,
+                micPermission: lifecycle.micPermission
             )
         }
         .menuBarExtraStyle(.window)
@@ -92,14 +101,18 @@ struct ManbokApp: App {
         Window("Manbok Settings", id: "settings") {
             SettingsView(registry: registry)
                 .environmentObject(settings)
-                .environmentObject(orchestrator)
+                .environmentObject(lifecycle)
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
         .defaultPosition(.center)
     }
 
-    private func startIPCServer(registry: SessionRegistry, orchestrator: CaptureOrchestrator) {
+    private func startIPCServer(
+        registry: SessionRegistry,
+        lifecycle: SessionLifecycleController,
+        supervisor: CaptureSupervisor
+    ) {
         let dumpSink = PlatformDumpSink()
         let ipcLog = AppLog(category: .ipc)
 
@@ -112,7 +125,7 @@ struct ManbokApp: App {
 
             case .status:
                 let ring = RingBufferSummary(filledBytes: registry.filledBytes)
-                if orchestrator.anySessionOpen {
+                if lifecycle.anySessionOpen {
                     response = .listening(ring: ring)
                 } else {
                     response = .watching(ring: ring)
@@ -136,7 +149,8 @@ struct ManbokApp: App {
             case .stop:
                 ipcLog.notice("stop received — saving checkpoint and shutting down")
                 Self.performCheckpoint(registry: registry)
-                orchestrator.stop()
+                lifecycle.stop()
+                supervisor.stop()
                 DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) {
                     exit(0)
                 }

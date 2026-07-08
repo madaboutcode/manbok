@@ -14,7 +14,7 @@ import Foundation
 // - Unparseable JSON, or JSON with an unrecognized `type`, returns nil from `parse(line:)`.
 //
 // DOES NOT:
-// - Perform I/O or choose dump paths (see ListenerService / DumpPaths).
+// - Perform I/O or choose dump paths (see DumpPaths).
 
 /// Daemon replies sent over the Unix socket as NDJSON (one JSON object per line).
 public enum IPCResponse: Equatable, Sendable {

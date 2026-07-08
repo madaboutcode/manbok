@@ -10,11 +10,11 @@ import Foundation
 // - wav is from WavPCMEncoder; url is from nextURL() or a path under the same policy.
 //
 // FAILURE BEHAVIOR
-// - write throws on disk errors; ListenerService propagates without deleting partial files
+// - write throws on disk errors; callers propagate without deleting partial files
 //   (platform writer uses atomic write).
 //
 // DOES NOT
-// - Encode PCM or read the ring buffer (see ListenerService / WavPCMEncoder).
+// - Encode PCM or read the ring buffer (see WavPCMEncoder).
 
 /// Port for dump destination paths and WAV file persistence.
 public protocol DumpSink: AnyObject {
