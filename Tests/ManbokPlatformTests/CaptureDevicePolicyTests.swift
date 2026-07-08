@@ -46,7 +46,7 @@ final class CaptureDevicePolicyTests: XCTestCase {
         XCTAssertEqual(CaptureDevicePolicy.target(demand: demand), .device(2))
     }
 
-    // 5. One unreadable + one readable → the readable app's device, never systemDefault.
+    // 5. One unreadable + one readable → the readable app's device, never nil.
     func test_oneUnreadableOneReadable() {
         let demand = [
             app("com.example.unreadable", arrived: t0, devices: []),
@@ -69,18 +69,18 @@ final class CaptureDevicePolicyTests: XCTestCase {
         XCTAssertEqual(CaptureDevicePolicy.target(demand: demand), .device(2))
     }
 
-    // 7. All unreadable → systemDefault.
+    // 7. All unreadable → nil (no device info).
     func test_allUnreadable() {
         let demand = [
             app("com.example.a", arrived: t0, devices: []),
             app("com.example.b", arrived: t1, devices: []),
         ]
-        XCTAssertEqual(CaptureDevicePolicy.target(demand: demand), .systemDefault)
+        XCTAssertNil(CaptureDevicePolicy.target(demand: demand))
     }
 
-    // 8. Empty demand → systemDefault.
+    // 8. Empty demand → nil.
     func test_emptyDemand() {
-        XCTAssertEqual(CaptureDevicePolicy.target(demand: []), .systemDefault)
+        XCTAssertNil(CaptureDevicePolicy.target(demand: []))
     }
 
     // 9. Equal everything (same score, same arrivedAt) → lowest AudioDeviceID wins.

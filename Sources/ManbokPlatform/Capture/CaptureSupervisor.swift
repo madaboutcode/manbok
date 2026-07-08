@@ -20,17 +20,19 @@ import Foundation
 //   calls silencePolicy.evaluate, executes returned action through SAME restart budget;
 //   on .holdEntered logs .error once; calls noteExternalChange() on demand/target changes.
 // - Environment signals mailboxed (lock-protected), consumed at next tick:
-//   .captureDisturbed → restart via budget; .defaultInputChanged → restart ONLY if
-//   target is .systemDefault (D4).
+//   .captureDisturbed → restart via budget; .defaultInputChanged is inert (device-following
+//   via pdv# handles all switches; system default is irrelevant).
 // - Logging (R9): every (re)start logs .notice with device identity + trigger using
-//   canonical tokens: arrival, stall, silence, device switch, fallback.
+//   canonical tokens: arrival, stall, silence, device switch.
 // - apply returns post-decision status: isCapturing, health.
 //
 // EXPECTS: apply calls serialized; start() before lifecycle.start(); stop() after
 //   lifecycle.stop(). processSnapshot cheap/non-destructive; makeWorker returns fresh instance.
 //
 // FAILURE: worker start throw → logged, isCapturing=false returned, retried on next tick.
-//   processSnapshot no devices → policy falls back .systemDefault, logged.
+//   processSnapshot no devices → target nil: worker held if already running (logged .notice,
+//   all mismatch/watchdog/silence checks skipped that tick), else no worker started and
+//   health is .deferredNoDevice (logged .notice).
 //
 // DOES NOT: open/close sessions, publish UI state, parse HAL structures, own a dispatch queue.
 
@@ -134,91 +136,95 @@ public final class CaptureSupervisor: CaptureSupervising {
         var recoveryEvent = false
         var restartWasLadderAction = false
 
-        if worker == nil {
-            if restartPolicy.mayRestart(now: now) {
-                startWorker(target: target, now: now, trigger: "arrival", wasFlowing: false)
-                restartHappened = true
-            }
-            // else: arrival stays deferred, retried next tick — health resolves to .idle below.
-        } else {
-            // Target-mismatch check.
-            if let workerTarget, workerTarget != target {
-                recoveryEvent = true
+        if let target {
+            if worker == nil {
                 if restartPolicy.mayRestart(now: now) {
-                    restart(target: target, now: now, trigger: "device switch")
+                    startWorker(target: target, now: now, trigger: "arrival", wasFlowing: false)
                     restartHappened = true
                 }
-            }
-
-            // Byte-flow watchdog.
-            if !restartHappened, let captureStartedAt {
-                sinkLock.lock()
-                let lastData = lastDataAt
-                sinkLock.unlock()
-                if restartPolicy.isStalled(lastDataAt: lastData, captureStartedAt: captureStartedAt, now: now) {
+                // else: arrival stays deferred, retried next tick — health resolves to .idle below.
+            } else {
+                // Target-mismatch check.
+                if let workerTarget, workerTarget != target {
                     recoveryEvent = true
                     if restartPolicy.mayRestart(now: now) {
-                        restart(target: target, now: now, trigger: "stall")
+                        restart(target: target, now: now, trigger: "device switch")
                         restartHappened = true
                     }
                 }
-            }
 
-            // Digital-silence watchdog.
-            if !restartHappened, let captureStartedAt {
-                sinkLock.lock()
-                let currentSilentSince = silentSince
-                sinkLock.unlock()
-                let action = silencePolicy.evaluate(now: now, silentSince: currentSilentSince, lastWorkerStartAt: captureStartedAt)
-                switch action {
-                case .none:
-                    // Real signal flowing again (silentSince == nil) clears any prior hold.
-                    if currentSilentSince == nil { isHolding = false }
-                case .reResolveAndRestart:
-                    recoveryEvent = true
-                    if restartPolicy.mayRestart(now: now) {
-                        restart(target: target, now: now, trigger: "silence")
-                        silencePolicy.noteRestart(target: target)
-                        restartHappened = true
-                        restartWasLadderAction = true
+                // Byte-flow watchdog.
+                if !restartHappened, let captureStartedAt {
+                    sinkLock.lock()
+                    let lastData = lastDataAt
+                    sinkLock.unlock()
+                    if restartPolicy.isStalled(lastDataAt: lastData, captureStartedAt: captureStartedAt, now: now) {
+                        recoveryEvent = true
+                        if restartPolicy.mayRestart(now: now) {
+                            restart(target: target, now: now, trigger: "stall")
+                            restartHappened = true
+                        }
                     }
-                case .restartInPlace:
-                    recoveryEvent = true
-                    if restartPolicy.mayRestart(now: now) {
-                        let inPlaceTarget = workerTarget ?? target
-                        restart(target: inPlaceTarget, now: now, trigger: "silence")
-                        silencePolicy.noteRestart(target: inPlaceTarget)
-                        restartHappened = true
-                        restartWasLadderAction = true
+                }
+
+                // Digital-silence watchdog.
+                if !restartHappened, let captureStartedAt {
+                    sinkLock.lock()
+                    let currentSilentSince = silentSince
+                    sinkLock.unlock()
+                    let action = silencePolicy.evaluate(now: now, silentSince: currentSilentSince, lastWorkerStartAt: captureStartedAt)
+                    switch action {
+                    case .none:
+                        // Real signal flowing again (silentSince == nil) clears any prior hold.
+                        if currentSilentSince == nil { isHolding = false }
+                    case .reResolveAndRestart:
+                        recoveryEvent = true
+                        if restartPolicy.mayRestart(now: now) {
+                            restart(target: target, now: now, trigger: "silence")
+                            silencePolicy.noteRestart(target: target)
+                            restartHappened = true
+                            restartWasLadderAction = true
+                        }
+                    case .restartInPlace:
+                        recoveryEvent = true
+                        if restartPolicy.mayRestart(now: now) {
+                            let inPlaceTarget = workerTarget ?? target
+                            restart(target: inPlaceTarget, now: now, trigger: "silence")
+                            silencePolicy.noteRestart(target: inPlaceTarget)
+                            restartHappened = true
+                            restartWasLadderAction = true
+                        }
+                    case .holdEntered:
+                        log.error("capture: silence ladder exhausted — holding")
+                        isHolding = true
                     }
-                case .holdEntered:
-                    log.error("capture: silence ladder exhausted — holding")
-                    isHolding = true
+                }
+
+                // Environment signals (mailboxed above).
+                for signal in pendingEnvSignals {
+                    switch signal {
+                    case .captureDisturbed(let reason):
+                        if restartHappened { continue }
+                        recoveryEvent = true
+                        if restartPolicy.mayRestart(now: now) {
+                            restart(target: target, now: now, trigger: "device switch — \(reason)")
+                            restartHappened = true
+                        } else {
+                            log.notice("signal suppressed (backoff): captureDisturbed(\(reason))")
+                        }
+                    case .defaultInputChanged:
+                        continue  // device-following via pdv# handles all switches; system default is irrelevant
+                    }
                 }
             }
-
-            // Environment signals (mailboxed above).
-            for signal in pendingEnvSignals {
-                switch signal {
-                case .captureDisturbed(let reason):
-                    if restartHappened { continue }
-                    recoveryEvent = true
-                    if restartPolicy.mayRestart(now: now) {
-                        restart(target: target, now: now, trigger: "device switch — \(reason)")
-                        restartHappened = true
-                    } else {
-                        log.notice("signal suppressed (backoff): captureDisturbed(\(reason))")
-                    }
-                case .defaultInputChanged:
-                    guard target == .systemDefault else { continue }
-                    if restartHappened { continue }
-                    recoveryEvent = true
-                    if restartPolicy.mayRestart(now: now) {
-                        restart(target: target, now: now, trigger: "device switch — default input changed")
-                        restartHappened = true
-                    } else {
-                        log.notice("signal suppressed (backoff): defaultInputChanged")
-                    }
+        } else {
+            // target == nil: demand present but pdv# returned no devices for any demanded app.
+            // Only log on state entry (previousTarget was non-nil, now nil) to avoid spam.
+            if previousTarget != nil || previousDemandBundleIDs.isEmpty {
+                if worker != nil {
+                    log.notice("pdv# gap — holding current capture")
+                } else {
+                    log.notice("demand present but no device visible — deferring capture")
                 }
             }
         }
@@ -230,7 +236,9 @@ public final class CaptureSupervisor: CaptureSupervising {
         previousDemandBundleIDs = demandBundleIDs
         previousTarget = target
 
-        if isHolding {
+        if target == nil, worker == nil {
+            health = .deferredNoDevice
+        } else if isHolding {
             health = .holdingSilent
         } else if worker == nil {
             health = .idle
@@ -245,7 +253,7 @@ public final class CaptureSupervisor: CaptureSupervising {
 
     // MARK: - Target resolution
 
-    private func resolveTarget(demand: [DemandEntry]) -> CaptureTarget {
+    private func resolveTarget(demand: [DemandEntry]) -> CaptureTarget? {
         let snapshot = processSnapshot()
         var appDevicesMap: [String: (arrivedAt: Date, deviceIDs: Set<AudioDeviceID>)] = [:]
         for entry in demand {
@@ -298,8 +306,7 @@ public final class CaptureSupervisor: CaptureSupervising {
 
             let deviceName = newWorker.boundDevice.map { InputDeviceObserver.deviceName($0) } ?? "unknown"
             let deviceID = newWorker.boundDevice.map { String($0) } ?? "?"
-            let triggerToken = target == .systemDefault ? "fallback (\(trigger))" : trigger
-            log.notice("capture started — \(triggerToken) → \(deviceName) [\(deviceID)]")
+            log.notice("capture started — \(trigger) → \(deviceName) [\(deviceID)]")
 
             signals.observe(device: newWorker.boundDevice)
 

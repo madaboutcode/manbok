@@ -113,7 +113,9 @@ final class CaptureSupervisorTests: XCTestCase {
     // MARK: - 1. Worker iff demand
 
     func test_workerRunsIffDemandNonEmpty() {
-        let sup = makeSupervisor()
+        let sup = makeSupervisor(
+            snapshot: { [self] in [processInfo("com.app.a", devices: [1])] }
+        )
 
         let statusEmpty = sup.apply(demand: [], now: clockNow)
         XCTAssertFalse(statusEmpty.isCapturing)
@@ -121,7 +123,7 @@ final class CaptureSupervisorTests: XCTestCase {
 
         let statusDemand = sup.apply(demand: [demand("com.app.a")], now: clockNow)
         XCTAssertTrue(statusDemand.isCapturing)
-        XCTAssertNotNil(workers[0].startTarget)
+        XCTAssertEqual(workers[0].startTarget, .device(1))
 
         clockNow = clockNow.addingTimeInterval(2)
         let statusStop = sup.apply(demand: [], now: clockNow)
@@ -179,7 +181,10 @@ final class CaptureSupervisorTests: XCTestCase {
     // MARK: - 4. Watchdog restart on stalled bytes
 
     func test_watchdogRestartsOnStalledByteFlow() {
-        let sup = makeSupervisor(restartPolicy: .init(watchdogThreshold: 4, baseDelay: 0, maxDelay: 30))
+        let sup = makeSupervisor(
+            snapshot: { [self] in [processInfo("com.app.a", devices: [1])] },
+            restartPolicy: .init(watchdogThreshold: 4, baseDelay: 0, maxDelay: 30)
+        )
 
         let status1 = sup.apply(demand: [demand("com.app.a")], now: clockNow)
         XCTAssertTrue(status1.isCapturing)
@@ -197,6 +202,7 @@ final class CaptureSupervisorTests: XCTestCase {
 
     func test_silenceLadderReResolvesThenRetriesThenHolds() {
         let sup = makeSupervisor(
+            snapshot: { [self] in [processInfo("com.app.a", devices: [1])] },
             restartPolicy: .init(watchdogThreshold: 100, baseDelay: 0, maxDelay: 30),
             silencePolicy: .init(silenceThreshold: 10, maxSilentRestarts: 2)
         )
@@ -233,7 +239,10 @@ final class CaptureSupervisorTests: XCTestCase {
     // MARK: - 6. Backoff suppression of signals
 
     func test_backoffSuppressesEnvironmentSignal() {
-        let sup = makeSupervisor(restartPolicy: .init(watchdogThreshold: 100, baseDelay: 30, maxDelay: 30))
+        let sup = makeSupervisor(
+            snapshot: { [self] in [processInfo("com.app.a", devices: [1])] },
+            restartPolicy: .init(watchdogThreshold: 100, baseDelay: 30, maxDelay: 30)
+        )
         sup.start() // wires signals.handler — required for signals.send() to reach the supervisor
 
         _ = sup.apply(demand: [demand("com.app.a")], now: clockNow)
@@ -270,20 +279,14 @@ final class CaptureSupervisorTests: XCTestCase {
         XCTAssertEqual(workerIndex, 1)
     }
 
-    func test_defaultInputChangedRestartsWhenTargetIsSystemDefault() {
-        let sup = makeSupervisor(restartPolicy: .init(watchdogThreshold: 100, baseDelay: 0, maxDelay: 30))
+    func test_deferredNoDeviceWhenNoPdvData() {
+        let sup = makeSupervisor()  // empty snapshot — no devices
         sup.start()
 
-        _ = sup.apply(demand: [demand("com.app.a")], now: clockNow)
-        XCTAssertEqual(workers[0].startTarget, .systemDefault)
-
-        signals.send(.defaultInputChanged)
-        clockNow = clockNow.addingTimeInterval(1)
         let status = sup.apply(demand: [demand("com.app.a")], now: clockNow)
-
-        XCTAssertTrue(workers[0].stopped, "defaultInputChanged should restart a systemDefault-targeted capture")
-        XCTAssertTrue(status.isCapturing)
-        XCTAssertEqual(workerIndex, 2)
+        XCTAssertFalse(status.isCapturing, "should not capture when no device visible")
+        XCTAssertEqual(status.health, .deferredNoDevice)
+        XCTAssertEqual(workerIndex, 0, "no worker should be created")
     }
 
     // MARK: - 8. Error escalation at 3
@@ -299,7 +302,10 @@ final class CaptureSupervisorTests: XCTestCase {
         // only starts counting from the 2nd attempt: 0, 0, 1, 2, 3 after attempts
         // 1..5. The escalation log (>= 3) therefore fires starting on the 4th attempt.
         for w in workers { w.startError = .deviceUnavailable(1) }
-        let sup = makeSupervisor(restartPolicy: .init(watchdogThreshold: 100, baseDelay: 0, maxDelay: 30))
+        let sup = makeSupervisor(
+            snapshot: { [self] in [processInfo("com.app.a", devices: [1])] },
+            restartPolicy: .init(watchdogThreshold: 100, baseDelay: 0, maxDelay: 30)
+        )
 
         func escalations() -> [String] {
             diagnostics.errors.filter { $0.contains("3+ consecutive unhealthy restarts") }
@@ -322,7 +328,10 @@ final class CaptureSupervisorTests: XCTestCase {
 
     func test_healthReportsIdleCapturingRecoveringHoldingSilent() {
         // Idle + capturing: fresh, isolated supervisor.
-        let sup = makeSupervisor(restartPolicy: .init(watchdogThreshold: 100, baseDelay: 0, maxDelay: 30))
+        let sup = makeSupervisor(
+            snapshot: { [self] in [processInfo("com.app.a", devices: [1])] },
+            restartPolicy: .init(watchdogThreshold: 100, baseDelay: 0, maxDelay: 30)
+        )
 
         let idle = sup.apply(demand: [], now: clockNow)
         XCTAssertEqual(idle.health, .idle)
@@ -331,8 +340,16 @@ final class CaptureSupervisorTests: XCTestCase {
         XCTAssertEqual(capturing.health, .capturing)
         XCTAssertFalse(capturing.health == .recovering, "a plain arrival start is healthy, not recovering")
 
+        // Deferred: demand present but no device info available.
+        let supNoDevice = makeSupervisor(restartPolicy: .init(watchdogThreshold: 100, baseDelay: 0, maxDelay: 30))
+        let deferred = supNoDevice.apply(demand: [demand("com.app.nodev")], now: clockNow)
+        XCTAssertEqual(deferred.health, .deferredNoDevice)
+
         // Recovering: stall on the next tick, isolated supervisor + very small watchdog.
-        let sup2 = makeSupervisor(restartPolicy: .init(watchdogThreshold: 1, baseDelay: 0, maxDelay: 30))
+        let sup2 = makeSupervisor(
+            snapshot: { [self] in [processInfo("com.app.b", devices: [2])] },
+            restartPolicy: .init(watchdogThreshold: 1, baseDelay: 0, maxDelay: 30)
+        )
         _ = sup2.apply(demand: [demand("com.app.b")], now: clockNow)
         clockNow = clockNow.addingTimeInterval(2)
         let recovering = sup2.apply(demand: [demand("com.app.b")], now: clockNow)
@@ -340,6 +357,7 @@ final class CaptureSupervisorTests: XCTestCase {
 
         // Holding: drive the silence ladder to exhaustion, isolated supervisor.
         let sup3 = makeSupervisor(
+            snapshot: { [self] in [processInfo("com.app.c", devices: [3])] },
             restartPolicy: .init(watchdogThreshold: 100, baseDelay: 0, maxDelay: 30),
             silencePolicy: .init(silenceThreshold: 10, maxSilentRestarts: 1)
         )
@@ -371,7 +389,10 @@ final class CaptureSupervisorTests: XCTestCase {
     // MARK: - 10. Demand-empty abandons worker and resets policies
 
     func test_emptyDemandAbandonsWorkerAndResetsPolicies() {
-        let sup = makeSupervisor(restartPolicy: .init(watchdogThreshold: 4, baseDelay: 5, maxDelay: 30))
+        let sup = makeSupervisor(
+            snapshot: { [self] in [processInfo("com.app.a", devices: [1])] },
+            restartPolicy: .init(watchdogThreshold: 4, baseDelay: 5, maxDelay: 30)
+        )
 
         _ = sup.apply(demand: [demand("com.app.a")], now: clockNow)
         XCTAssertFalse(workers[0].stopped)
@@ -388,5 +409,29 @@ final class CaptureSupervisorTests: XCTestCase {
         let restarted = sup.apply(demand: [demand("com.app.a")], now: clockNow)
         XCTAssertTrue(restarted.isCapturing, "restart policy should have been reset on empty demand")
         XCTAssertEqual(workerIndex, 2)
+    }
+
+    // MARK: - 11. Nil target holds existing worker (pdv# gap)
+
+    func test_nilTargetHoldsExistingWorker() {
+        var currentDevices: [AudioDeviceID] = [1]
+        let sup = makeSupervisor(
+            snapshot: { [self] in [processInfo("com.app.a", devices: currentDevices)] },
+            restartPolicy: .init(watchdogThreshold: 100, baseDelay: 0, maxDelay: 30)
+        )
+
+        // Start with visible device
+        let status1 = sup.apply(demand: [demand("com.app.a")], now: clockNow)
+        XCTAssertTrue(status1.isCapturing)
+        XCTAssertEqual(workers[0].startTarget, .device(1))
+
+        // pdv# gap — devices go empty
+        currentDevices = []
+        clockNow = clockNow.addingTimeInterval(1)
+        let status2 = sup.apply(demand: [demand("com.app.a")], now: clockNow)
+
+        XCTAssertTrue(status2.isCapturing, "existing worker should be held during pdv# gap")
+        XCTAssertFalse(workers[0].stopped, "worker should NOT be stopped during pdv# gap")
+        XCTAssertEqual(workerIndex, 1, "no new worker should be created")
     }
 }

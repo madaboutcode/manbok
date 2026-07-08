@@ -9,7 +9,7 @@ import CoreAudio
 //
 // GUARANTEES:
 // - DemandEntry: one per external app currently holding the mic.
-// - CaptureHealth: four states (idle, capturing, recovering, holdingSilent).
+// - CaptureHealth: five states (idle, capturing, recovering, holdingSilent, deferredNoDevice).
 // - CaptureStatus: post-tick status returned from apply().
 // - CaptureSupervising: the ONLY downward waist protocol (lifecycle → supervisor).
 //
@@ -35,6 +35,7 @@ public enum CaptureHealth: Equatable, Sendable {
     case capturing         // worker running, both watchdogs quiet
     case recovering        // restart pending/backoff (stall, silence, target change)
     case holdingSilent     // R5 Holding: capturing, silence ladder exhausted
+    case deferredNoDevice  // demand present, pdv# returned no devices — not capturing
 }
 
 public struct CaptureStatus: Equatable, Sendable {

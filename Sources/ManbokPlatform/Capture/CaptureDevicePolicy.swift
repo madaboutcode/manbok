@@ -5,10 +5,11 @@ import Foundation
 //
 // GUARANTEES:
 // - Total, deterministic, throws nothing, caches nothing.
-// - Selects the single CaptureTarget for current demand.
+// - Selects the single CaptureTarget for current demand, or nil when no device
+//   information is available for any demanded app (never falls back to .systemDefault).
 // - Pure: no HAL reads, no workers, no state.
 //
-// DOES NOT: read the HAL, know workers/restarts, hold state.
+// DOES NOT: read the HAL, know workers/restarts, hold state, fall back to .systemDefault.
 
 public enum CaptureDevicePolicy {
     public struct AppDevices: Equatable, Sendable {
@@ -24,7 +25,7 @@ public enum CaptureDevicePolicy {
     }
 
     /// Total, deterministic, throws nothing, caches nothing.
-    public static func target(demand: [AppDevices]) -> CaptureTarget {
+    public static func target(demand: [AppDevices]) -> CaptureTarget? {
         // Step 1: candidates = union of all deviceIDs across all demanded apps.
         // Also track, per candidate device, the distinct bundleIDs holding it and the
         // latest arrivedAt among those holders. Apps with deviceIDs == [] contribute
@@ -43,7 +44,7 @@ public enum CaptureDevicePolicy {
             }
         }
 
-        guard !holderBundleIDs.isEmpty else { return .systemDefault }
+        guard !holderBundleIDs.isEmpty else { return nil }
 
         // Step 2: score = number of distinct bundleIDs holding the device. Highest wins.
         let maxScore = holderBundleIDs.values.map(\.count).max()!
