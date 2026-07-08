@@ -45,9 +45,7 @@ jobs:
           cat > release-notes.md <<EOF
           ## Install
 
-          **CLI:** download \`manbok-${VERSION}-macos-arm64.tar.gz\`, extract, and place \`manbok\` on your \`PATH\`.
-
-          **App:** download \`Manbok-${VERSION}-macos-arm64.zip\` and unzip. The app is ad-hoc signed, not notarized — macOS will warn on first open. To open it anyway:
+          Download \`Manbok-${VERSION}-macos-arm64.zip\` and unzip. The app is ad-hoc signed, not notarized — macOS will warn on first open. To open it anyway:
           - Right-click the app → Open, or
           - System Settings → Privacy & Security → "Open Anyway", or
           - \`xattr -d com.apple.quarantine ~/Downloads/Manbok.app\`
