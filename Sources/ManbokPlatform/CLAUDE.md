@@ -12,13 +12,13 @@ Everything that touches the OS — HAL audio, `~/.manbok/`, temp-dir WAV writes,
 
 ### Mental Model
 
-Implements Core ports (`AudioCapturing`, `DumpSink`) and provides infrastructure the app/executable wire in. `CaptureOrchestrator` drives capture end-to-end — it owns the `AVAudioCapture` tap and feeds bytes into Core's `SessionRegistry`, resolving the foreground app via `AppIdentityResolver` for per-app session boundaries.
+Implements Core ports (`AudioCapturing`, `DumpSink`) and provides infrastructure the app/executable wire in. `CaptureSupervisor` drives capture end-to-end (capture redesign, Waves A/B): it applies device/restart policy and owns disposable `AUHALWorker` instances behind the `PinnedAudioCapturing` waist; workers convert device-native audio to canonical PCM via `CanonicalPCMConverter` and feed chunks into Core's `SessionRegistry`. `SessionLifecycleController` opens/closes per-app sessions, resolving the foreground app via `AppIdentityResolver`.
 
 ### Layout
 
 | Folder | Role |
 |--------|------|
-| `Capture/` | `AVAudioCapture` (engine tap + converter), `CaptureOrchestrator` (per-app capture lifecycle + self-healing restarts on device change / byte-flow stall), `CaptureRestartPolicy` (restart rate-limit + backoff decisions, unit-tested), `AppIdentityCatalog` (bundle ID → {display name, icon bundle ID} static table + icon-candidate stemming, pure/unit-tested), `AppIdentityResolver` (bundle ID → display name; tier 1 delegates to the catalog), `InputDeviceObserver`, `MicrophoneAuthorization`, `OpportunisticCaptureController` (legacy), `ProcessAudioMonitor` |
+| `Capture/` | `CaptureSupervisor` (device/restart policy, owns workers), `AUHALWorker` (device-pinned HAL capture; disposable, one start per instance), `CanonicalPCMConverter` (device-native → s16le 16 kHz mono; enforces the AVAudioConverter pull-API invariants — see ARCHITECTURE.md §Capture stack), `CaptureWaist`/`PinnedAudioCapturing` (worker boundary), `SessionLifecycleController` (per-app session open/close), `CaptureDevicePolicy`, `CaptureRestartPolicy`, `SilenceRecoveryPolicy`, `AUHALEnvironmentSignals`/`EnvironmentSignals`, `AppIdentityCatalog` (bundle ID → {display name, icon bundle ID}, pure/unit-tested), `AppIdentityResolver`, `InputDeviceObserver`, `MicrophoneAuthorization`, `ProcessAudioMonitor` |
 | `IPC/` | `UnixSocketServer`, `UnixSocketClient` |
 | `IO/` | `AppStatePaths`, `DumpPaths`, `WavFileWriter`, `PlatformDumpSink`, `ExportService` (Finder reveal + clipboard), `StatePersistenceService` (checkpoint save/restore/clear) |
 | `Settings/` | `SettingsStore` (UserDefaults persistence), `LoginItemManager` (SMAppService) |

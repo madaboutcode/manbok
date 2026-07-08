@@ -342,13 +342,30 @@ the `--foreground` debug path.
 ### Capture stack
 
 ```
-Considered:   AudioQueue | AVAudioRecorder | AVAudioEngine tap + converter
-Chosen:       AVAudioEngine input tap + AVAudioConverter → s16le 16 kHz mono
-Why:          spike showed device at 48 kHz → stable conversion; continuous tap fits ring
-Limitations:  converter errors drop frames; mic-sharing is OS-dependent
-Fine because:  matches "no processing" scope; spike proved throughput
-Reversal:     mic-sharing manual test fails → spike HAL/aggregate device path before coding more
+Considered:   AudioQueue | AVAudioRecorder | AVAudioEngine tap + converter | raw AUHAL + converter
+Chosen:       Raw AUHAL (HAL output unit, device-pinned) + AVAudioConverter via
+              CanonicalPCMConverter → s16le 16 kHz mono   (updated 2026-07-08; originally
+              AVAudioEngine tap — replaced by the capture redesign, Waves A/B)
+Why:          device pinning + explicit device policy need the HAL unit; the engine tap
+              follows the default device on its own (see PinnedAudioCapturing contract)
+Limitations:  converter errors drop frames; conversion runs on the render thread
+Fine because:  matches "no processing" scope; validated by PinnedCaptureSpike, converter
+              unit tests, and the `make test-e2e` speaker→mic loopback test
+Reversal:     render overloads or silence gaps in real captures → move conversion off the
+              render thread (drain worker + lock-free ring), which subsumes buffer rotation
 ```
+
+**AVAudioConverter pull-API invariants (2026-07-08):** two capture-quality bugs (spliced
+"choppy/robotic" audio; periodic clicks) shipped from misusing the converter. The invariants
+are enforced in `CanonicalPCMConverter` + `AUHALWorker` and guarded by fractional-ratio
+continuity unit tests plus the e2e loopback's broadband-click assertion:
+
+1. Deliver each input buffer to the converter exactly once per `convert()` call, then answer
+   `.noDataNow` — re-delivering duplicates input and splices the stream at every chunk.
+2. The converter may reference caller input memory after `convert()` returns. Defense is
+   two-layer: output capacity is sized so every call drains the whole input buffer (fractional
+   ratios like 512 frames @ 48 kHz → 170⅔ otherwise leave a retained tail), and the worker
+   rotates 3 render buffers so a retained reference can never read rewritten memory.
 
 ---
 
