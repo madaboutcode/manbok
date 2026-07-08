@@ -60,8 +60,9 @@ State lives in `~/.manbok/` (pid + socket). Dump files go to the system temp dir
 | `Sources/ManbokApp/` | SwiftUI app: entry point, views, view model | Yes |
 | `Sources/manbok/` | CLI + daemon entry (`Main`, `DaemonMain`) | Yes |
 | `Tests/` | XCTest for Core + Platform | — |
+| `tools/test-harness/` | Controllable mic capture for testing capture pipeline | Yes |
 | `tasks/` | Internal planning files (not tracked) | — |
-| `spikes/` | Pre-implementation experiments (not shipped) | — |
+| `spikes/` | Pre-implementation experiments (not shipped) | Yes |
 
 ### Directory Structure
 
@@ -70,6 +71,7 @@ manbok/
 ├── Package.swift          # SPM: ManbokCore, ManbokPlatform, manbok
 ├── ARCHITECTURE.md        # System design (read before multi-file work)
 ├── tasks/                 # Internal planning files (not tracked in git)
+├── tools/test-harness/      # Capture test harness (see CLAUDE.md there)
 ├── Sources/ …               # See module CLAUDE.md files
 └── spikes/                  # Validation spikes only
 ```
@@ -79,6 +81,8 @@ Deep architecture: read `ARCHITECTURE.md` when touching layers, IPC, or capture.
 Daemon/IPC issues: read `docs/claude-references/runtime.md`.
 
 Logging/diagnostics: read `docs/claude-references/logging.md` (log levels, querying, gotchas).
+
+Capture testing: read `tools/test-harness/CLAUDE.md` when validating device-following, silence recovery, or capture pipeline behavior.
 
 ## Conventions
 
