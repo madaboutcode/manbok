@@ -2,7 +2,7 @@ import SwiftUI
 import ManbokPlatform
 
 struct PopoverContentView: View {
-    @EnvironmentObject private var orchestrator: CaptureOrchestrator
+    @EnvironmentObject private var lifecycle: SessionLifecycleController
     @EnvironmentObject private var viewModel: PopoverViewModel
 
     var body: some View {
@@ -22,7 +22,7 @@ struct PopoverContentView: View {
 
     @ViewBuilder
     private var content: some View {
-        if orchestrator.micPermission == .denied {
+        if lifecycle.micPermission == .denied {
             PermissionDeniedView()
         } else if viewModel.sessions.isEmpty {
             EmptyStateView()

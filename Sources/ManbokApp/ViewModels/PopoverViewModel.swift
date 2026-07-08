@@ -6,7 +6,7 @@ import SwiftUI
 // MARK: - CONTRACT: PopoverViewModel
 //
 // GUARANTEES:
-// - Bridges SessionRegistry + CaptureOrchestrator to SwiftUI popover views.
+// - Bridges SessionRegistry + SessionLifecycleController to SwiftUI popover views.
 // - Polls the registry at ~1 Hz ONLY between startPolling() and stopPolling() — no polling
 //   while the popover is not visible.
 // - refreshSessions() updates sessions, ringFilled, ringCapacity from the registry;
@@ -23,8 +23,8 @@ import SwiftUI
 //   copySession returns false. No error surfaced beyond that.
 //
 // DOES NOT:
-// - Republish orchestrator's anySessionOpen/micPermission — views observe the orchestrator
-//   directly for that.
+// - Republish lifecycle's anySessionOpen/micPermission — views observe the lifecycle
+//   controller directly for that.
 
 @MainActor
 public final class PopoverViewModel: ObservableObject {
@@ -36,7 +36,7 @@ public final class PopoverViewModel: ObservableObject {
     public let playback = AudioPlaybackService()
 
     let registry: SessionRegistry
-    let orchestrator: CaptureOrchestrator
+    let lifecycle: SessionLifecycleController
     let exportService: ExportService.Type
     private let log = AppLog(category: .export)
 
@@ -44,11 +44,11 @@ public final class PopoverViewModel: ObservableObject {
 
     public init(
         registry: SessionRegistry,
-        orchestrator: CaptureOrchestrator,
+        lifecycle: SessionLifecycleController,
         exportService: ExportService.Type = ExportService.self
     ) {
         self.registry = registry
-        self.orchestrator = orchestrator
+        self.lifecycle = lifecycle
         self.exportService = exportService
     }
 

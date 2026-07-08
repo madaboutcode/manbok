@@ -50,8 +50,7 @@ final class CaptureBoundaryTests: XCTestCase {
 
         // Sanity: verify allowed symbols ARE present (the file uses the waist, and its own
         // lifecycle-side vocabulary — MicPermissionState is a lifecycle concept, not a
-        // capture-side one, even though it's still defined in CaptureOrchestrator.swift
-        // pending the Wave B move).
+        // capture-side one, defined in this file).
         XCTAssertTrue(source.contains("CaptureSupervising"), "Expected waist protocol reference")
         XCTAssertTrue(source.contains("CaptureStatus"), "Expected waist status reference")
         XCTAssertTrue(source.contains("DemandEntry"), "Expected waist demand reference")

@@ -25,6 +25,6 @@ App entry point, MenuBarExtra popover, Settings window, PopoverViewModel, icon s
 ## Constraints
 
 - No ArgumentParser (that's the CLI target only)
-- No direct AVFoundation imports — use CaptureOrchestrator from ManbokPlatform
-- Views observe CaptureOrchestrator (environmentObject) for icon/badge state
+- No direct AVFoundation imports — use SessionLifecycleController from ManbokPlatform
+- Views observe SessionLifecycleController (environmentObject) for icon/badge state
 - Settings window calls SessionRegistry.resize() directly (no IPC verb)

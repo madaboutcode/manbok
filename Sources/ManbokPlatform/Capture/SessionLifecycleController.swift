@@ -39,6 +39,21 @@ import ManbokCore
 // DOES NOT: touch devices, workers, watchdogs, restart or silence policy — its only
 // capture knowledge is the waist. Enforced by the §11.1 source-scan test.
 
+public enum MicPermissionState: Sendable, Equatable {
+    case authorized
+    case denied
+    case notDetermined
+
+    static func from(_ status: AVAuthorizationStatus) -> MicPermissionState {
+        switch status {
+        case .authorized: return .authorized
+        case .denied, .restricted: return .denied
+        case .notDetermined: return .notDetermined
+        @unknown default: return .notDetermined
+        }
+    }
+}
+
 /// Per-app session lifecycle: set-diff polling drives demand into the capture waist and
 /// SessionRegistry open/close directly. The volatile half (workers, devices, watchdogs,
 /// recovery) is entirely behind `CaptureSupervising` — this type never sees it.
@@ -89,9 +104,8 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
         processSnapshot: @escaping () -> [AudioProcessInfo],
         resolver: AppIdentityResolver = .shared,
         // Inlined rather than calling MicPermissionState.from(_:): that static method is
-        // `internal` (owned by CaptureOrchestrator.swift pending its Wave B move), and a
-        // public initializer's default-argument expression must not reference a
-        // less-visible symbol even within the same module.
+        // `internal`, and a public initializer's default-argument expression must not
+        // reference a less-visible symbol even within the same module.
         permission: @escaping () -> MicPermissionState = {
             switch AVCaptureDevice.authorizationStatus(for: .audio) {
             case .authorized: return .authorized

@@ -3,7 +3,7 @@ import ManbokCore
 import ManbokPlatform
 
 struct HeaderView: View {
-    @EnvironmentObject private var orchestrator: CaptureOrchestrator
+    @EnvironmentObject private var lifecycle: SessionLifecycleController
     @EnvironmentObject private var viewModel: PopoverViewModel
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -16,7 +16,7 @@ struct HeaderView: View {
             TapeGaugeView(
                 progress: ringProgress,
                 label: ringLabel,
-                spinning: orchestrator.anySessionOpen || viewModel.playback.isPlaying
+                spinning: lifecycle.anySessionOpen || viewModel.playback.isPlaying
             )
                 .padding(.top, 12)
             MicroLabel(text: "Tape · Channels \(viewModel.sessions.count)")
@@ -41,11 +41,11 @@ struct HeaderView: View {
 
     @ViewBuilder
     private var stateBadge: some View {
-        if orchestrator.micPermission == .denied {
+        if lifecycle.micPermission == .denied {
             Label("Mic access needed", systemImage: "exclamationmark.triangle.fill")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(Theme.amberHot)
-        } else if orchestrator.anySessionOpen {
+        } else if lifecycle.anySessionOpen {
             statusPill(
                 dot: AnyView(PulsingDot(color: Theme.amberHot)),
                 text: "Recording",
