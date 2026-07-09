@@ -8,7 +8,8 @@ import Foundation
 //   (subject to restart budget), abandoned on the tick demand empties.
 // - Every (re)start re-resolves the target: builds [AppDevices] from demand ×
 //   processSnapshot() (union of pdv# deviceIDs per bundleID), calls
-//   CaptureDevicePolicy.target, creates a FRESH worker via makeWorker.
+//   CaptureDevicePolicy.target (passing workerTarget as currentTarget for its
+//   tie-break), creates a FRESH worker via makeWorker.
 // - All restarts share CaptureRestartPolicy: mayRestart gates every attempt;
 //   recordRestart(wasFlowing:) on every attempt; .error log from 3rd consecutive
 //   unhealthy attempt; reset() on clean stop.
@@ -23,7 +24,9 @@ import Foundation
 //   .captureDisturbed → restart via budget; .defaultInputChanged is inert (device-following
 //   via pdv# handles all switches; system default is irrelevant).
 // - Logging (R9): every (re)start logs .notice with device identity + trigger using
-//   canonical tokens: arrival, stall, silence, device switch.
+//   canonical tokens: arrival, stall, silence, device switch. A "device switch" caused
+//   by CaptureDevicePolicy's tie-break carries which branch fired ("tie: newest
+//   relationship" / "tie: lowest-id fallback"); a plain (non-tied) switch does not.
 // - apply returns post-decision status: isCapturing, health.
 //
 // EXPECTS: apply calls serialized; start() before lifecycle.start(); stop() after
@@ -122,7 +125,7 @@ public final class CaptureSupervisor: CaptureSupervising {
         }
 
         let pendingEnvSignals = drainSignals()
-        let target = resolveTarget(demand: demand)
+        let (target, tieBreak) = resolveTarget(demand: demand)
         let demandBundleIDs = Set(demand.map(\.bundleID))
         let externalChange = demandBundleIDs != previousDemandBundleIDs || target != previousTarget
 
@@ -148,7 +151,13 @@ public final class CaptureSupervisor: CaptureSupervising {
                 if let workerTarget, workerTarget != target {
                     recoveryEvent = true
                     if restartPolicy.mayRestart(now: now) {
-                        restart(target: target, now: now, trigger: "device switch")
+                        let trigger: String
+                        switch tieBreak {
+                        case .newestRelationship: trigger = "device switch — tie: newest relationship"
+                        case .lowestIDFallback: trigger = "device switch — tie: lowest-id fallback"
+                        case .noTie: trigger = "device switch"
+                        }
+                        restart(target: target, now: now, trigger: trigger)
                         restartHappened = true
                     }
                 }
@@ -253,7 +262,7 @@ public final class CaptureSupervisor: CaptureSupervising {
 
     // MARK: - Target resolution
 
-    private func resolveTarget(demand: [DemandEntry]) -> CaptureTarget? {
+    private func resolveTarget(demand: [DemandEntry]) -> (target: CaptureTarget?, tieBreak: CaptureDevicePolicy.TieBreakBranch) {
         let snapshot = processSnapshot()
         var appDevicesMap: [String: (arrivedAt: Date, deviceIDs: Set<AudioDeviceID>)] = [:]
         for entry in demand {
@@ -270,7 +279,7 @@ public final class CaptureSupervisor: CaptureSupervising {
         let appDevices = appDevicesMap.map {
             CaptureDevicePolicy.AppDevices(bundleID: $0.key, arrivedAt: $0.value.arrivedAt, deviceIDs: Array($0.value.deviceIDs))
         }
-        return CaptureDevicePolicy.target(demand: appDevices)
+        return CaptureDevicePolicy.resolve(demand: appDevices, currentTarget: workerTarget)
     }
 
     // MARK: - Worker lifecycle
