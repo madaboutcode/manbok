@@ -25,6 +25,17 @@ enum ScreenshotRenderer {
         )
 
         render(
+            PopoverContentView(state: .sessions(
+                MockScenario.multiDaySessions(now: now),
+                isRecording: true,
+                ringFilledBytes: MockScenario.heroRingFilledBytes,
+                ringCapacityBytes: MockScenario.heroRingCapacityBytes
+            )),
+            fileName: "popover-multiday.png",
+            in: dir
+        )
+
+        render(
             PopoverContentView(state: .empty(
                 ringFilledBytes: 0,
                 ringCapacityBytes: MockScenario.heroRingCapacityBytes

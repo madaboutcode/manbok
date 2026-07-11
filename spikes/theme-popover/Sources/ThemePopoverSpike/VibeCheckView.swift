@@ -14,6 +14,14 @@ struct VibeCheckView: View {
                     ringCapacityBytes: MockScenario.heroRingCapacityBytes
                 ))
             }
+            labeled("Sessions — multi-day") {
+                PopoverContentView(state: .sessions(
+                    MockScenario.multiDaySessions(now: Date()),
+                    isRecording: true,
+                    ringFilledBytes: MockScenario.heroRingFilledBytes,
+                    ringCapacityBytes: MockScenario.heroRingCapacityBytes
+                ))
+            }
             labeled("Empty — at rest") {
                 PopoverContentView(state: .empty(
                     ringFilledBytes: 0,

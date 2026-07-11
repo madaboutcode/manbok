@@ -101,6 +101,82 @@ enum MockScenario {
         ]
     }
 
+    /// Multi-day shot: the ring survives quit/restore, so sessions can be days apart.
+    /// Exercises every day-label case the section headers must render: Today (live +
+    /// finished), Yesterday, a weekday within the past week, and a beyond-a-week date.
+    static func multiDaySessions(now: Date) -> [MockSession] {
+        let hour: TimeInterval = 3600
+        let day: TimeInterval = 86400
+
+        let zoomDuration: TimeInterval = 7 * 60 + 12
+        let safariDuration: TimeInterval = 6 * 60 + 2
+        let facetimeDuration: TimeInterval = 17 * 60 + 20
+        let dictationDuration: TimeInterval = 2 * 60 + 47
+        let musicDuration: TimeInterval = 4 * 60 + 5
+
+        let facetimeStart = now.addingTimeInterval(-26 * hour)
+        let dictationStart = now.addingTimeInterval(-(3 * day + 2 * hour))
+        let musicStart = now.addingTimeInterval(-(9 * day + 5 * hour))
+
+        return [
+            MockSession(
+                stableId: 13,
+                bundleID: "us.zoom.xos",
+                displayName: "Zoom",
+                durationSeconds: zoomDuration,
+                startedAt: now.addingTimeInterval(-zoomDuration),
+                endedAt: nil,
+                isOpen: true,
+                audioBytes: 0,
+                peaks: MockWaveform.peaks(count: 56, seed: 7)
+            ),
+            MockSession(
+                stableId: 12,
+                bundleID: "com.apple.Safari",
+                displayName: "Safari",
+                durationSeconds: safariDuration,
+                startedAt: now.addingTimeInterval(-64 * 60),
+                endedAt: now.addingTimeInterval(-58 * 60),
+                isOpen: false,
+                audioBytes: 0,
+                peaks: MockWaveform.peaks(count: 56, seed: 11)
+            ),
+            MockSession(
+                stableId: 11,
+                bundleID: "com.apple.FaceTime",
+                displayName: "FaceTime",
+                durationSeconds: facetimeDuration,
+                startedAt: facetimeStart,
+                endedAt: facetimeStart.addingTimeInterval(facetimeDuration),
+                isOpen: false,
+                audioBytes: 0,
+                peaks: MockWaveform.peaks(count: 56, seed: 3)
+            ),
+            MockSession(
+                stableId: 10,
+                bundleID: "com.example.whispertranscribe",
+                displayName: "Dictation",
+                durationSeconds: dictationDuration,
+                startedAt: dictationStart,
+                endedAt: dictationStart.addingTimeInterval(dictationDuration),
+                isOpen: false,
+                audioBytes: 0,
+                peaks: MockWaveform.peaks(count: 56, seed: 19)
+            ),
+            MockSession(
+                stableId: 9,
+                bundleID: "com.apple.Music",
+                displayName: "Music",
+                durationSeconds: musicDuration,
+                startedAt: musicStart,
+                endedAt: musicStart.addingTimeInterval(musicDuration),
+                isOpen: false,
+                audioBytes: 0,
+                peaks: MockWaveform.peaks(count: 56, seed: 23)
+            ),
+        ]
+    }
+
     /// Ring buffer config for the hero shot: 30-minute ring, ~7:12 filled (matches
     /// the live Zoom session's elapsed time, as if it's the only audio since the ring
     /// was last empty). Expressed in bytes via AudioFormat.bytesPerMinute, same unit

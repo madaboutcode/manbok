@@ -4,7 +4,7 @@ struct ThemePopoverSpikeApp: App {
     var body: some Scene {
         WindowGroup("Vibe Check") {
             VibeCheckView()
-                .frame(minWidth: 1100, minHeight: 560)
+                .frame(minWidth: 1500, minHeight: 560)
         }
         .windowResizability(.contentSize)
 

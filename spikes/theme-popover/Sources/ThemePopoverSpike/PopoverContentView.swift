@@ -25,7 +25,11 @@ struct PopoverContentView: View {
                 ringCapacityBytes: ringCapacityBytes,
                 sessionCount: sessionCount
             )
-            Rectangle().fill(Theme.line).frame(height: 1)
+            // The session list starts with a pinned day header whose rule already
+            // separates it from the panel header — a divider here would double up.
+            if !isSessionList {
+                Rectangle().fill(Theme.line).frame(height: 1)
+            }
             content
             Rectangle().fill(Theme.line).frame(height: 1)
             FooterView()
@@ -49,6 +53,11 @@ struct PopoverContentView: View {
 
     private var isNoAccess: Bool {
         if case .noAccess = state { return true }
+        return false
+    }
+
+    private var isSessionList: Bool {
+        if case .sessions = state { return true }
         return false
     }
 
