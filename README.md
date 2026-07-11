@@ -9,7 +9,7 @@
 [![CI](https://github.com/madaboutcode/manbok/actions/workflows/ci.yml/badge.svg)](https://github.com/madaboutcode/manbok/actions/workflows/ci.yml)
 
 <p align="center">
-  <img src="docs/images/popover-sessions.png" width="360" alt="manbok popover: per-app sessions with waveforms, a live Zoom session recording, and the tape gauge showing 7:12 of 30:00">
+  <img src="docs/images/popover-sessions.png" width="360" alt="manbok popover: per-app sessions grouped by day, a live Zoom session recording, Safari playback in progress, and the tape gauge showing 7:12 of 30:00">
 </p>
 
 These days you talk to your computer as much as you type at it: voice mode with ChatGPT, dictation for anything longer than a sentence.
@@ -73,7 +73,7 @@ Click the icon to open the popover.
 ### The popover
 
 - **Header:** state badge + ring fill (e.g. "7:12 / 30:00")
-- **Session list:** one row per app that used the mic, newest first. Each row shows the app name, time range, duration, and a waveform.
+- **Session list:** one row per app that used the mic, newest first and grouped by day. Each row shows the app name, start time, duration, and a waveform.
 - **Export:** hover or focus a row to reveal **Dump** (saves WAV, reveals in Finder) and **Copy** (WAV to clipboard). Keyboard: arrows to navigate, Return = dump, Cmd+C = copy.
 - **Footer:** About · Settings · Quit
 
