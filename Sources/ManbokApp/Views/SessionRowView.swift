@@ -64,7 +64,7 @@ struct SessionRowView: View {
                                 )
                         }
                         Spacer(minLength: 0)
-                        Text(timeRangeText)
+                        Text(startTimeText)
                             .font(Theme.mono(10.5))
                             .foregroundStyle(Theme.creamDim)
                     }
@@ -268,20 +268,10 @@ struct SessionRowView: View {
         return String(format: "%d:%02d", m, s)
     }
 
-    private var timeRangeText: String {
-        let startStr = Self.timeFormatter.string(from: snapshot.startedAt)
-        guard let endedAt = snapshot.endedAt else {
-            return "\(startStr) –"
-        }
-        let endStr = Self.timeFormatter.string(from: endedAt)
-        if let startSuffix = startStr.split(separator: " ").last,
-           let endSuffix = endStr.split(separator: " ").last,
-           startSuffix == endSuffix,
-           startStr.contains(" ") {
-            let trimmedStart = startStr.replacingOccurrences(of: " \(startSuffix)", with: "")
-            return "\(trimmedStart)–\(endStr)"
-        }
-        return "\(startStr)–\(endStr)"
+    /// Start time only — the end is derivable (duration sits on the next line), and the
+    /// day is carried by the section header above the row, not repeated per row.
+    private var startTimeText: String {
+        Self.timeFormatter.string(from: snapshot.startedAt)
     }
 
     private var durationText: String {
@@ -299,15 +289,12 @@ struct SessionRowView: View {
     }
 
     private var accessibilityLabelText: String {
+        // VoiceOver reads rows individually, so each row carries the day context that
+        // sighted users get from the section header above it.
+        let day = DayLabel.text(for: snapshot.startedAt)
         let start = Self.timeFormatter.string(from: snapshot.startedAt)
         let minutes = Int((snapshot.durationSeconds / 60).rounded())
-        var label: String
-        if let endedAt = snapshot.endedAt {
-            let end = Self.timeFormatter.string(from: endedAt)
-            label = "\(snapshot.displayName), \(start) to \(end), \(minutes) minutes"
-        } else {
-            label = "\(snapshot.displayName), started \(start), \(minutes) minutes"
-        }
+        var label = "\(snapshot.displayName), \(day) \(start), \(minutes) minutes"
         if snapshot.isOpen {
             label += ", recording"
         }

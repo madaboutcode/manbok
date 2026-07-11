@@ -8,7 +8,11 @@ struct PopoverContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             HeaderView()
-            Rectangle().fill(Theme.line).frame(height: 1)
+            // The session list starts with a pinned day header whose rule already
+            // separates it from the panel header — a divider here would double up.
+            if !showsSessionList {
+                Rectangle().fill(Theme.line).frame(height: 1)
+            }
             content
             Rectangle().fill(Theme.line).frame(height: 1)
             FooterView()
@@ -29,5 +33,9 @@ struct PopoverContentView: View {
         } else {
             SessionListView()
         }
+    }
+
+    private var showsSessionList: Bool {
+        lifecycle.micPermission != .denied && !viewModel.sessions.isEmpty
     }
 }
