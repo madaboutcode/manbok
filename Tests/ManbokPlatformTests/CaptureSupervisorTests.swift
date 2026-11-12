@@ -417,20 +417,21 @@ final class CaptureSupervisorTests: XCTestCase {
 
     // MARK: - 12. A3: a healthy mic switch through "no device" does not grow the restart backoff
 
-    /// start on mic 1, release (no candidate), start on mic 2, release, ask for mic 3 4.5 s after the
-    /// second start. Returns whether mic 3 started (baseDelay is 4 s).
+    /// start on mic 1, release (no candidate), start on mic 2, release, ask for mic 3 3.5 s after the
+    /// second start. Returns whether mic 3 started (baseDelay is 3 s; flow evidence from t0 is 3 s old at start #2,
+    /// inside the 4 s watchdogThreshold).
     private func thirdStartRuns(bytesFlowBeforeRelease: Bool) -> Bool {
-        let sup = makeSupervisor(restartPolicy: .init(watchdogThreshold: 4, baseDelay: 4, maxDelay: 100))
+        let sup = makeSupervisor(restartPolicy: .init(watchdogThreshold: 4, baseDelay: 3, maxDelay: 100))
         _ = sup.apply(demand: [demand("com.app.a", [1])], now: clockNow)
         if bytesFlowBeforeRelease { workers[workerIndex - 1].deliverChunk() }
         clockNow = clockNow.addingTimeInterval(1)
         _ = sup.apply(demand: [demand("com.app.a")], now: clockNow)               // released: no candidate
-        clockNow = clockNow.addingTimeInterval(3)
+        clockNow = clockNow.addingTimeInterval(2)
         let second = sup.apply(demand: [demand("com.app.a", [2])], now: clockNow) // arrival start #2
         XCTAssertTrue(second.isCapturing)
         clockNow = clockNow.addingTimeInterval(0.5)
         _ = sup.apply(demand: [demand("com.app.a")], now: clockNow)               // released again, nothing flowed
-        clockNow = clockNow.addingTimeInterval(4)
+        clockNow = clockNow.addingTimeInterval(3)
         return sup.apply(demand: [demand("com.app.a", [3])], now: clockNow).isCapturing
     }
 
@@ -441,6 +442,30 @@ final class CaptureSupervisorTests: XCTestCase {
 
     func test_releaseForNoDevice_withoutFlow_nextArrivalStartGrowsBackoff() {
         XCTAssertFalse(thirdStartRuns(bytesFlowBeforeRelease: false),
-                       "no bytes at release: start #2 counts as unhealthy, delay doubles to 8 s")
+                       "no bytes at release: start #2 counts as unhealthy, delay doubles to 6 s")
+    }
+
+    /// Flow evidence kept by a "no candidate device" release must not leak into an unrelated cold start:
+    /// empty demand clears it, so the later arrival behaves like any cold start (escalation at the 4th
+    /// consecutive failing attempt, as in test_errorLoggedAtThirdConsecutiveUnhealthyRestart).
+    func test_releaseThenEmptyDemand_laterColdStartFailuresEscalateLikeAnyColdStart() {
+        for w in workers.dropFirst() { w.startError = .deviceUnavailable(1) }
+        let sup = makeSupervisor(restartPolicy: .init(watchdogThreshold: 4, baseDelay: 0, maxDelay: 30))
+        _ = sup.apply(demand: [demand("com.app.a", [1])], now: clockNow)
+        workers[0].deliverChunk()
+        clockNow = clockNow.addingTimeInterval(1)
+        _ = sup.apply(demand: [demand("com.app.a")], now: clockNow)   // release, flow evidence kept
+        clockNow = clockNow.addingTimeInterval(1)
+        _ = sup.apply(demand: [], now: clockNow)                      // demand empties: evidence cleared
+
+        func escalations() -> Int { diagnostics.errors.filter { $0.contains("3+ consecutive unhealthy restarts") }.count }
+        for _ in 0..<3 {
+            clockNow = clockNow.addingTimeInterval(1)
+            XCTAssertFalse(sup.apply(demand: [demand("com.app.b", [1])], now: clockNow).isCapturing)
+            XCTAssertEqual(escalations(), 0)
+        }
+        clockNow = clockNow.addingTimeInterval(1)
+        _ = sup.apply(demand: [demand("com.app.b", [1])], now: clockNow)
+        XCTAssertEqual(escalations(), 1)
     }
 }

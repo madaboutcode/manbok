@@ -12,8 +12,9 @@ import Foundation
 //   CaptureDevicePolicy.resolve (passing workerTarget as currentTarget for its tie-break);
 //   every (re)start creates a FRESH worker via makeWorker.
 // - Releasing the worker for "no candidate device" remembers whether bytes were flowing
-//   (same test as restart(): lastDataAt within watchdogThreshold). The next arrival start
-//   passes that as wasFlowing, so a healthy mic switch does not grow the restart backoff.
+//   by keeping lastDataAt (abandon for empty demand and stop() clear it). The next arrival start
+//   computes wasFlowing from it exactly as restart() does (lastDataAt within watchdogThreshold),
+//   consumes it, so a healthy mic switch does not grow the restart backoff.
 // - All restarts share CaptureRestartPolicy: mayRestart gates every attempt;
 //   recordRestart(wasFlowing:) on every attempt; .error log from 3rd consecutive
 //   unhealthy attempt; reset() on clean stop.
@@ -69,7 +70,6 @@ public final class CaptureSupervisor: CaptureSupervising {
     // Health / tick bookkeeping
     private var health: CaptureHealth = .idle
     private var isHolding = false
-    private var abandonedWhileFlowing = false  // set when the worker was released for "no candidate device"
     private var previousDemandBundleIDs: Set<String> = []
     private var previousTarget: CaptureTarget?
 
@@ -109,7 +109,6 @@ public final class CaptureSupervisor: CaptureSupervising {
         silencePolicy.noteExternalChange()
         health = .idle
         isHolding = false
-        abandonedWhileFlowing = false
         previousDemandBundleIDs = []
         previousTarget = nil
     }
@@ -121,7 +120,6 @@ public final class CaptureSupervisor: CaptureSupervising {
             silencePolicy.noteExternalChange()
             health = .idle
             isHolding = false
-            abandonedWhileFlowing = false
             previousDemandBundleIDs = []
             previousTarget = nil
             return CaptureStatus(isCapturing: false, health: .idle)
@@ -145,8 +143,10 @@ public final class CaptureSupervisor: CaptureSupervising {
         if let target {
             if worker == nil {
                 if restartPolicy.mayRestart(now: now) {
-                    startWorker(target: target, now: now, trigger: "arrival", wasFlowing: abandonedWhileFlowing)
-                    abandonedWhileFlowing = false
+                    // lastDataAt survives only a release for "no candidate device"; otherwise nil.
+                    let wasFlowing = bytesFlowing(now: now)
+                    sinkLock.lock(); lastDataAt = nil; sinkLock.unlock()
+                    startWorker(target: target, now: now, trigger: "arrival", wasFlowing: wasFlowing)
                     restartHappened = true
                 }
                 // else: arrival stays deferred, retried next tick — health resolves to .idle below.
@@ -234,8 +234,7 @@ public final class CaptureSupervisor: CaptureSupervising {
             // target == nil: demand present but no candidate device. Release the worker (no gap hold);
             // log only on state entry to avoid spam.
             if worker != nil {
-                abandonedWhileFlowing = bytesFlowing(now: now)
-                abandonWorker()
+                releaseWorkerKeepingFlowEvidence()
                 log.notice("no candidate device — released capture")
             } else if previousTarget != nil || previousDemandBundleIDs.isEmpty {
                 log.notice("demand present but no device visible — deferring capture")
@@ -346,6 +345,17 @@ public final class CaptureSupervisor: CaptureSupervising {
         sinkLock.lock()
         defer { sinkLock.unlock() }
         return lastDataAt.map { now.timeIntervalSince($0) < restartPolicy.watchdogThreshold } ?? false
+    }
+
+    private func releaseWorkerKeepingFlowEvidence() {
+        worker?.stop()
+        worker = nil
+        workerTarget = nil
+        captureStartedAt = nil
+        sinkLock.lock()
+        silentSince = nil
+        pendingSignals.removeAll()
+        sinkLock.unlock()
     }
 
     private func abandonWorker() {
