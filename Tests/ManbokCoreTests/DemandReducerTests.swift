@@ -241,4 +241,36 @@ final class DemandReducerTests: XCTestCase {
         let (_, o3) = reducer.step(s2, input(10, holders, capturing: true))
         XCTAssertTrue(o3.sessionOps.isEmpty)
     }
+
+    // MARK: - Transitions (the executor's only source for log lines)
+
+    func test_transitions_reportedOncePerChange() {
+        let (_, outs) = run([
+            input(10, [holder("a", [1])]),                      // a starts holding
+            input(12, [holder("a", [1])]),                      // nothing new
+            input(14),                                          // a drain starts, deadline 19
+            input(16),                                          // nothing new
+            input(17, [holder("a", [2])]),                      // reclaimed
+            input(18),                                          // drain starts again, deadline 23
+            input(23),                                          // expires
+        ])
+        XCTAssertEqual(outs[0].transitions, [.startedHolding(appID: "a", devices: [1])])
+        XCTAssertEqual(outs[1].transitions, [])
+        XCTAssertEqual(outs[2].transitions, [.drainStarted(appID: "a", kept: [1], deadline: 19)])
+        XCTAssertEqual(outs[3].transitions, [])
+        XCTAssertEqual(outs[4].transitions, [.reclaimed(appID: "a")])
+        XCTAssertEqual(outs[5].transitions, [.drainStarted(appID: "a", kept: [2], deadline: 23)])
+        XCTAssertEqual(outs[6].transitions, [.drainExpired(appID: "a")])
+    }
+
+    func test_transitions_notRepeatedOnIdempotentStep() {
+        let i1 = input(10, [holder("a", [1])])
+        let (s1, o1) = reducer.step(.empty, i1)
+        XCTAssertEqual(o1.transitions.count, 1)
+        XCTAssertTrue(reducer.step(s1, i1).1.transitions.isEmpty)
+        let i2 = input(12)
+        let (s2, o2) = reducer.step(s1, i2)
+        XCTAssertEqual(o2.transitions.count, 1)
+        XCTAssertTrue(reducer.step(s2, i2).1.transitions.isEmpty)
+    }
 }

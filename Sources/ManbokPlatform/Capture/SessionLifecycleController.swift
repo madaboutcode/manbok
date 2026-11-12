@@ -16,6 +16,8 @@ import ManbokCore
 //   are executed too.
 // - Drain, reclaim, arrivedAt and the session rule live in DemandReducer (see its CONTRACT). This
 //   type keeps no per-app timers and no presence diff; time is a monotonic clock closure.
+// - Logs one persisted (.notice) line per reducer transition and per session open/close, from this
+//   type only; unchanged polls log nothing.
 // - Invariant: the registry's open sessions are exactly the reducer's sessionOpen set after every
 //   tick. The reducer is the only opener and closer.
 // - DemandEntry.arrivedAt is wall-clock (Date): a fixed origin plus the reducer's monotonic arrival.
@@ -189,16 +191,33 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
         }
         let status: CaptureStatus = supervisor.apply(demand: entries, now: wall)
         demandState = afterStep
+        report(output.transitions, now: mono)
         execute(output.sessionOps)
 
         if status.isCapturing != lastCapturing {
             lastCapturing = status.isCapturing
             let (afterRecheck, recheck) = reducer.step(demandState, input(capturing: status.isCapturing))
             demandState = afterRecheck
+            report(recheck.transitions, now: mono)
             execute(recheck.sessionOps)
         }
 
         publish(anySessionOpen: registry.anySessionOpen)
+    }
+
+    private func report(_ transitions: [AppTransition], now: TimeInterval) {
+        for transition in transitions {
+            switch transition {
+            case .startedHolding(let appID, let devices):
+                log.notice("app holding mic — \(appID) devices=\(devices.sorted())")
+            case .drainStarted(let appID, let kept, let deadline):
+                log.notice("app stopped holding — \(appID) kept=\(kept.sorted()) closes in \(String(format: "%.1f", deadline - now))s unless it returns")
+            case .reclaimed(let appID):
+                log.notice("app returned within grace — \(appID) (same session)")
+            case .drainExpired(let appID):
+                log.notice("app released — \(appID) (grace expired)")
+            }
+        }
     }
 
     private func execute(_ ops: [SessionOp]) {

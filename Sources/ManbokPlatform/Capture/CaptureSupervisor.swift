@@ -29,7 +29,9 @@ import Foundation
 //   .captureDisturbed → restart via budget; .defaultInputChanged is inert (device-following
 //   via pdv# handles all switches; system default is irrelevant).
 // - Logging (R9): every (re)start logs .notice with device identity + trigger using
-//   canonical tokens: arrival, stall, silence, device switch. A "device switch" caused
+//   canonical tokens: arrival, stall, silence, device switch; a start that replaces a different
+//   device names the old one ("from ..."). Every worker stop outside restart() (no demand, no
+//   candidate device, supervisor stop) logs one "capture stopped — reason" .notice. A "device switch" caused
 //   by CaptureDevicePolicy's tie-break carries which branch fired ("tie: newest
 //   relationship" / "tie: lowest-id fallback"); a plain (non-tied) switch does not.
 // - apply returns post-decision status: isCapturing, health.
@@ -102,7 +104,7 @@ public final class CaptureSupervisor: CaptureSupervising {
     }
 
     public func stop() {
-        abandonWorker()
+        abandonWorker(reason: "supervisor stopped")
         signals.deactivate()
         signals.handler = nil
         restartPolicy.reset()
@@ -115,7 +117,7 @@ public final class CaptureSupervisor: CaptureSupervising {
 
     public func apply(demand: [DemandEntry], now: Date) -> CaptureStatus {
         guard !demand.isEmpty else {
-            abandonWorker()
+            abandonWorker(reason: "no demand")
             restartPolicy.reset()
             silencePolicy.noteExternalChange()
             health = .idle
@@ -234,8 +236,9 @@ public final class CaptureSupervisor: CaptureSupervising {
             // target == nil: demand present but no candidate device. Release the worker (no gap hold);
             // log only on state entry to avoid spam.
             if worker != nil {
+                let from = workerTarget.map(Self.describe) ?? "?"
                 releaseWorkerKeepingFlowEvidence()
-                log.notice("no candidate device — released capture")
+                log.notice("capture stopped — no candidate device (was \(from))")
             } else if previousTarget != nil || previousDemandBundleIDs.isEmpty {
                 log.notice("demand present but no device visible — deferring capture")
             }
@@ -282,7 +285,15 @@ public final class CaptureSupervisor: CaptureSupervising {
         return drained
     }
 
+    private static func describe(_ target: CaptureTarget) -> String {
+        switch target {
+        case .systemDefault: return "system default"
+        case .device(let id): return "\(InputDeviceObserver.deviceName(id)) [\(id)]"
+        }
+    }
+
     private func startWorker(target: CaptureTarget, now: Date, trigger: String, wasFlowing: Bool) {
+        let previousTarget = workerTarget
         let newWorker = makeWorker()
         do {
             try newWorker.start(target: target) { [weak self] chunk in
@@ -305,7 +316,8 @@ public final class CaptureSupervisor: CaptureSupervising {
 
             let deviceName = newWorker.boundDevice.map { InputDeviceObserver.deviceName($0) } ?? "unknown"
             let deviceID = newWorker.boundDevice.map { String($0) } ?? "?"
-            log.notice("capture started — \(trigger) → \(deviceName) [\(deviceID)]")
+            let switchedFrom = previousTarget.flatMap { $0 != target ? " (from \(Self.describe($0)))" : nil } ?? ""
+            log.notice("capture started — \(trigger) → \(deviceName) [\(deviceID)]\(switchedFrom)")
 
             signals.observe(device: newWorker.boundDevice)
 
@@ -358,7 +370,8 @@ public final class CaptureSupervisor: CaptureSupervising {
         sinkLock.unlock()
     }
 
-    private func abandonWorker() {
+    private func abandonWorker(reason: String) {
+        if worker != nil { log.notice("capture stopped — \(reason)") }
         worker?.stop()
         worker = nil
         workerTarget = nil

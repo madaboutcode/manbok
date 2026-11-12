@@ -23,7 +23,11 @@ import Foundation
 //   liveDevices, and only when no holding app lists a device (P5). An app may have no candidate
 //   devices; demand is then non-empty with no device (design 4b), and the session stays open.
 // - Several observations with one appID merge: devices are united, the last pid wins.
-// - Idempotent: step(step(s, i).state, i) equals step(s, i).state and issues no session ops.
+// - Output.transitions reports each phase change (startedHolding, drainStarted, reclaimed,
+//   drainExpired) once, in the step where it happens, in appID order per kind; the executor logs
+//   from it and nowhere else.
+// - Idempotent: step(step(s, i).state, i) equals step(s, i).state and issues no session ops or
+//   transitions.
 //
 // EXPECTS:
 // - A HolderObservation always has at least one input device (precondition at construction).
@@ -98,9 +102,18 @@ public enum SessionOp: Equatable, Sendable {
     case close(appID: String)
 }
 
+/// One per phase change of one app, reported once at the step where it happens (never on a repeated step).
+public enum AppTransition: Equatable, Sendable {
+    case startedHolding(appID: String, devices: Set<UInt32>)
+    case drainStarted(appID: String, kept: Set<UInt32>, deadline: TimeInterval)
+    case reclaimed(appID: String)
+    case drainExpired(appID: String)
+}
+
 public struct DemandOutput: Equatable, Sendable {
     public let demand: [DemandApp]
     public let sessionOps: [SessionOp]
+    public let transitions: [AppTransition]
 }
 
 public struct DemandReducer: Sendable {
@@ -113,23 +126,31 @@ public struct DemandReducer: Sendable {
     public func step(_ state: DemandState, _ input: DemandInput) -> (DemandState, DemandOutput) {
         var next = state
         var ops: [SessionOp] = []
+        var transitions: [AppTransition] = []
         let listed = Self.merge(input.holders)
 
-        for (appID, phase) in state.apps where listed[appID] == nil {
-            guard case .holding(let arrivedAt, let pid, let devices) = phase else { continue }
+        for appID in state.apps.keys.sorted() where listed[appID] == nil {
+            guard case .holding(let arrivedAt, let pid, let devices) = state.apps[appID]! else { continue }
             next.apps[appID] = .draining(arrivedAt: arrivedAt, pid: pid, kept: devices, deadline: input.now + grace)
+            transitions.append(.drainStarted(appID: appID, kept: devices, deadline: input.now + grace))
         }
-        for (appID, obs) in listed {
+        for appID in listed.keys.sorted() {
+            let obs = listed[appID]!
             var arrivedAt = input.now
             switch state.apps[appID] {
-            case .holding(let t, _, _), .draining(let t, _, _, _): arrivedAt = t
-            case nil: break
+            case .holding(let t, _, _): arrivedAt = t
+            case .draining(let t, _, _, _):
+                arrivedAt = t
+                transitions.append(.reclaimed(appID: appID))
+            case nil:
+                transitions.append(.startedHolding(appID: appID, devices: obs.inputDevices))
             }
             next.apps[appID] = .holding(arrivedAt: arrivedAt, pid: obs.pid, devices: obs.inputDevices)
         }
         for appID in next.apps.keys.sorted() {
             guard case .draining(_, _, _, let deadline) = next.apps[appID], input.now >= deadline else { continue }
             next.apps[appID] = nil
+            transitions.append(.drainExpired(appID: appID))
             if next.sessionOpen.remove(appID) != nil { ops.append(.close(appID: appID)) }
         }
 
@@ -141,7 +162,7 @@ public struct DemandReducer: Sendable {
                 ops.append(.open(appID: app.appID, pid: app.pid))
             }
         }
-        return (next, DemandOutput(demand: demand, sessionOps: ops))
+        return (next, DemandOutput(demand: demand, sessionOps: ops, transitions: transitions))
     }
 
     /// Manbok stop: every app becomes absent and every open session closes.
