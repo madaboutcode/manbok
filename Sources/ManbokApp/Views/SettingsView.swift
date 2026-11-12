@@ -65,7 +65,7 @@ struct SettingsView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .lineSpacing(2)
 
-            Text("Audio stays in RAM only. Nothing touches disk until you export.")
+            Text("Audio is kept in memory while manbok runs. When you quit, the buffer is saved to ~/.manbok so it comes back next launch; that copy stays until the next save replaces it.")
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.creamFaint)
                 .fixedSize(horizontal: false, vertical: true)
