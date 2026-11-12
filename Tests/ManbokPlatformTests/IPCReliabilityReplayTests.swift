@@ -72,14 +72,28 @@ final class IPCReliabilityReplayTests: XCTestCase {
         let idle = connectRaw(url)          // connects, sends nothing
         addTeardownBlock { close(idle) }
 
-        let reply = sendWithTimeout(.status, socketURL: url, timeout: 1)
-        expectKnownBug("H23: single-threaded accept loop; readLine has no timeout") {
-            XCTAssertNotNil(reply, "STATUS got no reply within 1 s while another client sat idle")
-        }
+        // Server drops the idle client after its 1 s read timeout, then serves STATUS.
+        let reply = sendWithTimeout(.status, socketURL: url, timeout: 3)
+        XCTAssertNotNil(reply, "STATUS got no reply within 3 s while another client sat idle")
     }
 
-    // H25. Detect SIGPIPE delivery with a counting handler instead of dying. The product code installs
-    // no handler (grep for SIGPIPE/NOSIGPIPE in Sources: no hits), so default disposition = terminate.
+    // Non-reading client: request sent, reply (larger than the socket buffers) never read, so the server's write blocks.
+    func test_nonReadingClientDoesNotBlockOtherClients() throws {
+        _ = installTempStateDirectory()
+        let url = AppStatePaths.socketURL
+        let big = String(repeating: "a", count: 512 * 1024)
+        _ = startServer(socketURL: url) { command in
+            command == .status ? .error(code: "big", message: big) : .pong
+        }
+        let stuck = connectRaw(url)
+        addTeardownBlock { close(stuck) }
+        _ = "STATUS\n".withCString { write(stuck, $0, 7) }   // then never read
+
+        let reply = sendWithTimeout(.ping, socketURL: url, timeout: 3)
+        XCTAssertEqual(try reply?.get(), .pong, "PING got no reply within 3 s while another client never read its reply")
+    }
+
+    // H25. Detect SIGPIPE delivery with a counting handler instead of dying (default disposition = terminate).
     func test_clientDisconnectingBeforeReplyDoesNotRaiseSIGPIPE() throws {
         _ = installTempStateDirectory()
         let url = AppStatePaths.socketURL
@@ -95,8 +109,39 @@ final class IPCReliabilityReplayTests: XCTestCase {
         _ = line.withCString { write(fd, $0, 5) }
         close(fd)
         usleep(800_000)
-        expectKnownBug("H25: writeLine ignores errors and the process never ignores SIGPIPE") {
-            XCTAssertEqual(sigpipeCount, 0, "server received SIGPIPE writing to a closed client (default action kills the app)")
+        XCTAssertEqual(sigpipeCount, 0, "server received SIGPIPE writing to a closed client (default action kills the app)")
+    }
+
+    // CLI side of H25: the server closes the connection before the client's write lands.
+    func test_clientWritingToClosedServerDoesNotRaiseSIGPIPE() throws {
+        let dir = installTempStateDirectory()
+        let url = dir.appendingPathComponent("c.sock")
+        let listenFD = socket(AF_UNIX, SOCK_STREAM, 0)
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        let bytes = url.path.utf8CString
+        _ = withUnsafeMutablePointer(to: &addr.sun_path) { p in bytes.withUnsafeBufferPointer { memcpy(p, $0.baseAddress!, bytes.count) } }
+        let bound = withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(listenFD, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
         }
+        XCTAssertEqual(bound, 0)
+        XCTAssertEqual(listen(listenFD, 64), 0)
+        DispatchQueue.global().async {   // accept and immediately close, like a server that died mid-handshake
+            while true {
+                let fd = accept(listenFD, nil, nil)
+                if fd < 0 { break }
+                close(fd)
+            }
+        }
+        addTeardownBlock { close(listenFD) }
+
+        sigpipeCount = 0
+        let old = signal(SIGPIPE) { _ in sigpipeCount += 1 }
+        addTeardownBlock { signal(SIGPIPE, old) }
+        for _ in 0..<50 {
+            XCTAssertThrowsError(try UnixSocketClient.send(command: .ping, socketURL: url))
+            usleep(2_000)
+        }
+        XCTAssertEqual(sigpipeCount, 0, "client received SIGPIPE writing to a closed server")
     }
 }

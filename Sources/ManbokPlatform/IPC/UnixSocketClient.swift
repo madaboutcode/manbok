@@ -5,6 +5,7 @@ import ManbokCore
 // MARK: - CONTRACT (UnixSocketClient)
 //
 // GUARANTEES
+// - Writing to a server that closed the connection fails with an error, never SIGPIPE (SO_NOSIGPIPE).
 // - Connects to `AppStatePaths.socketURL`, sends one command line, reads one response line.
 // - With `timeout`, a send or read that makes no progress for that long fails instead of blocking.
 // - Returns parsed `IPCResponse` when the reply matches the v1 protocol.
@@ -52,6 +53,9 @@ public enum UnixSocketClient {
         guard fd >= 0 else {
             throw UnixSocketError.syscall("socket errno=\(errno)")
         }
+        var on: Int32 = 1
+        let nosigpipe = setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
+        assert(nosigpipe == 0, "SO_NOSIGPIPE failed errno=\(errno)")
 
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
