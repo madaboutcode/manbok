@@ -11,11 +11,20 @@ struct ManbokApp: App {
     @StateObject private var viewModel: PopoverViewModel
 
     private let registry: SessionRegistry
+    /// Held for the process lifetime; the OS releases it on exit or crash.
+    private let instanceLock: InstanceLock
     private static let log = AppLog(category: .app)
 
     init() {
         Diagnostics.install(OSLogOnlyDiagnostics())
         Self.log.notice("app init: starting")
+        // Must precede migration, checkpoint restore/clear and any socket work: those mutate state owned by a running instance.
+        switch Self.claimInstance() {
+        case .proceed(let lock):
+            instanceLock = lock
+        case .otherRunning, .otherUnresponsive:
+            exit(0)
+        }
         MigrationService.runIfNeeded()
 
         let settingsStore = SettingsStore()
@@ -52,7 +61,7 @@ struct ManbokApp: App {
         _settings = StateObject(wrappedValue: settingsStore)
         _viewModel = StateObject(wrappedValue: vm)
 
-        startIPCServer(registry: reg, lifecycle: lifecycleController, supervisor: supervisor)
+        startIPCServer(registry: reg, lifecycle: lifecycleController, supervisor: supervisor, instanceLock: instanceLock)
         supervisor.start()
         lifecycleController.start()
 
@@ -108,10 +117,20 @@ struct ManbokApp: App {
         .defaultPosition(.center)
     }
 
+    private static func claimInstance() -> LaunchClaim {
+        do {
+            return try SingleInstance.claim()
+        } catch {
+            log.error("single-instance: cannot take lock: \(error)")
+            fatalError("single-instance: cannot take lock: \(error)")
+        }
+    }
+
     private func startIPCServer(
         registry: SessionRegistry,
         lifecycle: SessionLifecycleController,
-        supervisor: CaptureSupervisor
+        supervisor: CaptureSupervisor,
+        instanceLock: InstanceLock
     ) {
         let dumpSink = PlatformDumpSink()
         let ipcLog = AppLog(category: .ipc)
@@ -198,7 +217,7 @@ struct ManbokApp: App {
         DispatchQueue.global().async {
             do {
                 try AppStatePaths.ensureDirectory()
-                DaemonProcess.removeStaleSocket()
+                DaemonProcess.removeStaleSocket(holding: instanceLock)
                 ipcLog.info("socket server starting on \(AppStatePaths.socketURL.path)")
                 try server.run()
                 ipcLog.info("socket server stopped")

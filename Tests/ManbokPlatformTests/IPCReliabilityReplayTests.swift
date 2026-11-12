@@ -48,20 +48,20 @@ final class IPCReliabilityReplayTests: XCTestCase {
     }
     private final class Box: @unchecked Sendable { var result: Result<IPCResponse, Error>? }
 
-    // Second instance. ManbokApp.startIPCServer calls DaemonProcess.removeStaleSocket() unconditionally
-    // (ManbokApp.swift:201) with no live-instance check; a second launch does exactly this call.
+    // Second instance. A second launch must neither clear state nor unlink the live socket (B2).
     func test_secondLaunchDoesNotMakeRunningInstanceUnreachable() throws {
         _ = installTempStateDirectory()
-        _ = startServer()   // instance 1, bound at AppStatePaths.socketURL
+        let lock1 = try XCTUnwrap(InstanceLock.acquire(at: AppStatePaths.lockURL))   // instance 1 owns the lock...
+        _ = startServer()                                                            // ...and the socket
         let before = sendWithTimeout(.ping, socketURL: AppStatePaths.socketURL, timeout: 2)
         XCTAssertEqual(try before?.get(), .pong, "precondition: instance 1 reachable")
 
-        DaemonProcess.removeStaleSocket()   // what instance 2 does at launch, before it binds
+        let claim = try SingleInstance.claim()   // what instance 2 does first at launch
+        guard case .otherRunning = claim else { return XCTFail("expected .otherRunning, got \(claim)") }
 
         let after = sendWithTimeout(.ping, socketURL: AppStatePaths.socketURL, timeout: 2)
-        expectKnownBug("second instance unlinks the live socket; instance 1 keeps listening on an orphan inode") {
-            XCTAssertEqual(try? after?.get(), .pong, "instance 1 must still answer PING after a second launch")
-        }
+        XCTAssertEqual(try after?.get(), .pong, "instance 1 must still answer PING after a second launch")
+        withExtendedLifetime(lock1) {}
     }
 
     // H23.

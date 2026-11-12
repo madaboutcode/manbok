@@ -4,7 +4,7 @@ import Foundation
 //
 // GUARANTEES
 // - State directory is `~/.manbok/`.
-// - `socketURL` → `run.sock`, `pidURL` → `appa.pid`.
+// - `socketURL` → `run.sock`, `pidURL` → `appa.pid`, `lockURL` → `instance.lock` (single-instance flock, see SingleInstance).
 // - `ensureDirectory()` creates the state directory when missing.
 //
 // DOES NOT
@@ -15,6 +15,7 @@ public enum AppStatePaths {
     private static let stateDirName = ".manbok"
     private static let socketFileName = "run.sock"
     private static let pidFileName = "appa.pid"
+    private static let lockFileName = "instance.lock"
 
     /// Test seam: when set, all state paths resolve under this directory instead of `~/.manbok/`.
     nonisolated(unsafe) static var stateDirectoryOverride: URL?
@@ -31,6 +32,10 @@ public enum AppStatePaths {
 
     public static var pidURL: URL {
         stateDirectory.appendingPathComponent(pidFileName)
+    }
+
+    public static var lockURL: URL {
+        stateDirectory.appendingPathComponent(lockFileName)
     }
 
     public static var ringManifestURL: URL {

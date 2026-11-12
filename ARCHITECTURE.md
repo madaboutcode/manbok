@@ -39,7 +39,12 @@ When speech-to-text (or another recorder) drops audio, the user hires **manbok**
    `dump`/export, or as a checkpoint on graceful quit (`~/.manbok/ring.pcm`).
 3. Dump/export output is standard RIFF WAV, same format as the buffer.
 4. At most one app/listener instance per state directory (single owner of the ring) — enforced
-   by `AppDelegate.anotherInstanceRunning()` pinging the existing socket.
+   by an exclusive `flock` on `~/.manbok/instance.lock` (`SingleInstance.claim`, `InstanceLock`),
+   taken first in `ManbokApp.init()` before migration, checkpoint restore/clear or any socket work.
+   The lock is held for the process lifetime and released by the OS on exit or crash. A second
+   launch that finds the lock held PINGs the holder's socket, logs, and exits without touching any
+   state (an unresponsive holder is logged as an error; nothing is unlinked or killed).
+   `DaemonProcess.removeStaleSocket` requires the held `InstanceLock` as an argument.
 
 ### Non-functional constraints (from spec)
 
@@ -809,7 +814,7 @@ STOP                    → OK (app exits)
 **GUARANTEES**
 
 - `init()` runs `MigrationService.runIfNeeded()`, builds `SettingsStore` → `SessionRegistry` (sized from the persisted preset) → `AVAudioCapture` → `CaptureOrchestrator` → `PopoverViewModel`, starts the IPC server against that same registry/orchestrator, then calls `orchestrator.start()`.
-- `AppDelegate.anotherInstanceRunning()` pings the existing socket at launch; if another instance answers, this one terminates instead of fighting over the ring/socket.
+- `init()` first calls `SingleInstance.claim()` (flock on `instance.lock`); if another instance holds the lock, this one PINGs it, logs, and exits before migration/restore/socket work. The lock is held for the process lifetime.
 - Menu bar icon reflects `micPermission`/`anySessionOpen` state (denied / recording / watching).
 
 **DOES NOT:** Implement domain logic — it wires L2/L3 components together and hosts the IPC dispatch.

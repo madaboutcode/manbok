@@ -6,6 +6,7 @@ import ManbokCore
 //
 // GUARANTEES
 // - Connects to `AppStatePaths.socketURL`, sends one command line, reads one response line.
+// - With `timeout`, a send or read that makes no progress for that long fails instead of blocking.
 // - Returns parsed `IPCResponse` when the reply matches the v1 protocol.
 //
 // EXPECTS
@@ -22,10 +23,12 @@ import ManbokCore
 public enum UnixSocketClient {
     public static func send(
         command: IPCCommand,
-        socketURL: URL = AppStatePaths.socketURL
+        socketURL: URL = AppStatePaths.socketURL,
+        timeout: TimeInterval? = nil
     ) throws -> IPCResponse {
         let fd = try openClientSocket(path: socketURL.path)
         defer { close(fd) }
+        if let timeout { setTimeouts(fd: fd, seconds: timeout) }
 
         writeLine(fd: fd, line: command.wireLine)
         guard let responseLine = readLine(fd: fd),
@@ -34,6 +37,14 @@ public enum UnixSocketClient {
             throw UnixSocketError.syscall("invalid response")
         }
         return response
+    }
+
+    private static func setTimeouts(fd: Int32, seconds: TimeInterval) {
+        var tv = timeval(tv_sec: Int(seconds), tv_usec: 0)
+        let size = socklen_t(MemoryLayout<timeval>.size)
+        let rcv = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, size)
+        let snd = setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, size)
+        assert(rcv == 0 && snd == 0, "setsockopt timeouts failed errno=\(errno)")
     }
 
     private static func openClientSocket(path: String) throws -> Int32 {
