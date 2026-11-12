@@ -8,7 +8,7 @@ import ManbokCore
 /// calls worker.start() from apply(), which the lifecycle controller calls on its serial queue.
 /// Seam used: `makeWorker`. The fake worker blocks in start() exactly as ensureAuthorized() does; the
 /// supervisor and lifecycle controller are the real types. The prompt itself cannot be shown in a test.
-private final class BlockingStartWorker: PinnedAudioCapturing {
+final class BlockingStartWorker: PinnedAudioCapturing {
     let entered = DispatchSemaphore(value: 0)
     let release = DispatchSemaphore(value: 0)
     private(set) var boundDevice: AudioDeviceID?
@@ -20,7 +20,7 @@ private final class BlockingStartWorker: PinnedAudioCapturing {
     func stop() {}
 }
 
-private final class NoSignals: EnvironmentSignaling {
+final class NoSignals: EnvironmentSignaling {
     var handler: ((EnvironmentSignal) -> Void)?
     func activate() {}
     func deactivate() { handler = nil }

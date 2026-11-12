@@ -65,8 +65,9 @@ struct ManbokApp: App {
         supervisor.start()
         lifecycleController.start()
 
-        appDelegate.saveCheckpoint = {
-            Self.performCheckpoint(registry: reg)
+        appDelegate.performShutdown = {
+            AppShutdown.perform(lifecycle: lifecycleController, supervisor: supervisor,
+                                checkpoint: { Self.performCheckpoint(registry: reg) })
         }
 
         Self.log.notice("app init: complete — ring capacity=\(capacity) bytes, sessions=\(reg.listSessions().count)")
@@ -166,10 +167,9 @@ struct ManbokApp: App {
                 response = .sessions(summaries)
 
             case .stop:
-                ipcLog.notice("stop received — saving checkpoint and shutting down")
-                Self.performCheckpoint(registry: registry)
-                lifecycle.stop()
-                supervisor.stop()
+                ipcLog.notice("stop received — shutting down")
+                AppShutdown.perform(lifecycle: lifecycle, supervisor: supervisor,
+                                    checkpoint: { Self.performCheckpoint(registry: registry) })
                 DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) {
                     exit(0)
                 }
@@ -280,7 +280,7 @@ struct MenuBarIcon: View {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static var shared: AppDelegate?
     private let log = AppLog(category: .app)
-    var saveCheckpoint: (() -> Void)?
+    var performShutdown: (() -> Void)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Self.shared = self
@@ -294,9 +294,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        log.notice("delegate: saving checkpoint before termination")
-        saveCheckpoint?()
-        log.notice("delegate: checkpoint saved — terminating")
+        log.notice("delegate: shutting down before termination")
+        performShutdown?()
+        log.notice("delegate: shutdown complete — terminating")
         return .terminateNow
     }
 
