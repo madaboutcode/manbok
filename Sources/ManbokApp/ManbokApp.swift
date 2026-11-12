@@ -39,12 +39,11 @@ struct ManbokApp: App {
         let signals = AUHALEnvironmentSignals()
         let supervisor = CaptureSupervisor(
             makeWorker: { AUHALWorker() },
-            processSnapshot: { monitor.otherInputProcesses() },
             signals: signals,
             appendSink: { reg.append($0) })
         let lifecycleController = SessionLifecycleController(
             supervisor: supervisor, registry: reg,
-            processSnapshot: { monitor.otherInputProcesses() })
+            holderSnapshot: { monitor.holderSnapshot() })
         let vm = PopoverViewModel(registry: reg, lifecycle: lifecycleController)
 
         self.registry = reg

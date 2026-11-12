@@ -8,25 +8,28 @@ import CoreAudio
 // identifiers in SessionLifecycleController.swift).
 //
 // GUARANTEES:
-// - DemandEntry: one per external app currently holding the mic.
+// - DemandEntry: one per external app currently holding the mic or draining after it stopped,
+//   with the capture-device candidates the demand reducer allows for it (may be empty).
 // - CaptureHealth: five states (idle, capturing, recovering, holdingSilent, deferredNoDevice).
 // - CaptureStatus: post-tick status returned from apply().
 // - CaptureSupervising: the ONLY downward waist protocol (lifecycle → supervisor).
 //
 // DOES NOT: contain worker types, policy types, backend types, or device types.
 
-/// Demand: one entry per external app (bundleID) currently holding the mic.
+/// Demand: one entry per external app (bundleID) holding the mic, or draining after it stopped.
 public struct DemandEntry: Equatable, Sendable {
     public let bundleID: String
     public let pid: pid_t          // representative pid (most recently seen)
     public let arrivedAt: Date     // first tick of session-continuous presence;
                                    // preserved across depart-and-reclaim within drain;
                                    // reset only after drain actually expires
+    public let deviceIDs: Set<UInt32>  // capture-device candidates (input device IDs); may be empty
 
-    public init(bundleID: String, pid: pid_t, arrivedAt: Date) {
+    public init(bundleID: String, pid: pid_t, arrivedAt: Date, deviceIDs: Set<UInt32>) {
         self.bundleID = bundleID
         self.pid = pid
         self.arrivedAt = arrivedAt
+        self.deviceIDs = deviceIDs
     }
 }
 
@@ -35,7 +38,7 @@ public enum CaptureHealth: Equatable, Sendable {
     case capturing         // worker running, both watchdogs quiet
     case recovering        // restart pending/backoff (stall, silence, target change)
     case holdingSilent     // R5 Holding: capturing, silence ladder exhausted
-    case deferredNoDevice  // demand present, pdv# returned no devices — not capturing
+    case deferredNoDevice  // demand present, no candidate device — worker released, not capturing
 }
 
 public struct CaptureStatus: Equatable, Sendable {

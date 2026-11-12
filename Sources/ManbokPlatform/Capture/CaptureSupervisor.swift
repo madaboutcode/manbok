@@ -4,12 +4,16 @@ import Foundation
 // MARK: - CONTRACT: CaptureSupervisor
 //
 // GUARANTEES:
-// - Worker runs iff demand is non-empty — started on the tick demand appears
-//   (subject to restart budget), abandoned on the tick demand empties.
-// - Every (re)start re-resolves the target: builds [AppDevices] from demand ×
-//   processSnapshot() (union of pdv# deviceIDs per bundleID), calls
-//   CaptureDevicePolicy.target (passing workerTarget as currentTarget for its
-//   tie-break), creates a FRESH worker via makeWorker.
+// - Worker runs iff demand is non-empty AND some demand entry lists a candidate device —
+//   started on the tick that holds (subject to restart budget), abandoned on the tick either
+//   condition ends. There is no gap hold: no candidate device releases the worker.
+// - Every tick re-resolves the target from DemandEntry.deviceIDs (the demand reducer already
+//   applied the holder/draining/live-device rule; no HAL read here), via
+//   CaptureDevicePolicy.resolve (passing workerTarget as currentTarget for its tie-break);
+//   every (re)start creates a FRESH worker via makeWorker.
+// - Releasing the worker for "no candidate device" remembers whether bytes were flowing
+//   (same test as restart(): lastDataAt within watchdogThreshold). The next arrival start
+//   passes that as wasFlowing, so a healthy mic switch does not grow the restart backoff.
 // - All restarts share CaptureRestartPolicy: mayRestart gates every attempt;
 //   recordRestart(wasFlowing:) on every attempt; .error log from 3rd consecutive
 //   unhealthy attempt; reset() on clean stop.
@@ -30,19 +34,17 @@ import Foundation
 // - apply returns post-decision status: isCapturing, health.
 //
 // EXPECTS: apply calls serialized; start() before lifecycle.start(); stop() after
-//   lifecycle.stop(). processSnapshot cheap/non-destructive; makeWorker returns fresh instance.
+//   lifecycle.stop(). makeWorker returns fresh instance.
 //
 // FAILURE: worker start throw → logged, isCapturing=false returned, retried on next tick.
-//   processSnapshot no devices → target nil: worker held if already running (logged .notice,
-//   all mismatch/watchdog/silence checks skipped that tick), else no worker started and
-//   health is .deferredNoDevice (logged .notice).
+//   No candidate device → target nil: running worker released (logged .notice), no worker
+//   started, health is .deferredNoDevice (logged .notice).
 //
 // DOES NOT: open/close sessions, publish UI state, parse HAL structures, own a dispatch queue.
 
 public final class CaptureSupervisor: CaptureSupervising {
     // Injected dependencies
     private let makeWorker: () -> PinnedAudioCapturing
-    private let processSnapshot: () -> [AudioProcessInfo]
     private let signals: EnvironmentSignaling
     private let appendSink: (Data) -> Void
     private let clock: () -> Date
@@ -67,6 +69,7 @@ public final class CaptureSupervisor: CaptureSupervising {
     // Health / tick bookkeeping
     private var health: CaptureHealth = .idle
     private var isHolding = false
+    private var abandonedWhileFlowing = false  // set when the worker was released for "no candidate device"
     private var previousDemandBundleIDs: Set<String> = []
     private var previousTarget: CaptureTarget?
 
@@ -74,7 +77,6 @@ public final class CaptureSupervisor: CaptureSupervising {
 
     public init(
         makeWorker: @escaping () -> PinnedAudioCapturing,
-        processSnapshot: @escaping () -> [AudioProcessInfo],
         signals: EnvironmentSignaling,
         appendSink: @escaping (Data) -> Void,
         restartPolicy: CaptureRestartPolicy = .init(),
@@ -82,7 +84,6 @@ public final class CaptureSupervisor: CaptureSupervising {
         clock: @escaping () -> Date = Date.init
     ) {
         self.makeWorker = makeWorker
-        self.processSnapshot = processSnapshot
         self.signals = signals
         self.appendSink = appendSink
         self.restartPolicy = restartPolicy
@@ -108,6 +109,7 @@ public final class CaptureSupervisor: CaptureSupervising {
         silencePolicy.noteExternalChange()
         health = .idle
         isHolding = false
+        abandonedWhileFlowing = false
         previousDemandBundleIDs = []
         previousTarget = nil
     }
@@ -119,6 +121,7 @@ public final class CaptureSupervisor: CaptureSupervising {
             silencePolicy.noteExternalChange()
             health = .idle
             isHolding = false
+            abandonedWhileFlowing = false
             previousDemandBundleIDs = []
             previousTarget = nil
             return CaptureStatus(isCapturing: false, health: .idle)
@@ -142,7 +145,8 @@ public final class CaptureSupervisor: CaptureSupervising {
         if let target {
             if worker == nil {
                 if restartPolicy.mayRestart(now: now) {
-                    startWorker(target: target, now: now, trigger: "arrival", wasFlowing: false)
+                    startWorker(target: target, now: now, trigger: "arrival", wasFlowing: abandonedWhileFlowing)
+                    abandonedWhileFlowing = false
                     restartHappened = true
                 }
                 // else: arrival stays deferred, retried next tick — health resolves to .idle below.
@@ -227,14 +231,14 @@ public final class CaptureSupervisor: CaptureSupervising {
                 }
             }
         } else {
-            // target == nil: demand present but pdv# returned no devices for any demanded app.
-            // Only log on state entry (previousTarget was non-nil, now nil) to avoid spam.
-            if previousTarget != nil || previousDemandBundleIDs.isEmpty {
-                if worker != nil {
-                    log.notice("pdv# gap — holding current capture")
-                } else {
-                    log.notice("demand present but no device visible — deferring capture")
-                }
+            // target == nil: demand present but no candidate device. Release the worker (no gap hold);
+            // log only on state entry to avoid spam.
+            if worker != nil {
+                abandonedWhileFlowing = bytesFlowing(now: now)
+                abandonWorker()
+                log.notice("no candidate device — released capture")
+            } else if previousTarget != nil || previousDemandBundleIDs.isEmpty {
+                log.notice("demand present but no device visible — deferring capture")
             }
         }
 
@@ -263,21 +267,8 @@ public final class CaptureSupervisor: CaptureSupervising {
     // MARK: - Target resolution
 
     private func resolveTarget(demand: [DemandEntry]) -> (target: CaptureTarget?, tieBreak: CaptureDevicePolicy.TieBreakBranch) {
-        let snapshot = processSnapshot()
-        var appDevicesMap: [String: (arrivedAt: Date, deviceIDs: Set<AudioDeviceID>)] = [:]
-        for entry in demand {
-            let procs = snapshot.filter { $0.bundleID == entry.bundleID }
-            let devices = procs.flatMap { $0.deviceIDs }
-            if var existing = appDevicesMap[entry.bundleID] {
-                devices.forEach { existing.deviceIDs.insert($0) }
-                existing.arrivedAt = min(existing.arrivedAt, entry.arrivedAt)
-                appDevicesMap[entry.bundleID] = existing
-            } else {
-                appDevicesMap[entry.bundleID] = (arrivedAt: entry.arrivedAt, deviceIDs: Set(devices))
-            }
-        }
-        let appDevices = appDevicesMap.map {
-            CaptureDevicePolicy.AppDevices(bundleID: $0.key, arrivedAt: $0.value.arrivedAt, deviceIDs: Array($0.value.deviceIDs))
+        let appDevices = demand.map {
+            CaptureDevicePolicy.AppDevices(bundleID: $0.bundleID, arrivedAt: $0.arrivedAt, deviceIDs: $0.deviceIDs.sorted())
         }
         return CaptureDevicePolicy.resolve(demand: appDevices, currentTarget: workerTarget)
     }
@@ -340,8 +331,8 @@ public final class CaptureSupervisor: CaptureSupervising {
     /// state, so CaptureRestartPolicy can tell a live-engine switch (wasFlowing=true,
     /// backoff resets) from restarting a dead one (wasFlowing=false, backoff grows).
     private func restart(target: CaptureTarget, now: Date, trigger: String) {
+        let wasFlowing = bytesFlowing(now: now)
         sinkLock.lock()
-        let wasFlowing = lastDataAt.map { now.timeIntervalSince($0) < restartPolicy.watchdogThreshold } ?? false
         lastDataAt = nil
         silentSince = nil
         sinkLock.unlock()
@@ -349,6 +340,12 @@ public final class CaptureSupervisor: CaptureSupervising {
         worker?.stop()
         worker = nil
         startWorker(target: target, now: now, trigger: trigger, wasFlowing: wasFlowing)
+    }
+
+    private func bytesFlowing(now: Date) -> Bool {
+        sinkLock.lock()
+        defer { sinkLock.unlock() }
+        return lastDataAt.map { now.timeIntervalSince($0) < restartPolicy.watchdogThreshold } ?? false
     }
 
     private func abandonWorker() {
