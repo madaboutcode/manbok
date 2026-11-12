@@ -11,8 +11,8 @@ import os
 //   returns empty) contains at least one device with input streams (D5). IsRunningInput is not
 //   read and decides nothing: process taps set it without opening a mic.
 // - Read order per process object: pdv# input scope first; PID and bundle ID only when that list is
-//   non-empty. Excludes own PID, alwaysOnProcesses and ignoredBundleIDPrefixes (built-in, not user
-//   exclusions). A holder never has an empty device set.
+//   non-empty. Excludes only its own PID; infrastructure and user exclusions are applied later by
+//   HolderExclusion in the lifecycle executor. A holder never has an empty device set.
 // - liveInputDevices = system devices with at least one input stream, read in the same call.
 // - All CoreAudio reads are non-destructive. A failed read yields [] / skips the process and is
 //   logged at .warning once when it first appears (same object, selector and status are silent on
@@ -66,8 +66,6 @@ public final class ProcessAudioMonitor {
 
             guard let pid = readPID(objID, kAudioProcessPropertyPID), pid != ownPID else { continue }
             let bundleID = readCFString(objID, kAudioProcessPropertyBundleID) ?? ""
-            if Self.alwaysOnProcesses.contains(bundleID) { continue }
-            if Self.ignoredBundleIDPrefixes.contains(where: { bundleID.hasPrefix($0) }) { continue }
             holders.append(HolderObservation(appID: bundleID, pid: pid, inputDevices: Set(devices)))
         }
 
@@ -84,21 +82,6 @@ public final class ProcessAudioMonitor {
         let names = bundleIDs.compactMap { resolveAppName($0) }.sorted()
         return names.isEmpty ? nil : names.joined(separator: ", ")
     }
-
-    // Processes that permanently hold IsRunningInput=true and must never trigger opportunistic capture.
-    private static let alwaysOnProcesses: Set<String> = [
-        "com.apple.CoreSpeech",                  // "Hey Siri" always-on listener
-        "com.apple.SiriNCService",               // Siri notification center
-        "com.apple.accessibility.heard",         // Live Listen (hearing aid feature)
-        "com.apple.cmio.ContinuityCaptureAgent", // Continuity Camera agent
-    ]
-
-    private static let ignoredBundleIDPrefixes: [String] = [
-        "com.apple.Sound-Settings.",             // System Settings → Sound input meter
-        "com.apple.systempreferences.",          // System Settings panels
-        "com.apple.audio.",                      // Audio system helpers
-        "com.apple.preference.",                 // Legacy preference panes
-    ]
 
     private static let knownApps: [String: String] = [
         // MARK: Video conferencing

@@ -331,4 +331,114 @@ final class SessionLifecycleControllerTests: XCTestCase {
         XCTAssertEqual(supervisor.lastDemand.count, 1, "draining app stays in demand")
         XCTAssertEqual(supervisor.lastDemand.first?.deviceIDs, [1], "kept live device is the candidate")
     }
+
+    // MARK: - 10. User exclusion
+
+    private func manualController(
+        _ supervisor: FakeSupervisor,
+        _ registry: SessionRegistry,
+        _ source: FakeProcessSource,
+        clock: @escaping () -> TimeInterval,
+        pollInterval: TimeInterval = 2
+    ) -> SessionLifecycleController {
+        SessionLifecycleController(
+            supervisor: supervisor, registry: registry, holderSnapshot: source.snapshot,
+            permission: { .authorized }, pollInterval: pollInterval, gracePeriod: 5,
+            monotonicNow: clock
+        )
+    }
+
+    func test_excludeMidSession_drainsAndClosesAtExpiry_captureContinuesForOtherHolder_unexcludeReclaims() {
+        let registry = makeRegistry()
+        let supervisor = FakeSupervisor()
+        let source = FakeProcessSource()
+        var mono: TimeInterval = 100
+        let controller = manualController(supervisor, registry, source, clock: { mono })
+        source.processes = [
+            HolderObservation(appID: "com.test.a", pid: 1, inputDevices: [1]),
+            HolderObservation(appID: "com.test.b", pid: 2, inputDevices: [2]),
+        ]
+        controller.pollOnce()
+        XCTAssertEqual(controller.reducerOpenSessions, ["com.test.a", "com.test.b"])
+
+        controller.setExcludedGroups(["com.test.a"])
+        controller.pollOnce()
+        XCTAssertEqual(controller.reducerOpenSessions, ["com.test.a", "com.test.b"], "excluded app drains; session still open")
+        XCTAssertTrue(supervisor.lastDemand.contains { $0.bundleID == "com.test.b" && $0.deviceIDs == [2] }, "capture continues for b")
+
+        mono += 6
+        controller.pollOnce()
+        XCTAssertEqual(controller.reducerOpenSessions, ["com.test.b"], "a's session closes at grace expiry")
+        XCTAssertFalse(supervisor.lastDemand.contains { $0.bundleID == "com.test.a" })
+
+        controller.setExcludedGroups([])
+        controller.pollOnce()
+        XCTAssertEqual(controller.reducerOpenSessions, ["com.test.a", "com.test.b"], "un-excluded a demands again")
+        XCTAssertTrue(supervisor.lastDemand.contains { $0.bundleID == "com.test.a" })
+    }
+
+    func test_excludeThenUnexcludeInsideGrace_keepsSameSession() {
+        let registry = makeRegistry()
+        let supervisor = FakeSupervisor()
+        let source = FakeProcessSource()
+        var mono: TimeInterval = 100
+        let controller = manualController(supervisor, registry, source, clock: { mono })
+        source.processes = [HolderObservation(appID: "com.test.a", pid: 1, inputDevices: [1])]
+        controller.pollOnce()
+        registry.append(Data(count: 3200))
+        let id = registry.listSessions().first { $0.bundleID == "com.test.a" }?.stableId
+
+        controller.setExcludedGroups(["com.test.a"])
+        mono += 2
+        controller.pollOnce()
+        controller.setExcludedGroups([])
+        mono += 2
+        controller.pollOnce()
+        XCTAssertNotNil(id)
+        XCTAssertEqual(registry.listSessions().filter { $0.bundleID == "com.test.a" }.map(\.stableId), [id!])
+        XCTAssertEqual(registry.listSessions().filter(\.isOpen).count, 1)
+    }
+
+    func test_builtInHolderNeverBecomesDemand() {
+        let registry = makeRegistry()
+        let supervisor = FakeSupervisor()
+        let source = FakeProcessSource()
+        let controller = manualController(supervisor, registry, source, clock: { 10 })
+        source.processes = [HolderObservation(appID: "com.apple.CoreSpeech", pid: 1, inputDevices: [1])]
+        controller.pollOnce()
+        XCTAssertTrue(supervisor.lastDemand.isEmpty)
+        XCTAssertTrue(controller.reducerOpenSessions.isEmpty)
+    }
+
+    func test_holdingNow_includesUserExcludedApp_hidesBuiltIn() {
+        let registry = makeRegistry()
+        let supervisor = FakeSupervisor()
+        let source = FakeProcessSource()
+        let controller = manualController(supervisor, registry, source, clock: { 10 })
+        source.processes = [
+            HolderObservation(appID: "com.test.a", pid: 1, inputDevices: [1]),
+            HolderObservation(appID: "com.apple.CoreSpeech", pid: 2, inputDevices: [1]),
+        ]
+        controller.setExcludedGroups(["com.test.a"])
+        controller.pollOnce()
+        waitUntil { !controller.holdingNow.isEmpty }
+        XCTAssertEqual(controller.holdingNow.map(\.group), ["com.test.a"])
+    }
+
+    func test_settingsChange_triggersImmediatePoll_notTheTimer() {
+        let registry = makeRegistry()
+        let supervisor = FakeSupervisor()
+        let source = FakeProcessSource()
+        source.processes = [HolderObservation(appID: "com.test.a", pid: 1, inputDevices: [1])]
+        // Timer period 1 h: only the start tick and the exclusion-triggered tick can happen.
+        let controller = manualController(supervisor, registry, source,
+                                          clock: { Date().timeIntervalSince1970 }, pollInterval: 3600)
+        controller.start()
+        defer { controller.stop() }
+        waitUntil { supervisor.applyCount >= 1 }
+        let before = supervisor.applyCount
+
+        controller.setExcludedGroups(["com.test.a"])
+        waitUntil(timeout: 1.0) { supervisor.applyCount > before }
+    }
 }

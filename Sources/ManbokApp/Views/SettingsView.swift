@@ -6,6 +6,7 @@ struct SettingsView: View {
     let registry: SessionRegistry
 
     @EnvironmentObject private var settings: SettingsStore
+    @EnvironmentObject private var lifecycle: SessionLifecycleController
     private let log = AppLog(category: .settings)
 
     @State private var selectedPreset: BufferPolicy.Preset = .default
@@ -19,6 +20,8 @@ struct SettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             bufferSection
+            Rectangle().fill(Theme.line).frame(height: 1)
+            appsSection
             Rectangle().fill(Theme.line).frame(height: 1)
             loginSection
         }
@@ -70,6 +73,81 @@ struct SettingsView: View {
                 .foregroundStyle(Theme.creamFaint)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private var exclusionRows: [ExclusionRow] {
+        ExclusionRows.build(
+            holding: lifecycle.holdingNow,
+            excluded: settings.excludedApps,
+            sessions: registry.listSessions().map { ($0.bundleID, $0.displayName) }
+        )
+    }
+
+    private var appsSection: some View {
+        let rows = exclusionRows
+        return VStack(alignment: .leading, spacing: 8) {
+            MicroLabel(text: "Apps")
+
+            if rows.isEmpty {
+                Text("No app is using the mic right now.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.creamDim)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(rows, id: \.group) { row in
+                            appRow(row)
+                        }
+                    }
+                }
+                .frame(height: min(CGFloat(rows.count) * 34, 170))
+            }
+
+            Text("Excluding an app stops new recording for it within about 8 seconds. Audio already in the buffer stays. If another app is using the mic, recording continues for that app.")
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.creamFaint)
+                .fixedSize(horizontal: false, vertical: true)
+                .lineSpacing(2)
+        }
+    }
+
+    private func appRow(_ row: ExclusionRow) -> some View {
+        HStack(spacing: 8) {
+            AppIconView(bundleID: row.bundleID, displayName: row.displayName, size: 22)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(row.displayName)
+                    .font(.system(size: 12))
+                    .foregroundStyle(row.isRecording ? Theme.cream : Theme.creamFaint)
+                    .lineLimit(1)
+                Text(stateLabel(row.state))
+                    .font(.system(size: 10))
+                    .foregroundStyle(row.state == .usingMicNow ? Theme.tapeGreen : Theme.creamFaint)
+            }
+            Spacer(minLength: 8)
+            Toggle(isOn: Binding(
+                get: { row.isRecording },
+                set: { setRecording($0, group: row.group) }
+            )) {
+                Text("Record")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.creamDim)
+            }
+            .toggleStyle(ThemedCheckboxToggleStyle())
+        }
+    }
+
+    private func stateLabel(_ state: ExclusionRow.State) -> String {
+        switch state {
+        case .usingMicNow: return "Using mic now"
+        case .inBuffer: return "In buffer"
+        case .excluded: return "Excluded"
+        }
+    }
+
+    private func setRecording(_ recording: Bool, group: String) {
+        var excluded = settings.excludedApps
+        if recording { excluded.remove(group) } else { excluded.insert(group) }
+        settings.excludedApps = excluded
     }
 
     private var loginSection: some View {

@@ -28,3 +28,4 @@ App entry point, MenuBarExtra popover, Settings window, PopoverViewModel, icon s
 - No direct AVFoundation imports — use SessionLifecycleController from ManbokPlatform
 - Views observe SessionLifecycleController (environmentObject) for icon/badge state
 - Settings window calls SessionRegistry.resize() directly (no IPC verb)
+- Settings "Apps" section: rows from `SessionLifecycleController.holdingNow` + `SettingsStore.excludedApps` + registry sessions (`ExclusionRows.build`); the Record toggle edits `excludedApps`, and `ManbokApp` forwards changes to `setExcludedGroups`. Built and source-read only; not viewed running.

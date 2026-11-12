@@ -43,7 +43,9 @@ struct ManbokApp: App {
             appendSink: { reg.append($0) })
         let lifecycleController = SessionLifecycleController(
             supervisor: supervisor, registry: reg,
-            holderSnapshot: { monitor.holderSnapshot() })
+            holderSnapshot: { monitor.holderSnapshot() },
+            excludedGroups: settingsStore.excludedApps)
+        settingsStore.excludedAppsDidChange = { lifecycleController.setExcludedGroups($0) }
         let vm = PopoverViewModel(registry: reg, lifecycle: lifecycleController)
 
         self.registry = reg

@@ -14,6 +14,12 @@ import ManbokCore
 //   → supervisor.apply(demand:now:) → execute the reducer's session ops. If apply changed
 //   isCapturing, step runs once more in the same tick (same snapshot, same now) and its ops
 //   are executed too.
+// - Applies HolderExclusion (built-in + user groups) once per snapshot, before the reducer.
+//   setExcludedGroups(_:) takes effect on an immediate extra tick while running (no wait for the
+//   timer). An app excluded mid-session simply stops being listed: it drains and its session closes
+//   at expiry; capture continues for other holders.
+// - Publishes holdingNow: every non-built-in holder in the raw snapshot (before user exclusion),
+//   one per app group, for the Settings list; updated only when it changes.
 // - Drain, reclaim, arrivedAt and the session rule live in DemandReducer (see its CONTRACT). This
 //   type keeps no per-app timers and no presence diff; time is a monotonic clock closure.
 // - Logs one persisted (.notice) line per reducer transition and per session open/close, from this
@@ -67,6 +73,7 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
     private let pollInterval: TimeInterval
     private let reducer: DemandReducer
     private let monotonicNow: () -> TimeInterval
+    private var exclusion: HolderExclusion
 
     private let log = AppLog(category: .capture)
     private let queue = DispatchQueue(label: "ai.manbok.app.lifecycle", qos: .userInitiated)
@@ -86,6 +93,9 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
     private var anySessionOpenLocal = false
     private var micPermissionLocal = MicPermissionState.notDetermined
 
+    private var holdingNowLocal: [ActiveHolder] = []
+
+    @Published public private(set) var holdingNow: [ActiveHolder] = []
     @Published public private(set) var anySessionOpen: Bool = false
     @Published public private(set) var micPermission: MicPermissionState = .notDetermined
 
@@ -107,6 +117,7 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
         },
         pollInterval: TimeInterval = 2.0,
         gracePeriod: TimeInterval = 5.0,
+        excludedGroups: Set<String> = [],
         // CLOCK_MONOTONIC_RAW keeps counting while the Mac sleeps, so a sleep longer than the
         // grace period expires drains on the first poll after wake.
         monotonicNow: @escaping () -> TimeInterval = {
@@ -121,6 +132,16 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
         self.pollInterval = pollInterval
         self.reducer = DemandReducer(grace: gracePeriod)
         self.monotonicNow = monotonicNow
+        self.exclusion = HolderExclusion(userGroups: excludedGroups)
+    }
+
+    /// Replaces the user's excluded app groups; while running, polls immediately.
+    public func setExcludedGroups(_ groups: Set<String>) {
+        queue.async { [self] in
+            guard exclusion.userGroups != groups else { return }
+            exclusion = HolderExclusion(userGroups: groups)
+            if isRunning { tick() }
+        }
     }
 
     public func start() {
@@ -164,6 +185,7 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
             wallOrigin = nil
 
             publish(anySessionOpen: false)
+            publish(holdingNow: [])
             log.notice("lifecycle stopped")
         }
     }
@@ -176,8 +198,10 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
         let wall = Date()
         let origin = wallOrigin ?? wall.addingTimeInterval(-mono)
         wallOrigin = origin
+        let holders = snapshot.holders.filter { !exclusion.isExcluded($0.appID) }
+        publish(holdingNow: activeHolders(snapshot.holders))
         func input(capturing: Bool) -> DemandInput {
-            DemandInput(now: mono, holders: snapshot.holders, liveDevices: snapshot.liveInputDevices, isCapturing: capturing)
+            DemandInput(now: mono, holders: holders, liveDevices: snapshot.liveInputDevices, isCapturing: capturing)
         }
 
         let (afterStep, output) = reducer.step(demandState, input(capturing: lastCapturing))
@@ -203,6 +227,17 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
         }
 
         publish(anySessionOpen: registry.anySessionOpen)
+    }
+
+    private func activeHolders(_ raw: [HolderObservation]) -> [ActiveHolder] {
+        var seen = Set<String>()
+        var result: [ActiveHolder] = []
+        for h in raw where !HolderExclusion.isBuiltIn(h.appID) {
+            let group = appGroup(h.appID)
+            guard seen.insert(group).inserted else { continue }
+            result.append(ActiveHolder(group: group, bundleID: h.appID, displayName: resolver.resolve(bundleID: h.appID, pid: h.pid)))
+        }
+        return result
     }
 
     private func report(_ transitions: [AppTransition], now: TimeInterval) {
@@ -250,6 +285,12 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
         guard anySessionOpenLocal != value else { return }
         anySessionOpenLocal = value
         DispatchQueue.main.async { [weak self] in self?.anySessionOpen = value }
+    }
+
+    private func publish(holdingNow value: [ActiveHolder]) {
+        guard holdingNowLocal != value else { return }
+        holdingNowLocal = value
+        DispatchQueue.main.async { [weak self] in self?.holdingNow = value }
     }
 
     private func publish(micPermission value: MicPermissionState) {
