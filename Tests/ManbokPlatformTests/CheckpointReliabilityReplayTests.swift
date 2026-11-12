@@ -21,7 +21,7 @@ final class CheckpointReliabilityReplayTests: XCTestCase {
         // launch of run 2 (ManbokApp.init)
         let restored = StatePersistenceService.restore()
         XCTAssertNotNil(restored, "precondition: run 2 restores run 1's checkpoint")
-        StatePersistenceService.clear()
+        StatePersistenceService.discardRestoredCheckpoint()
         // run 2 crashes here (kill -9) before any save. Run 3 launches:
         expectKnownBug("H18: clear() after restore() deletes the only copy; nothing saved until quit/STOP") {
             XCTAssertNotNil(StatePersistenceService.restore(),
@@ -58,33 +58,26 @@ final class CheckpointReliabilityReplayTests: XCTestCase {
         writers.wait()
         print("[H19] restores=\(restores) mismatched pairs=\(mismatches)")
         XCTAssertGreaterThan(restores, 0, "harness precondition: some restores succeeded")
-        expectKnownBug("H19: save() is two independent atomic writes with no lock/generation id") {
-            XCTAssertEqual(mismatches, 0, "restore returned a manifest with PCM from another save")
-        }
+        XCTAssertEqual(mismatches, 0, "restore returned a manifest with PCM from another save")
     }
 
-    // H20. restore() returns nil without clearing (here: ring.pcm truncated), then a crash between the
-    // PCM write and the manifest write of the NEXT save leaves old manifest + new PCM.
+    // H20. A damaged checkpoint is rejected, then the next save dies after staging its files but before
+    // publishing. Restore must not pair anything from the damaged generation with the unpublished PCM.
     func test_staleManifestIsNotPairedWithLaterPCM() throws {
-        _ = installTempStateDirectory()
+        let state = installTempStateDirectory()
         let size = 64
-        // Old run left a manifest and a damaged PCM.
         try StatePersistenceService.save(manifest: manifest(name: "OLD", filled: size, capacity: size),
                                          ringData: Data(repeating: 0xAA, count: size))
-        try Data(repeating: 0xAA, count: 10).write(to: AppStatePaths.ringDataURL)  // truncate
+        try Data(repeating: 0xAA, count: 10).write(
+            to: state.appendingPathComponent("checkpoint-1/ring.pcm"))   // truncate
         XCTAssertNil(StatePersistenceService.restore(), "precondition: damaged checkpoint is rejected")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: AppStatePaths.ringManifestURL.path),
-                      "precondition (H20): rejected checkpoint is not cleared")
 
-        // New run starts fresh. Its save() step 1 (PCM write, same call as StatePersistenceService.save)
-        // completes; the process dies before step 2 (manifest write).
-        try Data(repeating: 0xBB, count: size).write(to: AppStatePaths.ringDataURL, options: .atomic)
+        _ = try StatePersistenceService.stage(
+            manifest: manifest(name: "NEW", filled: size, capacity: size),
+            ringData: Data(repeating: 0xBB, count: size), generation: 2, in: state)
 
-        let restored = StatePersistenceService.restore()
-        expectKnownBug("H20: contract says a crash between the writes leaves no manifest for the new PCM") {
-            if let (m, pcm) = restored {
-                XCTFail("restore paired manifest \(m.sessions.first?.displayName ?? "?") with PCM byte \(String(describing: pcm.first))")
-            }
+        if let (m, pcm) = StatePersistenceService.restore() {
+            XCTFail("restore paired manifest \(m.sessions.first?.displayName ?? "?") with PCM byte \(String(describing: pcm.first))")
         }
     }
 }

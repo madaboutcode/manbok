@@ -36,7 +36,7 @@ When speech-to-text (or another recorder) drops audio, the user hires **manbok**
    invariant: while listening, buffer length never exceeds the currently-selected preset's
    capacity.
 2. No audio is written to disk during capture. Disk writes happen only on explicit
-   `dump`/export, or as a checkpoint on graceful quit (`~/.manbok/ring.pcm`).
+   `dump`/export, or as a checkpoint on graceful quit (`~/.manbok/checkpoint-<seq>/ring.pcm`).
 3. Dump/export output is standard RIFF WAV, same format as the buffer.
 4. At most one app/listener instance per state directory (single owner of the ring) — enforced
    by an exclusive `flock` on `~/.manbok/instance.lock` (`SingleInstance.claim`, `InstanceLock`),
@@ -112,8 +112,8 @@ HAL mic (variable rate)
 
 | State | Owner | Persisted? |
 |-------|-------|------------|
-| Ring buffer contents | App (SessionRegistry) | Yes — checkpoint on quit (`~/.manbok/ring.pcm`) |
-| Session metadata | App (SessionRegistry) | Yes — checkpoint on quit (`~/.manbok/ring.json`) |
+| Ring buffer contents | App (SessionRegistry) | Yes — checkpoint on quit (`~/.manbok/checkpoint-<seq>/ring.pcm`; newest complete generation wins, see StatePersistenceService CONTRACT) |
+| Session metadata | App (SessionRegistry) | Yes — checkpoint on quit (`~/.manbok/checkpoint-<seq>/ring.json`) |
 | Waveform peaks | Derived from PCM | No — recomputed on restore |
 | Listening / not listening | App | No (reconstructed: process alive?) |
 | pid, socket path | App writes on start; CLI reads | Yes — `~/.manbok/` |

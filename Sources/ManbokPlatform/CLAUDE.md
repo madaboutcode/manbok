@@ -30,7 +30,7 @@ Implements Core ports (`AudioCapturing`, `DumpSink`) and provides infrastructure
 
 ### Paths
 
-- State: `~/.manbok/run.sock`, `~/.manbok/appa.pid`, `~/.manbok/instance.lock` (flock held for process lifetime; `Process/SingleInstance.swift`)
+- State: `~/.manbok/run.sock`, `~/.manbok/appa.pid`, `~/.manbok/checkpoint-<seq>/{ring.pcm,ring.json}` (generations), `~/.manbok/instance.lock` (flock held for process lifetime; `Process/SingleInstance.swift`)
 - Dumps: `FileManager.default.temporaryDirectory` / `manbok-YYYYMMDD-HHMMSS.wav`
 
 ### Spike Reference
