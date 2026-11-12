@@ -16,8 +16,12 @@ public enum AppStatePaths {
     private static let socketFileName = "run.sock"
     private static let pidFileName = "appa.pid"
 
+    /// Test seam: when set, all state paths resolve under this directory instead of `~/.manbok/`.
+    nonisolated(unsafe) static var stateDirectoryOverride: URL?
+
     public static var stateDirectory: URL {
-        FileManager.default.homeDirectoryForCurrentUser
+        if let override = stateDirectoryOverride { return override }
+        return FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(stateDirName, isDirectory: true)
     }
 
