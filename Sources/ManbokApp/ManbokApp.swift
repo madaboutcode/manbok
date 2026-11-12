@@ -35,7 +35,6 @@ struct ManbokApp: App {
         if let (manifest, pcm) = StatePersistenceService.restore() {
             Self.log.notice("app init: restoring checkpoint — \(manifest.sessions.count) sessions, \(pcm.count) bytes PCM")
             reg = SessionRegistry(restoredFrom: manifest, ringData: pcm)
-            StatePersistenceService.discardRestoredCheckpoint()
             if manifest.ringCapacityBytes != capacity {
                 Self.log.notice("app init: preset changed, resizing \(manifest.ringCapacityBytes) → \(capacity)")
                 try? reg.resize(to: settingsStore.bufferPreset)

@@ -12,21 +12,15 @@ final class CheckpointReliabilityReplayTests: XCTestCase {
                                         audioBytes: filled, startedAt: Date(), endedAt: Date())])
     }
 
-    // H18. Mirrors ManbokApp.init lines 26-29: `restore()` then `clear()` before anything new is saved.
+    // H18. Launch restores run 1's checkpoint and then crashes before any save; run 3 must still get it.
     func test_previousRunAudioSurvivesCrashRightAfterNextLaunch() throws {
         _ = installTempStateDirectory()
         try StatePersistenceService.save(manifest: manifest(name: "RUN1", filled: 64, capacity: 128),
                                          ringData: Data(repeating: 0xAA, count: 64))
 
-        // launch of run 2 (ManbokApp.init)
-        let restored = StatePersistenceService.restore()
-        XCTAssertNotNil(restored, "precondition: run 2 restores run 1's checkpoint")
-        StatePersistenceService.discardRestoredCheckpoint()
+        XCTAssertNotNil(StatePersistenceService.restore(), "precondition: run 2 restores run 1's checkpoint")
         // run 2 crashes here (kill -9) before any save. Run 3 launches:
-        expectKnownBug("H18: clear() after restore() deletes the only copy; nothing saved until quit/STOP") {
-            XCTAssertNotNil(StatePersistenceService.restore(),
-                            "run 1's audio must still be on disk after run 2 crashed")
-        }
+        XCTAssertNotNil(StatePersistenceService.restore(), "run 1's audio must still be on disk after run 2 crashed")
     }
 
     // H19. Two real save() calls racing, each with its own consistent (manifest, pcm) pair, full-size rings

@@ -36,7 +36,8 @@ When speech-to-text (or another recorder) drops audio, the user hires **manbok**
    invariant: while listening, buffer length never exceeds the currently-selected preset's
    capacity.
 2. No audio is written to disk during capture. Disk writes happen only on explicit
-   `dump`/export, or as a checkpoint on graceful quit (`~/.manbok/checkpoint-<seq>/ring.pcm`).
+   `dump`/export, or as a checkpoint on graceful quit (`~/.manbok/checkpoint-<seq>/ring.pcm`). The last saved
+   checkpoint stays on disk until it is replaced by the next save; launch restores it without deleting it.
 3. Dump/export output is standard RIFF WAV, same format as the buffer.
 4. At most one app/listener instance per state directory (single owner of the ring) — enforced
    by an exclusive `flock` on `~/.manbok/instance.lock` (`SingleInstance.claim`, `InstanceLock`),

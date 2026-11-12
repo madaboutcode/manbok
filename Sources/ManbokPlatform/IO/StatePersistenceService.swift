@@ -15,10 +15,14 @@ import ManbokCore
 // - restore() returns the newest generation whose manifest decodes, has the current format version, carries
 //   the generation matching its directory, and whose manifest.ringFilledBytes equals the PCM file size.
 //   An invalid newer generation is skipped (warning with the reason) in favour of the next complete one.
-//   It then deletes older generations and every `checkpoint.tmp-*` (one persisted log line each).
+//   It then deletes older generations (not the one it returned) and every `checkpoint.tmp-*`, one persisted
+//   log line each.
 // - Legacy layout (`ring.pcm`/`ring.json` at the state root) is read only when no `checkpoint-*` exists,
 //   and removed after it restores successfully.
-// - save(), restore() and discardRestoredCheckpoint() are serialized by one process-wide lock.
+// - restore() leaves the restored generation on disk: the last saved checkpoint stays until the next
+//   successful save replaces it, so a crash after launch loses nothing. Only older generations and
+//   interrupted-save debris are deleted by restore().
+// - save() and restore() are serialized by one process-wide lock.
 // - restore() never throws; any failure logs a warning and yields nil or the next candidate.
 //
 // EXPECTS
@@ -103,18 +107,6 @@ public enum StatePersistenceService {
             if reason != .absent { log.warning("legacy checkpoint unusable: \(reason.message)") }
             return nil
         }
-    }
-
-    /// What launch does with the checkpoint after `restore()` has been applied. Today: remove everything,
-    /// so a crash before the next save loses the restored audio (open owner question).
-    public static func discardRestoredCheckpoint() {
-        lock.lock()
-        defer { lock.unlock() }
-        let state = AppStatePaths.stateDirectory
-        for generation in generations(in: state) { remove(generation.url, why: "discarded after restore") }
-        for tmp in temporaryDirectories(in: state) { remove(tmp, why: "discarded after restore") }
-        removeLegacyFiles(why: "discarded after restore")
-        log.info("cleared checkpoint state")
     }
 
     // MARK: - Testable internals

@@ -95,10 +95,25 @@ final class StatePersistenceTests: XCTestCase {
         XCTAssertNil(StatePersistenceService.restore())
     }
 
-    func test_discardRestoredCheckpoint_removesEverything() throws {
+    func test_restore_twiceWithoutSaveInBetween_returnsSameAudio() throws {
         let state = installTempStateDirectory()
-        try StatePersistenceService.save(manifest: manifest("A", filled: 32), ringData: Data(repeating: 0xAA, count: 32))
-        StatePersistenceService.discardRestoredCheckpoint()
-        XCTAssertEqual(names(state), [])
+        try StatePersistenceService.save(manifest: manifest("RUN1", filled: 32), ringData: Data(repeating: 0xAA, count: 32))
+
+        let first = try XCTUnwrap(StatePersistenceService.restore())
+        // launch crashes here (no save). Next launch:
+        let second = try XCTUnwrap(StatePersistenceService.restore())
+
+        XCTAssertEqual(first.1, second.1)
+        XCTAssertEqual(second.0.sessions.first?.displayName, "RUN1")
+        XCTAssertEqual(names(state), ["checkpoint-1"])
+    }
+
+    func test_saveAfterRestore_replacesRestoredGeneration() throws {
+        let state = installTempStateDirectory()
+        try StatePersistenceService.save(manifest: manifest("RUN1", filled: 32), ringData: Data(repeating: 0xAA, count: 32))
+        _ = StatePersistenceService.restore()
+        try StatePersistenceService.save(manifest: manifest("RUN2", filled: 32), ringData: Data(repeating: 0xBB, count: 32))
+
+        XCTAssertEqual(names(state), ["checkpoint-2"])
     }
 }
