@@ -66,6 +66,7 @@ struct ManbokApp: App {
         startIPCServer(registry: reg, lifecycle: lifecycleController, supervisor: supervisor, instanceLock: instanceLock)
         supervisor.start()
         lifecycleController.start()
+        supervisor.requestPermissionIfNeeded()
 
         appDelegate.performShutdown = {
             AppShutdown.perform(lifecycle: lifecycleController, supervisor: supervisor,

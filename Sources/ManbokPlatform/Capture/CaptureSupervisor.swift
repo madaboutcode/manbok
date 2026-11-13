@@ -35,8 +35,9 @@ import Foundation
 //   by CaptureDevicePolicy's tie-break carries which branch fired ("tie: newest
 //   relationship" / "tie: lowest-id fallback"); a plain (non-tied) switch does not.
 // - Permission guard: before the first worker start of an arrival, microphone status is read.
-//   .authorized proceeds. .notDetermined requests access once (asynchronous; apply never waits for
-//   the user) and defers. .denied/.restricted defer. A deferral is not a failed start: it creates
+//   .authorized proceeds. .notDetermined requests access if none is open (asynchronous; apply never
+//   waits for the user; no second prompt while one is open) and defers. The app also calls
+//   requestPermissionIfNeeded() at launch (lifecycle.md R1); the guard is the second line. .denied/.restricted defer. A deferral is not a failed start: it creates
 //   no worker, never calls recordRestart, never consumes or grows the backoff. When a request is
 //   answered, `onPermissionResolved` fires (any thread) so the owner can step at once.
 // - apply returns post-decision status: isCapturing, health.
@@ -283,6 +284,26 @@ public final class CaptureSupervisor: CaptureSupervising {
 
     // MARK: - Permission guard
 
+    /// Asks for microphone access when status is notDetermined and no request is open. Never blocks;
+    /// the app calls it at launch (lifecycle.md R1), and the start guard calls it as the second line.
+    public func requestPermissionIfNeeded() {
+        guard authorizer.status == .notDetermined else { return }
+        requestLock.lock()
+        let alreadyAsked = requestInFlight
+        requestInFlight = true
+        requestLock.unlock()
+        guard !alreadyAsked else { return }
+        log.notice("microphone permission requested")
+        authorizer.requestAccess { [weak self] granted in
+            guard let self else { return }
+            self.requestLock.lock()
+            self.requestInFlight = false
+            self.requestLock.unlock()
+            self.log.notice("microphone permission \(granted ? "granted" : "denied")")
+            self.onPermissionResolved?()
+        }
+    }
+
     private func permissionAllowsStart() -> Bool {
         switch authorizer.status {
         case .authorized:
@@ -290,21 +311,7 @@ public final class CaptureSupervisor: CaptureSupervising {
         case .denied, .restricted:
             return false
         case .notDetermined:
-            requestLock.lock()
-            let alreadyAsked = requestInFlight
-            requestInFlight = true
-            requestLock.unlock()
-            if !alreadyAsked {
-                log.notice("microphone permission requested — capture deferred until answered")
-                authorizer.requestAccess { [weak self] granted in
-                    guard let self else { return }
-                    self.requestLock.lock()
-                    self.requestInFlight = false
-                    self.requestLock.unlock()
-                    self.log.notice("microphone permission \(granted ? "granted" : "denied")")
-                    self.onPermissionResolved?()
-                }
-            }
+            requestPermissionIfNeeded()
             return false
         }
     }

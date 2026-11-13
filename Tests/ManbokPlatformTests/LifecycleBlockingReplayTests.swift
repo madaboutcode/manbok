@@ -104,4 +104,15 @@ final class LifecycleBlockingReplayTests: XCTestCase {
         XCTAssertTrue(supervisor.apply(demand: demand, now: now).isCapturing)
         XCTAssertEqual(made.value, 1)
     }
+
+    func test_launchRequestThenDemandDoesNotPromptTwice_andGrantStartsCapture() {
+        let rig = makeRig(status: .notDetermined, pollInterval: 0.1)
+        rig.supervisor.requestPermissionIfNeeded()          // launch-time ask
+        XCTAssertTrue(waitUntil(3) { rig.snapshots.value >= 5 }, "demand ticks arrive while the launch prompt is open")
+        XCTAssertEqual(rig.authorizer.requestCount, 1, "demand guard must not open a second prompt")
+        XCTAssertEqual(rig.workersMade.value, 0)
+
+        rig.authorizer.answer(true)
+        XCTAssertTrue(waitUntil(2) { rig.workersMade.value == 1 })
+    }
 }
