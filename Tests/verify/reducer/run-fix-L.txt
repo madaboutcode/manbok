@@ -1,0 +1,26 @@
+command: env MODEL_VARIANT=fix MODEL_TIMERS=1 MODEL_APPS=2 MODEL_DEVS=1 MODEL_TOT=1 MODEL_EXAPPS=1 node check.mjs session.model.mjs --max-states 600000 --max-mb 3000
+manbok demand reducer + supervisor budget [fix]
+covers  Sources/ManbokCore/Application/DemandReducer.swift step() · Sources/ManbokPlatform/Capture/SessionLifecycleController.swift tick() · Sources/ManbokPlatform/Capture/CaptureSupervisor.swift apply() startWorker() · Sources/ManbokPlatform/Capture/CaptureRestartPolicy.swift recordRestart() mayRestart()   hand-mirrored: step(), tick(), apply(), startWorker(), recordRestart(), mayRestart()
+drift   no sync record yet (run --sync once the model matches the code)
+holds   P1  after a regular (2 s) poll, while a non-excluded app holds a mic, capture runs after a poll, unless the start failed, the supervisor's restart budget defers the start, or no known device exists
+holds   P1b  in the no-known-device case (mic switch + list blip + old mic gone), capture is off for at most one poll, with the restart budget in force, and the open session stays open
+holds   P2a  an app that never held a mic never gets a session
+holds   P2b  after a poll, capture running means some app is holding a mic or is draining after holding
+holds   P3  capture stops within 8 s of the last non-excluded holder really stopping (awake seconds)
+holds   Plat  an app's session is closed within 8 s of that app really stopping holding (awake seconds)
+holds   P4  while a non-excluded app that the reducer has seen holds a mic and capture runs, that app has an open session after a poll
+holds   P5  the reducer's choice of device (ignoring a restart deferred by the backoff) never favours a draining app's device over a holder's, and never picks a device that no longer exists
+holds   Cold  a cold start after idle never inherits a healthy flag (inferred): the first start attempt after demand was empty uses wasFlowing=false
+holds   A3  a mic switch through a no-device poll, restarted within 4 s of the last audio byte, with no start failure, never raises the restart backoff (the A3 promise)
+holds   Cont  a session is never closed while its app really holds a mic and is not excluded
+holds   Excl  after an app is excluded, neither its session nor capture for it alone outlasts 8 s
+holds   Idem  step is idempotent on an unchanged input (same snapshot, same isCapturing, same time)
+holds   NoDeadlock  the system never gets stuck with nothing left to do
+holds   CanIdle  from any point, capture can end up stopped
+bounds  timers=true apps=2 devices=1 G=5 pollSec=2 BSTOP=8 BEX=8 variant="fix" TOT=1
+assumes  poll every 2 s; one snapshot per poll; settings change (exclusion toggle) triggers an immediate extra poll · executor order: step(isCapturing=before) -> apply -> if capture status changed: step again with the same snapshot · reducer time is monotonic and continues across sleep (A5); stale hold: P3 is measured in awake seconds · wasFlowing = seconds since the last audio byte < 4; a gap of exactly 4 grid seconds is a tie decided by timer jitter, both outcomes explored (Branch A: lastDataAt survives a no-device release; cleared when demand empties, by restart(), and by sleep). Bytes flow each second while the worker exists and its mic exists · A3 = that kept lastDataAt. Variant no-a3 forgets it at abandon (HEAD); variant a3-leak does not clear it when demand empties · abandon for nil target keeps the audio-flow evidence (see above) · tainted episode: after a start failure and before demand empties, P1 excuses backoff deferrals and P1b does not count them
+not modeled  MIRRORED: the model follows DemandReducer.step/stop, SessionLifecycleController.tick, CaptureSupervisor.apply and CaptureRestartPolicy at branch A head 889608f. Linked to the reducer only by the XCTest replays in Tests/ManbokCoreTests/DemandReducerReplayTests.swift and Tests/ManbokPlatformTests (see README); the supervisor part is not replayed. · restart-policy delay is capped at 2^UCAP = 8 s (unhealthy count saturates at UCAP=3); real cap is 30 s (unhealthy count unbounded); real base delay 1 s as modeled · stall and silence watchdogs, environment signals; a start failure is a free choice at any start/restart (at most NFAIL per run) · sleep: clock jump of 6 s; real events during sleep are not modeled; sleep time is not counted toward P3/Plat/Excl (awake seconds) · device pick tie-break abstracted to keep-current-else-lowest-id; one device per app (pdv# sets are singletons) · first-sight blip; list blips longer than one poll; several processes per bundle ID; permission, ring, dump; VPIO; device-less flag holders other than `tap` · fault budget: at most 1 of {mic switch, list blip, mic vanish, start failure, sleep, exclusion toggle} per run, in any mix · apps are alive from the start; launch/quit is the same as input start/stop for the reducer
+15 rules hold · 586,351 states · depth 45 · 60.9 s
+exit 0
+exit code: 0
+elapsed: 61s

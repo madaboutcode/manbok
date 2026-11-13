@@ -1,0 +1,25 @@
+mutant: p5union
+file: Sources/ManbokCore/Application/DemandReducer.swift
+---- git diff of the temporary edit
+diff --git a/Sources/ManbokCore/Application/DemandReducer.swift b/Sources/ManbokCore/Application/DemandReducer.swift
+index 121262e..ee3e6cc 100644
+--- a/Sources/ManbokCore/Application/DemandReducer.swift
++++ b/Sources/ManbokCore/Application/DemandReducer.swift
+@@ -193,7 +193,7 @@ public struct DemandReducer: Sendable {
+             case .holding(let arrivedAt, let pid, let devices):
+                 return DemandApp(appID: appID, pid: pid, arrivedAt: arrivedAt, devices: devices, isDraining: false)
+             case .draining(let arrivedAt, let pid, let kept, _):
+-                let candidates = anyHolderListsDevice ? [] : kept.intersection(live)
++                let candidates = kept.intersection(live)
+                 return DemandApp(appID: appID, pid: pid, arrivedAt: arrivedAt, devices: candidates, isDraining: true)
+             }
+         }
+---- swift test --skip AUHALWorkerIntegrationTests --skip CaptureE2ETests --filter ReducerModel
+	 Executed 11 tests, with 2 failures (0 unexpected) in 0.694 (0.698) seconds
+	 Executed 11 tests, with 2 failures (0 unexpected) in 0.694 (0.700) seconds
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.296 (0.297) seconds
+	 Executed 9 tests, with 2 failures (0 unexpected) in 0.398 (0.400) seconds
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:173: error: -[ManbokPlatformTests.ReducerModelReplayTests test_P5_drainingAppDeviceNeverChosenWhileAHolderListsADevice] : XCTAssertEqual failed: ("[2]") is not equal to ("[]"
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:174: error: -[ManbokPlatformTests.ReducerModelReplayTests test_P5_drainingAppDeviceNeverChosenWhileAHolderListsADevice] : XCTAssertEqual failed: ("Optional(2)") is not equal 
+AUHAL started count: 0
+---- restored: git status for Sources/ManbokCore/Application/DemandReducer.swift: []

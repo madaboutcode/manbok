@@ -1,0 +1,25 @@
+mutant: stale
+file: Sources/ManbokCore/Application/DemandReducer.swift
+---- git diff of the temporary edit
+diff --git a/Sources/ManbokCore/Application/DemandReducer.swift b/Sources/ManbokCore/Application/DemandReducer.swift
+index 121262e..5012472 100644
+--- a/Sources/ManbokCore/Application/DemandReducer.swift
++++ b/Sources/ManbokCore/Application/DemandReducer.swift
+@@ -193,7 +193,7 @@ public struct DemandReducer: Sendable {
+             case .holding(let arrivedAt, let pid, let devices):
+                 return DemandApp(appID: appID, pid: pid, arrivedAt: arrivedAt, devices: devices, isDraining: false)
+             case .draining(let arrivedAt, let pid, let kept, _):
+-                let candidates = anyHolderListsDevice ? [] : kept.intersection(live)
++                let candidates = anyHolderListsDevice ? [] : kept
+                 return DemandApp(appID: appID, pid: pid, arrivedAt: arrivedAt, devices: candidates, isDraining: true)
+             }
+         }
+---- swift test --skip AUHALWorkerIntegrationTests --skip CaptureE2ETests --filter ReducerModel
+	 Executed 11 tests, with 2 failures (0 unexpected) in 0.280 (0.282) seconds
+	 Executed 11 tests, with 2 failures (0 unexpected) in 0.280 (0.284) seconds
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.080 (0.080) seconds
+	 Executed 9 tests, with 2 failures (0 unexpected) in 0.200 (0.202) seconds
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:185: error: -[ManbokPlatformTests.ReducerModelReplayTests test_P5_vanishedKeptDeviceDroppedSessionStaysOpen] : XCTAssertEqual failed: ("[1]") is not equal to ("[]")
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:186: error: -[ManbokPlatformTests.ReducerModelReplayTests test_P5_vanishedKeptDeviceDroppedSessionStaysOpen] : XCTAssertFalse failed - no known device: capture is off, not pa
+AUHAL started count: 0
+---- restored: git status for Sources/ManbokCore/Application/DemandReducer.swift: []

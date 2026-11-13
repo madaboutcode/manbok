@@ -1,0 +1,28 @@
+mutant: excl-ignore
+file: Sources/ManbokPlatform/Capture/SessionLifecycleController.swift
+---- git diff of the temporary edit
+diff --git a/Sources/ManbokPlatform/Capture/SessionLifecycleController.swift b/Sources/ManbokPlatform/Capture/SessionLifecycleController.swift
+index a728d87..0de50b3 100644
+--- a/Sources/ManbokPlatform/Capture/SessionLifecycleController.swift
++++ b/Sources/ManbokPlatform/Capture/SessionLifecycleController.swift
+@@ -198,7 +198,7 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
+         let wall = Date()
+         let origin = wallOrigin ?? wall.addingTimeInterval(-mono)
+         wallOrigin = origin
+-        let holders = snapshot.holders.filter { !exclusion.isExcluded($0.appID) }
++        let holders = snapshot.holders
+         publish(holdingNow: activeHolders(snapshot.holders))
+         func input(capturing: Bool) -> DemandInput {
+             DemandInput(now: mono, holders: holders, liveDevices: snapshot.liveInputDevices, isCapturing: capturing)
+---- swift test --skip AUHALWorkerIntegrationTests --skip CaptureE2ETests --filter ReducerModel
+	 Executed 11 tests, with 5 failures (0 unexpected) in 0.405 (0.406) seconds
+	 Executed 11 tests, with 5 failures (0 unexpected) in 0.405 (0.410) seconds
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.178 (0.179) seconds
+	 Executed 9 tests, with 5 failures (0 unexpected) in 0.227 (0.228) seconds
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:223: error: -[ManbokPlatformTests.ReducerModelReplayTests test_Excl_excludedAppSessionAndCaptureEndWithinBound] : XCTAssertEqual failed: ("["com.replay.app1"]") is not equal 
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:224: error: -[ManbokPlatformTests.ReducerModelReplayTests test_Excl_excludedAppSessionAndCaptureEndWithinBound] : XCTAssertFalse failed
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:232: error: -[ManbokPlatformTests.ReducerModelReplayTests test_Excl_excludedBeforeArrival_neverGetsSessionOrDemand] : XCTAssertEqual failed: ("["com.replay.app1"]") is not eq
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:233: error: -[ManbokPlatformTests.ReducerModelReplayTests test_Excl_excludedBeforeArrival_neverGetsSessionOrDemand] : XCTAssertEqual failed: ("["com.replay.app1"]") is not eq
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:234: error: -[ManbokPlatformTests.ReducerModelReplayTests test_Excl_excludedBeforeArrival_neverGetsSessionOrDemand] : XCTAssertFalse failed
+AUHAL started count: 0
+---- restored: git status for Sources/ManbokPlatform/Capture/SessionLifecycleController.swift: []

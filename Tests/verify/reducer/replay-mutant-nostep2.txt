@@ -1,0 +1,35 @@
+mutant: nostep2
+file: Sources/ManbokPlatform/Capture/SessionLifecycleController.swift
+---- git diff of the temporary edit
+diff --git a/Sources/ManbokPlatform/Capture/SessionLifecycleController.swift b/Sources/ManbokPlatform/Capture/SessionLifecycleController.swift
+index a728d87..a74dc20 100644
+--- a/Sources/ManbokPlatform/Capture/SessionLifecycleController.swift
++++ b/Sources/ManbokPlatform/Capture/SessionLifecycleController.swift
+@@ -218,7 +218,7 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
+         report(output.transitions, now: mono)
+         execute(output.sessionOps)
+ 
+-        if status.isCapturing != lastCapturing {
++        if false {
+             lastCapturing = status.isCapturing
+             let (afterRecheck, recheck) = reducer.step(demandState, input(capturing: status.isCapturing))
+             demandState = afterRecheck
+---- swift test --skip AUHALWorkerIntegrationTests --skip CaptureE2ETests --filter ReducerModel
+	 Executed 11 tests, with 12 failures (1 unexpected) in 0.763 (0.766) seconds
+	 Executed 11 tests, with 12 failures (1 unexpected) in 0.763 (0.767) seconds
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.316 (0.316) seconds
+	 Executed 9 tests, with 12 failures (1 unexpected) in 0.448 (0.449) seconds
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:129: error: -[ManbokPlatformTests.ReducerModelReplayTests test_normalPath_holdDrainReclaimExpire] : XCTAssertEqual failed: ("[]") is not equal to ("["com.replay.app1"]")
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:133: error: -[ManbokPlatformTests.ReducerModelReplayTests test_normalPath_holdDrainReclaimExpire] : XCTAssertEqual failed: ("[]") is not equal to ("["com.replay.app1"]")
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:137: error: -[ManbokPlatformTests.ReducerModelReplayTests test_normalPath_holdDrainReclaimExpire] : XCTAssertEqual failed: ("[]") is not equal to ("["com.replay.app1"]")
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:142: error: -[ManbokPlatformTests.ReducerModelReplayTests test_normalPath_holdDrainReclaimExpire] : XCTAssertEqual failed: ("[]") is not equal to ("["com.replay.app1"]")
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:160: error: -[ManbokPlatformTests.ReducerModelReplayTests test_P4_holderListedBlipWhileCaptureWasDown_getsSessionWhenCaptureComesUp] : XCTAssertEqual failed: ("[]") is not eq
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:187: error: -[ManbokPlatformTests.ReducerModelReplayTests test_P5_vanishedKeptDeviceDroppedSessionStaysOpen] : XCTAssertEqual failed: ("[]") is not equal to ("["com.replay.ap
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:199: error: -[ManbokPlatformTests.ReducerModelReplayTests test_P1_listBlipKeepsCaptureOnKeptDevice] : XCTAssertEqual failed: ("[]") is not equal to ("["com.replay.app1"]")
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:208: error: -[ManbokPlatformTests.ReducerModelReplayTests test_P4_sessionOpensInTheSameTickCaptureComesUp] : XCTAssertEqual failed: ("[]") is not equal to ("["com.replay.app1
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:209: error: -[ManbokPlatformTests.ReducerModelReplayTests test_P4_sessionOpensInTheSameTickCaptureComesUp] : XCTAssertEqual failed: ("false") is not equal to ("true")
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:218: error: -[ManbokPlatformTests.ReducerModelReplayTests test_Excl_excludedAppSessionAndCaptureEndWithinBound] : XCTAssertEqual failed: ("[]") is not equal to ("["com.replay
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:252: error: -[ManbokPlatformTests.ReducerModelReplayTests test_ExclNew_excludedDrainingAppWithoutSession_shouldNotGetSessionWhenCaptureComesUp] : XCTAssertTrue failed
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:253: error: -[ManbokPlatformTests.ReducerModelReplayTests test_ExclNew_excludedDrainingAppWithoutSession_shouldNotGetSessionWhenCaptureComesUp] : Expected failure 'finding: D
+AUHAL started count: 0
+---- restored: git status for Sources/ManbokPlatform/Capture/SessionLifecycleController.swift: []

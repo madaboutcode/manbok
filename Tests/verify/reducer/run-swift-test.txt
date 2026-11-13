@@ -1,0 +1,801 @@
+[0/1] Planning build
+[1/1] Compiling plugin GenerateManual
+[2/2] Compiling plugin GenerateDoccReference
+Building for debugging...
+[2/9] Write sources
+[3/9] Write swift-version--6988338F2F200930.txt
+[5/11] Compiling ManbokPlatform SessionLifecycleController.swift
+[6/11] Emitting module ManbokPlatform
+[6/14] Write Objects.LinkFileList
+[9/14] Linking manbokPackageTests
+[10/14] Linking manbok
+[11/14] Applying manbok
+[12/14] Linking ManbokApp
+[13/14] Applying ManbokApp
+Build complete! (5.91s)
+Test Suite 'Selected tests' started at 2026-11-13 09:56:16.005.
+Test Suite 'manbokPackageTests.xctest' started at 2026-11-13 09:56:16.006.
+Test Suite 'AppIdentityCatalogTests' started at 2026-11-13 09:56:16.006.
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testEntryEmptyStringReturnsNil]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testEntryEmptyStringReturnsNil]' passed (0.002 seconds).
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testEntryHitReturnsChromeHelperMapping]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testEntryHitReturnsChromeHelperMapping]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testEntryLookupIsCaseInsensitive]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testEntryLookupIsCaseInsensitive]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testEntryMissReturnsNilForUnknownBundleID]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testEntryMissReturnsNilForUnknownBundleID]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testIconCandidatesForChromeHelperPutsParentBundleFirst]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testIconCandidatesForChromeHelperPutsParentBundleFirst]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testIconCandidatesForEmptyStringIsEmpty]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testIconCandidatesForEmptyStringIsEmpty]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testIconCandidatesForPlainBundleIDWithNoSuffixesIsJustCatalogAndRaw]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testIconCandidatesForPlainBundleIDWithNoSuffixesIsJustCatalogAndRaw]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testIconCandidatesForUnknownHelperIncludesStrippedStem]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testIconCandidatesForUnknownHelperIncludesStrippedStem]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testIconCandidatesHasNoDuplicates]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testIconCandidatesHasNoDuplicates]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testWebKitFixturesResolveToSafari]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityCatalogTests testWebKitFixturesResolveToSafari]' passed (0.000 seconds).
+Test Suite 'AppIdentityCatalogTests' passed at 2026-11-13 09:56:16.010.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'AppIdentityResolverTests' started at 2026-11-13 09:56:16.010.
+Test Case '-[ManbokPlatformTests.AppIdentityResolverTests test_cacheHit_resolvesSameValueOnSecondCall]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityResolverTests test_cacheHit_resolvesSameValueOnSecondCall]' passed (0.001 seconds).
+Test Case '-[ManbokPlatformTests.AppIdentityResolverTests test_chromeRendererSuffix_resolvesToChrome]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityResolverTests test_chromeRendererSuffix_resolvesToChrome]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.AppIdentityResolverTests test_concurrentResolves_doNotCrash]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityResolverTests test_concurrentResolves_doNotCrash]' passed (0.003 seconds).
+Test Case '-[ManbokPlatformTests.AppIdentityResolverTests test_curatedLookup_isCaseInsensitive]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityResolverTests test_curatedLookup_isCaseInsensitive]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.AppIdentityResolverTests test_unknownBundleID_cosmeticFallbackTitlecases]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityResolverTests test_unknownBundleID_cosmeticFallbackTitlecases]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.AppIdentityResolverTests test_unknownBundleID_stripsHelperSuffixes]' started.
+Test Case '-[ManbokPlatformTests.AppIdentityResolverTests test_unknownBundleID_stripsHelperSuffixes]' passed (0.000 seconds).
+Test Suite 'AppIdentityResolverTests' passed at 2026-11-13 09:56:16.016.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.005 (0.005) seconds
+Test Suite 'BufferPolicyTests' started at 2026-11-13 09:56:16.016.
+Test Case '-[ManbokCoreTests.BufferPolicyTests testCapacityBytesForEachPreset]' started.
+Test Case '-[ManbokCoreTests.BufferPolicyTests testCapacityBytesForEachPreset]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.BufferPolicyTests testDefaultPresetIsMin10]' started.
+Test Case '-[ManbokCoreTests.BufferPolicyTests testDefaultPresetIsMin10]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.BufferPolicyTests testGrowingRingLosesNoSessions]' started.
+Test Case '-[ManbokCoreTests.BufferPolicyTests testGrowingRingLosesNoSessions]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.BufferPolicyTests testMemoryCostStrings]' started.
+Test Case '-[ManbokCoreTests.BufferPolicyTests testMemoryCostStrings]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.BufferPolicyTests testSessionEndingExactlyAtNewWindowEdgeIsLost]' started.
+Test Case '-[ManbokCoreTests.BufferPolicyTests testSessionEndingExactlyAtNewWindowEdgeIsLost]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.BufferPolicyTests testSessionWithOneByteAfterNewWindowEdgeSurvives]' started.
+Test Case '-[ManbokCoreTests.BufferPolicyTests testSessionWithOneByteAfterNewWindowEdgeSurvives]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.BufferPolicyTests testShrinkingRingCountsFullyExpiredSessions]' started.
+Test Case '-[ManbokCoreTests.BufferPolicyTests testShrinkingRingCountsFullyExpiredSessions]' passed (0.000 seconds).
+Test Suite 'BufferPolicyTests' passed at 2026-11-13 09:56:16.017.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'CanonicalPCMConverterTests' started at 2026-11-13 09:56:16.017.
+Test Case '-[ManbokPlatformTests.CanonicalPCMConverterTests test_allZeroInput_hasZeroPeak]' started.
+[capture] notice: converter (re)built: 48000.0Hz ch=1 → 16000Hz mono s16
+Test Case '-[ManbokPlatformTests.CanonicalPCMConverterTests test_allZeroInput_hasZeroPeak]' passed (0.002 seconds).
+Test Case '-[ManbokPlatformTests.CanonicalPCMConverterTests test_formatChange_rebuildsAndContinues]' started.
+[capture] notice: converter (re)built: 48000.0Hz ch=1 → 16000Hz mono s16
+[capture] notice: converter (re)built: 44100.0Hz ch=2 → 16000Hz mono s16
+Test Case '-[ManbokPlatformTests.CanonicalPCMConverterTests test_formatChange_rebuildsAndContinues]' passed (0.002 seconds).
+Test Case '-[ManbokPlatformTests.CanonicalPCMConverterTests test_streamContinuity_acrossReusedRenderMemory]' started.
+[capture] notice: converter (re)built: 48000.0Hz ch=1 → 16000Hz mono s16
+Test Case '-[ManbokPlatformTests.CanonicalPCMConverterTests test_streamContinuity_acrossReusedRenderMemory]' passed (0.047 seconds).
+Test Case '-[ManbokPlatformTests.CanonicalPCMConverterTests test_streamContinuity_fractionalRatio_512frameBuffers]' started.
+[capture] notice: converter (re)built: 48000.0Hz ch=1 → 16000Hz mono s16
+Test Case '-[ManbokPlatformTests.CanonicalPCMConverterTests test_streamContinuity_fractionalRatio_512frameBuffers]' passed (0.061 seconds).
+Test Suite 'CanonicalPCMConverterTests' passed at 2026-11-13 09:56:16.130.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.113 (0.113) seconds
+Test Suite 'CaptureBoundaryTests' started at 2026-11-13 09:56:16.130.
+Test Case '-[ManbokPlatformTests.CaptureBoundaryTests test_sessionLifecycle_referencesOnlyWaistSymbols]' started.
+Test Case '-[ManbokPlatformTests.CaptureBoundaryTests test_sessionLifecycle_referencesOnlyWaistSymbols]' passed (0.006 seconds).
+Test Suite 'CaptureBoundaryTests' passed at 2026-11-13 09:56:16.136.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.006 (0.006) seconds
+Test Suite 'CaptureDevicePolicyTests' started at 2026-11-13 09:56:16.136.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_allUnreadable]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_allUnreadable]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_determinism]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_determinism]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_emptyDemand]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_emptyDemand]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_equalEverything_noCurrentTarget_lowestDeviceIDWins]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_equalEverything_noCurrentTarget_lowestDeviceIDWins]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_multiDeviceApp_sharedDeviceWins]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_multiDeviceApp_sharedDeviceWins]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_noSharedDevice_mostRecentArrivalWins]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_noSharedDevice_mostRecentArrivalWins]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_noTie_currentTargetIgnored]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_noTie_currentTargetIgnored]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_oneUnreadableOneReadable]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_oneUnreadableOneReadable]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_sharedDeviceWins]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_sharedDeviceWins]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_singleAppSingleDevice]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_singleAppSingleDevice]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_threeWayTie_currentTargetSet_fallsThroughToLowestID]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_threeWayTie_currentTargetSet_fallsThroughToLowestID]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_twoWayTie_coldStart_fallsThroughToLowestID]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_twoWayTie_coldStart_fallsThroughToLowestID]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_twoWayTie_currentTargetIsOneCandidate_picksOther]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_twoWayTie_currentTargetIsOneCandidate_picksOther]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_twoWayTie_currentTargetNotAmongCandidates_fallsThroughToLowestID]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_twoWayTie_currentTargetNotAmongCandidates_fallsThroughToLowestID]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_twoWayTie_currentTargetSystemDefault_fallsThroughToLowestID]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_twoWayTie_currentTargetSystemDefault_fallsThroughToLowestID]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_unreadableLatestArrival_readableAppsTieBreakIgnoresIt]' started.
+Test Case '-[ManbokPlatformTests.CaptureDevicePolicyTests test_unreadableLatestArrival_readableAppsTieBreakIgnoresIt]' passed (0.000 seconds).
+Test Suite 'CaptureDevicePolicyTests' passed at 2026-11-13 09:56:16.139.
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'CaptureRestartPolicyTests' started at 2026-11-13 09:56:16.139.
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testCaptureStalledAfterBytesStop]' started.
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testCaptureStalledAfterBytesStop]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testEngineWithNoBytesEverIsStalledAfterThreshold]' started.
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testEngineWithNoBytesEverIsStalledAfterThreshold]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testFirstStartIsAlwaysAllowed]' started.
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testFirstStartIsAlwaysAllowed]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testFlapGrowsBackoffMonotonicallyToCap]' started.
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testFlapGrowsBackoffMonotonicallyToCap]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testFlowingCaptureIsNotStalled]' started.
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testFlowingCaptureIsNotStalled]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testFlowingRestartResetsBackoff]' started.
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testFlowingRestartResetsBackoff]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testFreshEngineIsNotStalledBeforeThreshold]' started.
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testFreshEngineIsNotStalledBeforeThreshold]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testResetRestoresPristineState]' started.
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testResetRestoresPristineState]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testRestartOfFlowingEngineDoesNotGrowBackoff]' started.
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testRestartOfFlowingEngineDoesNotGrowBackoff]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testSignalStormWithinDelayIsSuppressed]' started.
+Test Case '-[ManbokPlatformTests.CaptureRestartPolicyTests testSignalStormWithinDelayIsSuppressed]' passed (0.000 seconds).
+Test Suite 'CaptureRestartPolicyTests' passed at 2026-11-13 09:56:16.140.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'CaptureSupervisorTests' started at 2026-11-13 09:56:16.140.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_backoffSuppressesEnvironmentSignal]' started.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_backoffSuppressesEnvironmentSignal]' passed (0.057 seconds).
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_defaultInputChangedIgnoredWhenTargetIsPinnedDevice]' started.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_defaultInputChangedIgnoredWhenTargetIsPinnedDevice]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_deferredNoDeviceWhenNoPdvData]' started.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_deferredNoDeviceWhenNoPdvData]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_emptyDemandAbandonsWorkerAndResetsPolicies]' started.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_emptyDemandAbandonsWorkerAndResetsPolicies]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_errorLoggedAtThirdConsecutiveUnhealthyRestart]' started.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_errorLoggedAtThirdConsecutiveUnhealthyRestart]' passed (0.001 seconds).
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_freshWorkerInstancePerRestart]' started.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_freshWorkerInstancePerRestart]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_healthReportsIdleCapturingRecoveringHoldingSilent]' started.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_healthReportsIdleCapturingRecoveringHoldingSilent]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_nilTargetReleasesWorker_healthDeferredNoDevice]' started.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_nilTargetReleasesWorker_healthDeferredNoDevice]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_releaseForNoDevice_whileFlowing_nextArrivalStartDoesNotGrowBackoff]' started.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_releaseForNoDevice_whileFlowing_nextArrivalStartDoesNotGrowBackoff]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_releaseForNoDevice_withoutFlow_nextArrivalStartGrowsBackoff]' started.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_releaseForNoDevice_withoutFlow_nextArrivalStartGrowsBackoff]' passed (0.001 seconds).
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_releaseThenEmptyDemand_laterColdStartFailuresEscalateLikeAnyColdStart]' started.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_releaseThenEmptyDemand_laterColdStartFailuresEscalateLikeAnyColdStart]' passed (0.001 seconds).
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_silenceLadderReResolvesThenRetriesThenHolds]' started.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_silenceLadderReResolvesThenRetriesThenHolds]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_targetMismatchTriggersRestartOntoNewDevice]' started.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_targetMismatchTriggersRestartOntoNewDevice]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_watchdogRestartsOnStalledByteFlow]' started.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_watchdogRestartsOnStalledByteFlow]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_workerRunsIffDemandNonEmpty]' started.
+Test Case '-[ManbokPlatformTests.CaptureSupervisorTests test_workerRunsIffDemandNonEmpty]' passed (0.000 seconds).
+Test Suite 'CaptureSupervisorTests' passed at 2026-11-13 09:56:16.204.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.062 (0.064) seconds
+Test Suite 'DemandReducerTests' started at 2026-11-13 09:56:16.204.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_4b_noKnownDevice_demandWithoutDevices_sessionStaysOpen]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_4b_noKnownDevice_demandWithoutDevices_sessionStaysOpen]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_absentToHolding_appearsInDemandWithDevicesAndArrival]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_absentToHolding_appearsInDemandWithDevicesAndArrival]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_drainingStaysUntilDeadline_thenCloseAtDeadline]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_drainingStaysUntilDeadline_thenCloseAtDeadline]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_H1_returnWithinGraceWhileNotCapturing_staysOneSession]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_H1_returnWithinGraceWhileNotCapturing_staysOneSession]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_holdingRefreshesDevicesKeepsArrival]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_holdingRefreshesDevicesKeepsArrival]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_holdingToDraining_keepsLastDevicesAndSetsDeadline]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_holdingToDraining_keepsLastDevicesAndSetsDeadline]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_P1_drainingKeptDeviceIsCandidateWhenNoHolderListsOneAndDeviceIsLive]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_P1_drainingKeptDeviceIsCandidateWhenNoHolderListsOneAndDeviceIsLive]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_P2_tapOnlyAppNeverGetsSession_demandEndsAfterRecorderDrains]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_P2_tapOnlyAppNeverGetsSession_demandEndsAfterRecorderDrains]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_P2a_appNeverObservedNeverGetsSession]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_P2a_appNeverObservedNeverGetsSession]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_P4_drainingAppGetsSessionWhenCaptureComesUp]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_P4_drainingAppGetsSessionWhenCaptureComesUp]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_P5_drainingDeviceNotCandidateWhileAnyHolderListsADevice]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_P5_drainingDeviceNotCandidateWhileAnyHolderListsADevice]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_P5_staleKeptDeviceIsDropped_sessionSurvives]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_P5_staleKeptDeviceIsDropped_sessionSurvives]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_reclaimWithinGrace_keepsArrivedAtAndSession]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_reclaimWithinGrace_keepsArrivedAtAndSession]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_returnAfterClose_isFreshArrivalWithNewSession]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_returnAfterClose_isFreshArrivalWithNewSession]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_session_opensForEveryNonAbsentAppIffCapturing]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_session_opensForEveryNonAbsentAppIffCapturing]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_severalObservationsOfOneApp_mergeDevices]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_severalObservationsOfOneApp_mergeDevices]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_sleep_clockJumpPastDeadlineClosesDrainingApp]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_sleep_clockJumpPastDeadlineClosesDrainingApp]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_sleep_clockJumpWhileStillHolding_keepsSession]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_sleep_clockJumpWhileStillHolding_keepsSession]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_step_isIdempotentOnUnchangedInput]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_step_isIdempotentOnUnchangedInput]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_step_secondCallAfterCaptureStatusChange_opensSessionOnce]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_step_secondCallAfterCaptureStatusChange_opensSessionOnce]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_stop_closesEveryOpenSessionAndForgetsApps]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_stop_closesEveryOpenSessionAndForgetsApps]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_transitions_notRepeatedOnIdempotentStep]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_transitions_notRepeatedOnIdempotentStep]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DemandReducerTests test_transitions_reportedOncePerChange]' started.
+Test Case '-[ManbokCoreTests.DemandReducerTests test_transitions_reportedOncePerChange]' passed (0.000 seconds).
+Test Suite 'DemandReducerTests' passed at 2026-11-13 09:56:16.210.
+	 Executed 23 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+Test Suite 'DumpPathsTests' started at 2026-11-13 09:56:16.210.
+Test Case '-[ManbokPlatformTests.DumpPathsTests testNextURLInTemporaryDirectory]' started.
+Test Case '-[ManbokPlatformTests.DumpPathsTests testNextURLInTemporaryDirectory]' passed (0.001 seconds).
+Test Suite 'DumpPathsTests' passed at 2026-11-13 09:56:16.211.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'DumpSessionSelectorTests' started at 2026-11-13 09:56:16.211.
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testOffsetOutOfRangeFails]' started.
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testOffsetOutOfRangeFails]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testParseLast]' started.
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testParseLast]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testParseNegativeMeansStepsBeforeNewest]' started.
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testParseNegativeMeansStepsBeforeNewest]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testParseNumericId]' started.
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testParseNumericId]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testRejectsLastDashSyntax]' started.
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testRejectsLastDashSyntax]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testResolveById]' started.
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testResolveById]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testResolveFromEnd]' started.
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testResolveFromEnd]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testUnknownIdFails]' started.
+Test Case '-[ManbokCoreTests.DumpSessionSelectorTests testUnknownIdFails]' passed (0.000 seconds).
+Test Suite 'DumpSessionSelectorTests' passed at 2026-11-13 09:56:16.213.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'ExportServiceTests' started at 2026-11-13 09:56:16.213.
+Test Case '-[ManbokPlatformTests.ExportServiceTests testNextURLAvoidsCollisionsWithSuffix]' started.
+Test Case '-[ManbokPlatformTests.ExportServiceTests testNextURLAvoidsCollisionsWithSuffix]' passed (0.004 seconds).
+Test Case '-[ManbokPlatformTests.ExportServiceTests testNextURLProducesExpectedPattern]' started.
+Test Case '-[ManbokPlatformTests.ExportServiceTests testNextURLProducesExpectedPattern]' passed (0.001 seconds).
+Test Case '-[ManbokPlatformTests.ExportServiceTests testSanitizeSlugCollapsesRepeatedSeparators]' started.
+Test Case '-[ManbokPlatformTests.ExportServiceTests testSanitizeSlugCollapsesRepeatedSeparators]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.ExportServiceTests testSanitizeSlugEmptyStringYieldsEmpty]' started.
+Test Case '-[ManbokPlatformTests.ExportServiceTests testSanitizeSlugEmptyStringYieldsEmpty]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.ExportServiceTests testSanitizeSlugLowercasesAndReplacesSpaces]' started.
+Test Case '-[ManbokPlatformTests.ExportServiceTests testSanitizeSlugLowercasesAndReplacesSpaces]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.ExportServiceTests testWriteSessionWAVProducesValidRIFFFile]' started.
+[export] info: writeSessionWAV: wrote 1044 bytes → manbok-test-app-20261113-095616.wav
+Test Case '-[ManbokPlatformTests.ExportServiceTests testWriteSessionWAVProducesValidRIFFFile]' passed (0.028 seconds).
+Test Case '-[ManbokPlatformTests.ExportServiceTests testWriteSessionWAVReturnsNilForUnknownStableId]' started.
+[export] info: writeSessionWAV: session 999999 expired or unknown
+Test Case '-[ManbokPlatformTests.ExportServiceTests testWriteSessionWAVReturnsNilForUnknownStableId]' passed (0.025 seconds).
+Test Suite 'ExportServiceTests' passed at 2026-11-13 09:56:16.271.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.058 (0.058) seconds
+Test Suite 'HolderExclusionTests' started at 2026-11-13 09:56:16.271.
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_appGroup_catalogEntryUsesIconBundleID]' started.
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_appGroup_catalogEntryUsesIconBundleID]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_appGroup_chromeHelpersShareOneKey]' started.
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_appGroup_chromeHelpersShareOneKey]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_appGroup_emptyStaysEmpty]' started.
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_appGroup_emptyStaysEmpty]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_appGroup_unknownIDStripsHelperSuffixesAndLowercases]' started.
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_appGroup_unknownIDStripsHelperSuffixesAndLowercases]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_isExcluded_builtInExactAndPrefix]' started.
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_isExcluded_builtInExactAndPrefix]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_isExcluded_userGroupCoversEveryMemberBundleID]' started.
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_isExcluded_userGroupCoversEveryMemberBundleID]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_rows_excludedAppStillHoldingShowsExcluded]' started.
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_rows_excludedAppStillHoldingShowsExcluded]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_rows_unionOfHoldingExcludedAndSessions_oneRowPerGroup_withStates]' started.
+Test Case '-[ManbokPlatformTests.HolderExclusionTests test_rows_unionOfHoldingExcludedAndSessions_oneRowPerGroup_withStates]' passed (0.000 seconds).
+Test Suite 'HolderExclusionTests' passed at 2026-11-13 09:56:16.273.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'IPCSpecTests' started at 2026-11-13 09:56:16.273.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S1_EveryResponseCarriesV1AndKnownTypeDiscriminator]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S1_EveryResponseCarriesV1AndKnownTypeDiscriminator]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S1_VerbIsCaseInsensitiveForEveryVerb]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S1_VerbIsCaseInsensitiveForEveryVerb]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S21_PingRequestParsesAndRoundTrips]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S21_PingRequestParsesAndRoundTrips]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S21_PongResponseWireShapeIsExactlyVAndType]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S21_PongResponseWireShapeIsExactlyVAndType]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S22_PhaseIsOneOfThreeDefinedStrings]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S22_PhaseIsOneOfThreeDefinedStrings]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S22_RingFilledBytesNeverNegativeOnTheWire]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S22_RingFilledBytesNeverNegativeOnTheWire]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S22_RingSecondsIsFilledBytesDividedBy32000]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S22_RingSecondsIsFilledBytesDividedBy32000]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S22_RingSecondsMayBeZero]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S22_RingSecondsMayBeZero]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S22_StatusRejectsAnyArgument]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S22_StatusRejectsAnyArgument]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S23_AppNameMustNeverBeEmptyStringOnTheWire]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S23_AppNameMustNeverBeEmptyStringOnTheWire]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S23_ClosedSessionHasNumericEndAgoSecAndOpenFlagZero]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S23_ClosedSessionHasNumericEndAgoSecAndOpenFlagZero]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S23_LargeUInt64IdsRoundTripWithoutPrecisionLoss]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S23_LargeUInt64IdsRoundTripWithoutPrecisionLoss]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S23_OpenSessionHasNullEndAgoSecAndOpenFlagOne]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S23_OpenSessionHasNullEndAgoSecAndOpenFlagOne]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S23_SessionObjectHasExactlySpecifiedKeys]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S23_SessionObjectHasExactlySpecifiedKeys]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S23_SessionsEmptyListRoundTrips]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S23_SessionsEmptyListRoundTrips]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S23_SessionsRequestRejectsAnyArgument]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S23_SessionsRequestRejectsAnyArgument]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S24_OkResponseWireShapeIsExactlyVAndType]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S24_OkResponseWireShapeIsExactlyVAndType]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S24_StopRequestParsesAndRejectsArguments]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S24_StopRequestParsesAndRejectsArguments]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpBareParsesAsNilMinutesNilSessionId]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpBareParsesAsNilMinutesNilSessionId]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpMinutesAcceptsNonNegativeRejectsNegative]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpMinutesAcceptsNonNegativeRejectsNegative]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpRejectsMalformedMultiTokenForms]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpRejectsMalformedMultiTokenForms]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpRejectsNonNumericMinutes]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpRejectsNonNumericMinutes]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpSessionAcceptsIdOne]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpSessionAcceptsIdOne]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpSessionAcceptsUInt64MaxRejectsOneAboveMax]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpSessionAcceptsUInt64MaxRejectsOneAboveMax]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpSessionRejectsIdZero]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpSessionRejectsIdZero]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpSessionRejectsNonNumericId]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_DumpSessionRejectsNonNumericId]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_OkPathParseRejectsEmptyPath]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_OkPathParseRejectsEmptyPath]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_OkPathWireShapeCarriesAbsolutePath]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S25_OkPathWireShapeCarriesAbsolutePath]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S3_AllDefinedErrorCodesRoundTripVerbatim]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S3_AllDefinedErrorCodesRoundTripVerbatim]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S3_ErrorParseRejectsMissingCode]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S3_ErrorParseRejectsMissingCode]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S3_ErrorParseRejectsMissingMessage]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S3_ErrorParseRejectsMissingMessage]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S3_ErrorWireShapeHasCodeAndMessage]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S3_ErrorWireShapeHasCodeAndMessage]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S3_UnknownErrorCodeParsesWithoutCrashing]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S3_UnknownErrorCodeParsesWithoutCrashing]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S5_UnknownFieldIgnoredOnSessionsType]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S5_UnknownFieldIgnoredOnSessionsType]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S5_UnknownFieldIgnoredOnStatusType]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S5_UnknownFieldIgnoredOnStatusType]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S7_NDJSON_RejectsMultipleObjectsOnOneLine]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S7_NDJSON_RejectsMultipleObjectsOnOneLine]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S7_UnknownResponseTypeParsesToNilWithoutCrashing]' started.
+Test Case '-[ManbokCoreTests.IPCSpecTests testSpec_S7_UnknownResponseTypeParsesToNilWithoutCrashing]' passed (0.000 seconds).
+Test Suite 'IPCSpecTests' passed at 2026-11-13 09:56:16.280.
+	 Executed 37 tests, with 0 failures (0 unexpected) in 0.005 (0.007) seconds
+Test Suite 'IPCTests' started at 2026-11-13 09:56:16.280.
+Test Case '-[ManbokCoreTests.IPCTests testCommandWireLineRoundTrip]' started.
+Test Case '-[ManbokCoreTests.IPCTests testCommandWireLineRoundTrip]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCTests testErrorMessagePreservesSpacesAndCode]' started.
+Test Case '-[ManbokCoreTests.IPCTests testErrorMessagePreservesSpacesAndCode]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCTests testEveryResponseCarriesVersionAndTypeDiscriminator]' started.
+Test Case '-[ManbokCoreTests.IPCTests testEveryResponseCarriesVersionAndTypeDiscriminator]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCTests testParseDumpWithMinutes]' started.
+Test Case '-[ManbokCoreTests.IPCTests testParseDumpWithMinutes]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCTests testParseDumpZeroMinutes]' started.
+Test Case '-[ManbokCoreTests.IPCTests testParseDumpZeroMinutes]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCTests testParseIgnoresExtraFieldsForwardCompat]' started.
+Test Case '-[ManbokCoreTests.IPCTests testParseIgnoresExtraFieldsForwardCompat]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCTests testParseMissingVersionStillAccepted]' started.
+Test Case '-[ManbokCoreTests.IPCTests testParseMissingVersionStillAccepted]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCTests testParsePingStatusStop]' started.
+Test Case '-[ManbokCoreTests.IPCTests testParsePingStatusStop]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCTests testParseSessionsCommand]' started.
+Test Case '-[ManbokCoreTests.IPCTests testParseSessionsCommand]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCTests testResponseParseRejectsInvalid]' started.
+Test Case '-[ManbokCoreTests.IPCTests testResponseParseRejectsInvalid]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCTests testResponseSerializeAndParse]' started.
+Test Case '-[ManbokCoreTests.IPCTests testResponseSerializeAndParse]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCTests testSessionsResponseEmpty]' started.
+Test Case '-[ManbokCoreTests.IPCTests testSessionsResponseEmpty]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCTests testSessionsResponseNullEndAgoForOpenSession]' started.
+Test Case '-[ManbokCoreTests.IPCTests testSessionsResponseNullEndAgoForOpenSession]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCTests testSessionsResponseRoundTripMultiple]' started.
+Test Case '-[ManbokCoreTests.IPCTests testSessionsResponseRoundTripMultiple]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCTests testStatusWireShape]' started.
+Test Case '-[ManbokCoreTests.IPCTests testStatusWireShape]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.IPCTests testStoppedStatusRoundTrip]' started.
+Test Case '-[ManbokCoreTests.IPCTests testStoppedStatusRoundTrip]' passed (0.000 seconds).
+Test Suite 'IPCTests' passed at 2026-11-13 09:56:16.283.
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'MigrationServiceTests' started at 2026-11-13 09:56:16.283.
+Test Case '-[ManbokPlatformTests.MigrationServiceTests testCleanStaleDaemonStateKeepsStateWhenPidIsAlive]' started.
+Test Case '-[ManbokPlatformTests.MigrationServiceTests testCleanStaleDaemonStateKeepsStateWhenPidIsAlive]' passed (0.003 seconds).
+Test Case '-[ManbokPlatformTests.MigrationServiceTests testCleanStaleDaemonStateNoOpWhenNothingExists]' started.
+Test Case '-[ManbokPlatformTests.MigrationServiceTests testCleanStaleDaemonStateNoOpWhenNothingExists]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.MigrationServiceTests testCleanStaleDaemonStateRemovesOrphanedSocketWhenNoPidFile]' started.
+[app] notice: migration: removing orphaned socket
+Test Case '-[ManbokPlatformTests.MigrationServiceTests testCleanStaleDaemonStateRemovesOrphanedSocketWhenNoPidFile]' passed (0.001 seconds).
+Test Case '-[ManbokPlatformTests.MigrationServiceTests testCleanStaleDaemonStateRemovesPidFileWithGarbageContent]' started.
+Test Case '-[ManbokPlatformTests.MigrationServiceTests testCleanStaleDaemonStateRemovesPidFileWithGarbageContent]' passed (0.001 seconds).
+Test Case '-[ManbokPlatformTests.MigrationServiceTests testCleanStaleDaemonStateRemovesSocketAndPidWhenPidIsDead]' started.
+[app] notice: migration: cleaning stale daemon state (pid 999999 is dead)
+Test Case '-[ManbokPlatformTests.MigrationServiceTests testCleanStaleDaemonStateRemovesSocketAndPidWhenPidIsDead]' passed (0.001 seconds).
+Test Case '-[ManbokPlatformTests.MigrationServiceTests testRemoveLegacyLaunchAgentDeletesPlistWhenPresent]' started.
+[app] notice: migration: removing legacy LaunchAgent com.manbok.app.plist
+Test Case '-[ManbokPlatformTests.MigrationServiceTests testRemoveLegacyLaunchAgentDeletesPlistWhenPresent]' passed (0.001 seconds).
+Test Case '-[ManbokPlatformTests.MigrationServiceTests testRemoveLegacyLaunchAgentNoOpWhenPlistMissing]' started.
+Test Case '-[ManbokPlatformTests.MigrationServiceTests testRemoveLegacyLaunchAgentNoOpWhenPlistMissing]' passed (0.001 seconds).
+Test Suite 'MigrationServiceTests' passed at 2026-11-13 09:56:16.291.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.008 (0.008) seconds
+Test Suite 'ReducerModelBudgetReplayTests' started at 2026-11-13 09:56:16.291.
+Test Case '-[ManbokPlatformTests.ReducerModelBudgetReplayTests test_A3_switchRestartedWithin4sOfLastByte_doesNotGrowBackoff]' started.
+[capture] notice: capture started — arrival → device 1 [1]
+[capture] notice: capture stopped — no candidate device (was device 1 [1])
+[capture] notice: capture started — arrival → device 2 [2]
+[capture] notice: capture stopped — no candidate device (was device 2 [2])
+[capture] notice: capture started — arrival → device 3 [3]
+Test Case '-[ManbokPlatformTests.ReducerModelBudgetReplayTests test_A3_switchRestartedWithin4sOfLastByte_doesNotGrowBackoff]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.ReducerModelBudgetReplayTests test_Slow_finding_switchRestartedAfter4sOfLastByte_growsBackoff]' started.
+[capture] notice: capture started — arrival → device 1 [1]
+[capture] notice: capture stopped — no candidate device (was device 1 [1])
+[capture] notice: capture started — arrival → device 2 [2]
+[capture] notice: capture stopped — no candidate device (was device 2 [2])
+Test Case '-[ManbokPlatformTests.ReducerModelBudgetReplayTests test_Slow_finding_switchRestartedAfter4sOfLastByte_growsBackoff]' passed (0.000 seconds).
+Test Suite 'ReducerModelBudgetReplayTests' passed at 2026-11-13 09:56:16.292.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'ReducerModelReplayTests' started at 2026-11-13 09:56:16.292.
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_Excl_excludedAppSessionAndCaptureEndWithinBound]' started.
+[capture] notice: app holding mic — com.replay.app1 devices=[1]
+[capture] notice: session opened — App1 (com.replay.app1)
+[capture] notice: app stopped holding — com.replay.app1 kept=[1] closes in 5.0s unless it returns
+[capture] notice: app released — com.replay.app1 (grace expired)
+[capture] notice: session closed — com.replay.app1
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_Excl_excludedAppSessionAndCaptureEndWithinBound]' passed (0.013 seconds).
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_Excl_excludedBeforeArrival_neverGetsSessionOrDemand]' started.
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_Excl_excludedBeforeArrival_neverGetsSessionOrDemand]' passed (0.013 seconds).
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_ExclNew_excludedDrainingAppWithoutSession_shouldNotGetSessionWhenCaptureComesUp]' started.
+[capture] notice: app holding mic — com.replay.app1 devices=[1]
+[capture] notice: app stopped holding — com.replay.app1 kept=[1] closes in 5.0s unless it returns
+[capture] notice: session opened — App1 (com.replay.app1)
+[capture] notice: app holding mic — com.replay.app2 devices=[2]
+[capture] notice: session opened — App2 (com.replay.app2)
+XCTExpectFailure: matcher accepted Assertion Failure at ReducerModelReplayTests.swift:254: XCTAssertFalse failed - excluded app 1 must not get a new session
+ReducerModelReplayTests.swift:254: Expected failure in -[ManbokPlatformTests.ReducerModelReplayTests test_ExclNew_excludedDrainingAppWithoutSession_shouldNotGetSessionWhenCaptureComesUp]: XCTAssertFalse failed - excluded app 1 must not get a new sessionReason: (finding: DemandReducer opens a session for a draining app that the user excluded)
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_ExclNew_excludedDrainingAppWithoutSession_shouldNotGetSessionWhenCaptureComesUp]' passed (0.160 seconds).
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_normalPath_holdDrainReclaimExpire]' started.
+[capture] notice: app holding mic — com.replay.app1 devices=[1]
+[capture] notice: session opened — App1 (com.replay.app1)
+[capture] notice: app stopped holding — com.replay.app1 kept=[1] closes in 5.0s unless it returns
+[capture] notice: app returned within grace — com.replay.app1 (same session)
+[capture] notice: app stopped holding — com.replay.app1 kept=[1] closes in 5.0s unless it returns
+[capture] notice: app released — com.replay.app1 (grace expired)
+[capture] notice: session closed — com.replay.app1
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_normalPath_holdDrainReclaimExpire]' passed (0.013 seconds).
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_P1_listBlipKeepsCaptureOnKeptDevice]' started.
+[capture] notice: app holding mic — com.replay.app1 devices=[1]
+[capture] notice: session opened — App1 (com.replay.app1)
+[capture] notice: app stopped holding — com.replay.app1 kept=[1] closes in 5.0s unless it returns
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_P1_listBlipKeepsCaptureOnKeptDevice]' passed (0.013 seconds).
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_P4_holderListedBlipWhileCaptureWasDown_getsSessionWhenCaptureComesUp]' started.
+[capture] notice: app holding mic — com.replay.app1 devices=[1]
+[capture] notice: app stopped holding — com.replay.app1 kept=[1] closes in 5.0s unless it returns
+[capture] notice: session opened — App1 (com.replay.app1)
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_P4_holderListedBlipWhileCaptureWasDown_getsSessionWhenCaptureComesUp]' passed (0.013 seconds).
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_P4_sessionOpensInTheSameTickCaptureComesUp]' started.
+[capture] notice: app holding mic — com.replay.app1 devices=[1]
+[capture] notice: session opened — App1 (com.replay.app1)
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_P4_sessionOpensInTheSameTickCaptureComesUp]' passed (0.013 seconds).
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_P5_drainingAppDeviceNeverChosenWhileAHolderListsADevice]' started.
+[capture] notice: app holding mic — com.replay.app2 devices=[2]
+[capture] notice: session opened — App2 (com.replay.app2)
+[capture] notice: app holding mic — com.replay.app1 devices=[1]
+[capture] notice: session opened — App1 (com.replay.app1)
+[capture] notice: app stopped holding — com.replay.app2 kept=[2] closes in 5.0s unless it returns
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_P5_drainingAppDeviceNeverChosenWhileAHolderListsADevice]' passed (0.013 seconds).
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_P5_vanishedKeptDeviceDroppedSessionStaysOpen]' started.
+[capture] notice: app holding mic — com.replay.app1 devices=[1]
+[capture] notice: session opened — App1 (com.replay.app1)
+[capture] notice: app stopped holding — com.replay.app1 kept=[1] closes in 5.0s unless it returns
+Test Case '-[ManbokPlatformTests.ReducerModelReplayTests test_P5_vanishedKeptDeviceDroppedSessionStaysOpen]' passed (0.013 seconds).
+Test Suite 'ReducerModelReplayTests' passed at 2026-11-13 09:56:16.557.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.264 (0.265) seconds
+Test Suite 'RingBufferTests' started at 2026-11-13 09:56:16.557.
+Test Case '-[ManbokCoreTests.RingBufferTests testCapacityIsTenMinutes]' started.
+Test Case '-[ManbokCoreTests.RingBufferTests testCapacityIsTenMinutes]' passed (0.025 seconds).
+Test Case '-[ManbokCoreTests.RingBufferTests testMinutesClampedToFilled]' started.
+Test Case '-[ManbokCoreTests.RingBufferTests testMinutesClampedToFilled]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.RingBufferTests testReadFromTotalOffset]' started.
+Test Case '-[ManbokCoreTests.RingBufferTests testReadFromTotalOffset]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.RingBufferTests testSeededInitPreservesOffsetsAfterWrappedShrink]' started.
+Test Case '-[ManbokCoreTests.RingBufferTests testSeededInitPreservesOffsetsAfterWrappedShrink]' passed (0.014 seconds).
+Test Case '-[ManbokCoreTests.RingBufferTests testSeededInitWhenInitialDataFillsCapacityExactly]' started.
+Test Case '-[ManbokCoreTests.RingBufferTests testSeededInitWhenInitialDataFillsCapacityExactly]' passed (0.015 seconds).
+Test Case '-[ManbokCoreTests.RingBufferTests testTotalBytesWrittenIsMonotonic]' started.
+Test Case '-[ManbokCoreTests.RingBufferTests testTotalBytesWrittenIsMonotonic]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.RingBufferTests testWriteBeyondCapacityKeepsLastTenMinutes]' started.
+Test Case '-[ManbokCoreTests.RingBufferTests testWriteBeyondCapacityKeepsLastTenMinutes]' passed (6.428 seconds).
+Test Suite 'RingBufferTests' passed at 2026-11-13 09:56:23.039.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 6.481 (6.482) seconds
+Test Suite 'SessionLifecycleControllerTests' started at 2026-11-13 09:56:23.039.
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_arrival_deferredWhileNotCapturing_admittedOnceCapturingBecomesTrue]' started.
+[capture] notice: lifecycle started — polling every 0.1s
+[capture] notice: app holding mic — com.test.app devices=[1]
+[capture] notice: session opened — App (com.test.app)
+[capture] notice: session closed — com.test.app
+[capture] notice: lifecycle stopped
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_arrival_deferredWhileNotCapturing_admittedOnceCapturingBecomesTrue]' passed (0.540 seconds).
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_arrivedAt_preservedAcrossDepartAndReclaimWithinDrain]' started.
+[capture] notice: lifecycle started — polling every 0.1s
+[capture] notice: app holding mic — com.test.app devices=[1]
+[capture] notice: session opened — App (com.test.app)
+[capture] notice: app stopped holding — com.test.app kept=[1] closes in 0.3s unless it returns
+[capture] notice: session closed — com.test.app
+[capture] notice: lifecycle stopped
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_arrivedAt_preservedAcrossDepartAndReclaimWithinDrain]' passed (0.286 seconds).
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_builtInHolderNeverBecomesDemand]' started.
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_builtInHolderNeverBecomesDemand]' passed (0.012 seconds).
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_demandCarriesDeviceCandidates_drainingKeptDeviceOnlyWithoutHolderDevices]' started.
+[capture] notice: app holding mic — com.test.app devices=[1]
+[capture] notice: session opened — App (com.test.app)
+[capture] notice: app stopped holding — com.test.app kept=[1] closes in 5.0s unless it returns
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_demandCarriesDeviceCandidates_drainingKeptDeviceOnlyWithoutHolderDevices]' passed (0.012 seconds).
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_drain_reclaimBeforeExpiryCancelsTimer_sessionStaysOpenSameId]' started.
+[capture] notice: lifecycle started — polling every 0.1s
+[capture] notice: app holding mic — com.test.app devices=[1]
+[capture] notice: session opened — App (com.test.app)
+[capture] notice: app stopped holding — com.test.app kept=[1] closes in 0.3s unless it returns
+[capture] notice: app returned within grace — com.test.app (same session)
+[capture] notice: session closed — com.test.app
+[capture] notice: lifecycle stopped
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_drain_reclaimBeforeExpiryCancelsTimer_sessionStaysOpenSameId]' passed (0.792 seconds).
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_excludeMidSession_drainsAndClosesAtExpiry_captureContinuesForOtherHolder_unexcludeReclaims]' started.
+[capture] notice: app holding mic — com.test.a devices=[1]
+[capture] notice: app holding mic — com.test.b devices=[2]
+[capture] notice: session opened — A (com.test.a)
+[capture] notice: session opened — B (com.test.b)
+[capture] notice: app stopped holding — com.test.a kept=[1] closes in 5.0s unless it returns
+[capture] notice: app released — com.test.a (grace expired)
+[capture] notice: session closed — com.test.a
+[capture] notice: app holding mic — com.test.a devices=[1]
+[capture] notice: session opened — A (com.test.a)
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_excludeMidSession_drainsAndClosesAtExpiry_captureContinuesForOtherHolder_unexcludeReclaims]' passed (0.013 seconds).
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_excludeThenUnexcludeInsideGrace_keepsSameSession]' started.
+[capture] notice: app holding mic — com.test.a devices=[1]
+[capture] notice: session opened — A (com.test.a)
+[capture] notice: app stopped holding — com.test.a kept=[1] closes in 5.0s unless it returns
+[capture] notice: app returned within grace — com.test.a (same session)
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_excludeThenUnexcludeInsideGrace_keepsSameSession]' passed (0.013 seconds).
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_holdingNow_includesUserExcludedApp_hidesBuiltIn]' started.
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_holdingNow_includesUserExcludedApp_hidesBuiltIn]' passed (0.036 seconds).
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_oneSignalRule_publishedAnySessionOpenStaysTrueThroughDrain]' started.
+[capture] notice: lifecycle started — polling every 0.1s
+[capture] notice: app holding mic — com.test.app devices=[1]
+[capture] notice: session opened — App (com.test.app)
+[capture] notice: app stopped holding — com.test.app kept=[1] closes in 0.3s unless it returns
+[capture] notice: app released — com.test.app (grace expired)
+[capture] notice: session closed — com.test.app
+[capture] notice: lifecycle stopped
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_oneSignalRule_publishedAnySessionOpenStaysTrueThroughDrain]' passed (0.638 seconds).
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_registryOpenSetEqualsReducerOpenSet_afterEveryTick]' started.
+[capture] notice: app holding mic — com.test.a devices=[1]
+[capture] notice: session opened — A (com.test.a)
+[capture] notice: app holding mic — com.test.b devices=[2]
+[capture] notice: session opened — B (com.test.b)
+[capture] notice: app stopped holding — com.test.a kept=[1] closes in 5.0s unless it returns
+[capture] notice: app returned within grace — com.test.a (same session)
+[capture] notice: app stopped holding — com.test.a kept=[1] closes in 5.0s unless it returns
+[capture] notice: app stopped holding — com.test.b kept=[2] closes in 5.0s unless it returns
+[capture] notice: app released — com.test.a (grace expired)
+[capture] notice: app released — com.test.b (grace expired)
+[capture] notice: session closed — com.test.a
+[capture] notice: session closed — com.test.b
+[capture] notice: app holding mic — com.test.b devices=[2]
+[capture] notice: session opened — B (com.test.b)
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_registryOpenSetEqualsReducerOpenSet_afterEveryTick]' passed (0.019 seconds).
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_sessionOpensInSameTickCaptureComesUp]' started.
+[capture] notice: app holding mic — com.test.app devices=[1]
+[capture] notice: session opened — App (com.test.app)
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_sessionOpensInSameTickCaptureComesUp]' passed (0.012 seconds).
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_setDiff_appArrivalOpensSession_departureAndDrainExpiryClosesIt]' started.
+[capture] notice: lifecycle started — polling every 0.1s
+[capture] notice: app holding mic — com.test.app devices=[1]
+[capture] notice: session opened — App (com.test.app)
+[capture] notice: app stopped holding — com.test.app kept=[1] closes in 0.3s unless it returns
+[capture] notice: app released — com.test.app (grace expired)
+[capture] notice: session closed — com.test.app
+[capture] notice: lifecycle stopped
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_setDiff_appArrivalOpensSession_departureAndDrainExpiryClosesIt]' passed (0.439 seconds).
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_settingsChange_triggersImmediatePoll_notTheTimer]' started.
+[capture] notice: lifecycle started — polling every 3600.0s
+[capture] notice: app holding mic — com.test.a devices=[1]
+[capture] notice: session opened — A (com.test.a)
+[capture] notice: app stopped holding — com.test.a kept=[1] closes in 5.0s unless it returns
+[capture] notice: session closed — com.test.a
+[capture] notice: lifecycle stopped
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_settingsChange_triggersImmediatePoll_notTheTimer]' passed (0.059 seconds).
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_stop_sendsFinalEmptyDemandApply]' started.
+[capture] notice: lifecycle started — polling every 0.1s
+[capture] notice: app holding mic — com.test.app devices=[1]
+[capture] notice: session opened — App (com.test.app)
+[capture] notice: session closed — com.test.app
+[capture] notice: lifecycle stopped
+Test Case '-[ManbokPlatformTests.SessionLifecycleControllerTests test_stop_sendsFinalEmptyDemandApply]' passed (0.036 seconds).
+Test Suite 'SessionLifecycleControllerTests' passed at 2026-11-13 09:56:25.945.
+	 Executed 14 tests, with 0 failures (0 unexpected) in 2.906 (2.907) seconds
+Test Suite 'SessionRegistryCheckpointTests' started at 2026-11-13 09:56:25.946.
+Test Case '-[ManbokCoreTests.SessionRegistryCheckpointTests test_checkpoint_restore_peaksMatchWaveformSamplerOnPCM]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryCheckpointTests test_checkpoint_restore_peaksMatchWaveformSamplerOnPCM]' passed (0.006 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryCheckpointTests test_checkpoint_roundTrip_closedAndOpenSessions]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryCheckpointTests test_checkpoint_roundTrip_closedAndOpenSessions]' passed (0.001 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryCheckpointTests test_checkpoint_roundTrip_emptyRegistry]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryCheckpointTests test_checkpoint_roundTrip_emptyRegistry]' passed (0.000 seconds).
+Test Suite 'SessionRegistryCheckpointTests' passed at 2026-11-13 09:56:25.953.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.007 (0.007) seconds
+Test Suite 'SessionRegistryTests' started at 2026-11-13 09:56:25.953.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testCloseSessionFinalizesAndMovesToClosedList]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testCloseSessionFinalizesAndMovesToClosedList]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testCloseSessionWithNoOpenSessionIsNoOp]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testCloseSessionWithNoOpenSessionIsNoOp]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testConcurrentAppsShareRingButTrackIndependentByteRanges]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testConcurrentAppsShareRingButTrackIndependentByteRanges]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testListSessionsOrderedNewestStartFirst]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testListSessionsOrderedNewestStartFirst]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testMultipleAppsCanBeOpenConcurrently]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testMultipleAppsCanBeOpenConcurrently]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testOpenSessionAssignsMonotonicStableIds]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testOpenSessionAssignsMonotonicStableIds]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testOpenSessionLongerThanRingClampsToCapacity]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testOpenSessionLongerThanRingClampsToCapacity]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testPartiallyOverwrittenClosedSessionExpiresWhole]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testPartiallyOverwrittenClosedSessionExpiresWhole]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testReopeningAlreadyOpenBundleIDReturnsSameStableIdNotADuplicate]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testReopeningAlreadyOpenBundleIDReturnsSameStableIdNotADuplicate]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testResizeAfterOldRingHadWrappedPreservesSurvivingBytes]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testResizeAfterOldRingHadWrappedPreservesSurvivingBytes]' passed (0.013 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testResizeGrowKeepsAllSessionsAndCapacityIncreases]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testResizeGrowKeepsAllSessionsAndCapacityIncreases]' passed (0.037 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testResizeShrinkExpiresSessionsWhoseStartNoLongerFits]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testResizeShrinkExpiresSessionsWhoseStartNoLongerFits]' passed (3.963 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testResizeToSameCapacityIsNoOp]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testResizeToSameCapacityIsNoOp]' passed (0.024 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testSessionExpiresExactlyAtRingWrapBoundary]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testSessionExpiresExactlyAtRingWrapBoundary]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testSnapshotForDumpReturnsRawRingSliceIndependentOfSessions]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testSnapshotForDumpReturnsRawRingSliceIndependentOfSessions]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testSnapshotForUnknownStableIdReturnsNil]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testSnapshotForUnknownStableIdReturnsNil]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.SessionRegistryTests testWaveformPeaksPopulatedOnClose]' started.
+Test Case '-[ManbokCoreTests.SessionRegistryTests testWaveformPeaksPopulatedOnClose]' passed (0.002 seconds).
+Test Suite 'SessionRegistryTests' passed at 2026-11-13 09:56:29.995.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 4.042 (4.043) seconds
+Test Suite 'SessionSummaryDisplayTests' started at 2026-11-13 09:56:29.996.
+Test Case '-[ManbokCoreTests.SessionSummaryDisplayTests testSessionTableFormattingUsesModernRuledList]' started.
+Test Case '-[ManbokCoreTests.SessionSummaryDisplayTests testSessionTableFormattingUsesModernRuledList]' passed (0.000 seconds).
+Test Suite 'SessionSummaryDisplayTests' passed at 2026-11-13 09:56:29.996.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'SettingsStoreTests' started at 2026-11-13 09:56:29.996.
+Test Case '-[ManbokPlatformTests.SettingsStoreTests test_bufferPreset_roundTripsAcrossInstances]' started.
+[settings] info: persisted bufferPreset=min30
+Test Case '-[ManbokPlatformTests.SettingsStoreTests test_bufferPreset_roundTripsAcrossInstances]' passed (0.002 seconds).
+Test Case '-[ManbokPlatformTests.SettingsStoreTests test_defaultValues_onFreshSuite]' started.
+Test Case '-[ManbokPlatformTests.SettingsStoreTests test_defaultValues_onFreshSuite]' passed (0.001 seconds).
+Test Case '-[ManbokPlatformTests.SettingsStoreTests test_excludedApps_changeNotifiesOnceWithNewSet_notOnInitOrNoOp]' started.
+[settings] notice: exclusion added — a
+[settings] notice: exclusion removed — a
+Test Case '-[ManbokPlatformTests.SettingsStoreTests test_excludedApps_changeNotifiesOnceWithNewSet_notOnInitOrNoOp]' passed (0.001 seconds).
+Test Case '-[ManbokPlatformTests.SettingsStoreTests test_excludedApps_defaultEmpty_roundTripsAcrossInstances]' started.
+[settings] notice: exclusion added — com.google.chrome
+[settings] notice: exclusion added — us.zoom.xos
+Test Case '-[ManbokPlatformTests.SettingsStoreTests test_excludedApps_defaultEmpty_roundTripsAcrossInstances]' passed (0.001 seconds).
+Test Case '-[ManbokPlatformTests.SettingsStoreTests test_invalidStoredPreset_fallsBackToDefault]' started.
+Test Case '-[ManbokPlatformTests.SettingsStoreTests test_invalidStoredPreset_fallsBackToDefault]' passed (0.001 seconds).
+Test Case '-[ManbokPlatformTests.SettingsStoreTests test_startAtLogin_roundTripsAcrossInstances]' started.
+[settings] info: persisted startAtLogin=true
+Test Case '-[ManbokPlatformTests.SettingsStoreTests test_startAtLogin_roundTripsAcrossInstances]' passed (0.001 seconds).
+Test Suite 'SettingsStoreTests' passed at 2026-11-13 09:56:30.004.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.007 (0.008) seconds
+Test Suite 'SilenceRecoveryPolicyTests' started at 2026-11-13 09:56:30.004.
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_continuousSignal_neverTriggersAndStaysArmed]' started.
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_continuousSignal_neverTriggersAndStaysArmed]' passed (0.001 seconds).
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_deferredExecution_repeatsActionWithoutAdvancing]' started.
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_deferredExecution_repeatsActionWithoutAdvancing]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_fullLadderWalk_armedToHoldingViaReResolveThenRetry]' started.
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_fullLadderWalk_armedToHoldingViaReResolveThenRetry]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_holdingExitsOnExternalChange]' started.
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_holdingExitsOnExternalChange]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_holdingExitsOnSignal]' started.
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_holdingExitsOnSignal]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_noSilence_returnsNoneAndDoesNotChangeArmedState]' started.
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_noSilence_returnsNoneAndDoesNotChangeArmedState]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_signal_reArmsFromArmed]' started.
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_signal_reArmsFromArmed]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_signal_reArmsFromHolding]' started.
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_signal_reArmsFromHolding]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_signal_reArmsFromReResolving]' started.
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_signal_reArmsFromReResolving]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_signal_reArmsFromRetrying]' started.
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_signal_reArmsFromRetrying]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_startGraceAfterRestart_silenceWindowResetsFromLastWorkerStartAt]' started.
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_startGraceAfterRestart_silenceWindowResetsFromLastWorkerStartAt]' passed (0.000 seconds).
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_targetChangeInReResolving_staysReResolvingAndReturnsReResolveAndRestartAgain]' started.
+Test Case '-[ManbokPlatformTests.SilenceRecoveryPolicyTests test_targetChangeInReResolving_staysReResolvingAndReturnsReResolveAndRestartAgain]' passed (0.000 seconds).
+Test Suite 'SilenceRecoveryPolicyTests' passed at 2026-11-13 09:56:30.006.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'SpeechActivityDetectorTests' started at 2026-11-13 09:56:30.006.
+Test Case '-[ManbokCoreTests.SpeechActivityDetectorTests testLoudChunkIsSpeech]' started.
+Test Case '-[ManbokCoreTests.SpeechActivityDetectorTests testLoudChunkIsSpeech]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.SpeechActivityDetectorTests testSilenceStaysBelowThreshold]' started.
+Test Case '-[ManbokCoreTests.SpeechActivityDetectorTests testSilenceStaysBelowThreshold]' passed (0.000 seconds).
+Test Suite 'SpeechActivityDetectorTests' passed at 2026-11-13 09:56:30.007.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'UnixSocketIPCTests' started at 2026-11-13 09:56:30.007.
+Test Case '-[ManbokPlatformTests.UnixSocketIPCTests testSendDumpSessionCommand]' started.
+[ipc] notice: listening on /tmp/uap-89D2F37F.sock
+[ipc] error: accept failed: errno=53
+[ipc] notice: socket server stopped
+Test Case '-[ManbokPlatformTests.UnixSocketIPCTests testSendDumpSessionCommand]' passed (0.013 seconds).
+Test Case '-[ManbokPlatformTests.UnixSocketIPCTests testSendInvalidCommandReturnsBadCommand]' started.
+[ipc] notice: listening on /tmp/uap-7C12397F.sock
+[ipc] error: accept failed: errno=53
+[ipc] notice: socket server stopped
+Test Case '-[ManbokPlatformTests.UnixSocketIPCTests testSendInvalidCommandReturnsBadCommand]' passed (0.013 seconds).
+Test Case '-[ManbokPlatformTests.UnixSocketIPCTests testSendPingReturnsPong]' started.
+[ipc] notice: listening on /tmp/uap-4BA5490F.sock
+[ipc] error: accept failed: errno=53
+[ipc] notice: socket server stopped
+Test Case '-[ManbokPlatformTests.UnixSocketIPCTests testSendPingReturnsPong]' passed (0.013 seconds).
+Test Case '-[ManbokPlatformTests.UnixSocketIPCTests testSendSessionsReturnsParsedList]' started.
+[ipc] notice: listening on /tmp/uap-14D67398.sock
+[ipc] error: accept failed: errno=53
+[ipc] notice: socket server stopped
+Test Case '-[ManbokPlatformTests.UnixSocketIPCTests testSendSessionsReturnsParsedList]' passed (0.013 seconds).
+Test Case '-[ManbokPlatformTests.UnixSocketIPCTests testSendUnparseableResponseThrows]' started.
+Test Case '-[ManbokPlatformTests.UnixSocketIPCTests testSendUnparseableResponseThrows]' passed (0.000 seconds).
+Test Suite 'UnixSocketIPCTests' passed at 2026-11-13 09:56:30.059.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.052 (0.053) seconds
+Test Suite 'WavEncoderTests' started at 2026-11-13 09:56:30.059.
+Test Case '-[ManbokCoreTests.WavEncoderTests testHeaderIsMono16kHzPCM]' started.
+Test Case '-[ManbokCoreTests.WavEncoderTests testHeaderIsMono16kHzPCM]' passed (0.000 seconds).
+Test Suite 'WavEncoderTests' passed at 2026-11-13 09:56:30.059.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'WaveformSamplerTests' started at 2026-11-13 09:56:30.059.
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testDataSmallerThanBucketCountStillReturnsExactBucketCount]' started.
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testDataSmallerThanBucketCountStillReturnsExactBucketCount]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testEmptyDataProducesExactBucketCountOfZeros]' started.
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testEmptyDataProducesExactBucketCountOfZeros]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testFinalizeReturnsSameValueAsCurrentPeaks]' started.
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testFinalizeReturnsSameValueAsCurrentPeaks]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testIncrementalApproximatesBatchAfterCompaction]' started.
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testIncrementalApproximatesBatchAfterCompaction]' passed (0.001 seconds).
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testIncrementalMatchesBatchBelowCompactionThreshold]' started.
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testIncrementalMatchesBatchBelowCompactionThreshold]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testIncrementalSamplerHandlesByteSplitAcrossChunks]' started.
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testIncrementalSamplerHandlesByteSplitAcrossChunks]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testIncrementalSamplerOnSilenceIsAllZero]' started.
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testIncrementalSamplerOnSilenceIsAllZero]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testKnownFullScaleRegionProducesExpectedPeaks]' started.
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testKnownFullScaleRegionProducesExpectedPeaks]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testOddByteCountDropsTrailingByteInsteadOfCrashing]' started.
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testOddByteCountDropsTrailingByteInsteadOfCrashing]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testSilenceProducesAllZeroPeaks]' started.
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testSilenceProducesAllZeroPeaks]' passed (0.000 seconds).
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testZeroBucketsRequestedReturnsEmptyArray]' started.
+Test Case '-[ManbokCoreTests.WaveformSamplerTests testZeroBucketsRequestedReturnsEmptyArray]' passed (0.000 seconds).
+Test Suite 'WaveformSamplerTests' passed at 2026-11-13 09:56:30.062.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'manbokPackageTests.xctest' passed at 2026-11-13 09:56:30.062.
+	 Executed 266 tests, with 0 failures (0 unexpected) in 14.038 (14.056) seconds
+Test Suite 'Selected tests' passed at 2026-11-13 09:56:30.062.
+	 Executed 266 tests, with 0 failures (0 unexpected) in 14.038 (14.057) seconds
+
+=== dump --list (modern ruled) ===
+  #   dur     ended   started   app
+  ━   ━━━━━   ━━━━━   ━━━━━━━   ━━━━━━━━━
+  1   15.1s      1m        1m   Extension
+  2    9.0s      6s       15s   Pipit
+  3    2.0s    open        2s   Zoom
+=== end ===
+
+◇ Test run started.
+↳ Testing Library Version: 1743
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.
+exit 0

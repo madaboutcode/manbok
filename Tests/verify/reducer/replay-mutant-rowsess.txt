@@ -1,0 +1,25 @@
+mutant: rowsess
+file: Sources/ManbokCore/Application/DemandReducer.swift
+---- git diff of the temporary edit
+diff --git a/Sources/ManbokCore/Application/DemandReducer.swift b/Sources/ManbokCore/Application/DemandReducer.swift
+index 121262e..7437987 100644
+--- a/Sources/ManbokCore/Application/DemandReducer.swift
++++ b/Sources/ManbokCore/Application/DemandReducer.swift
+@@ -157,7 +157,7 @@ public struct DemandReducer: Sendable {
+         let demand = Self.demand(next.apps, live: input.liveDevices)
+ 
+         if input.isCapturing {
+-            for app in demand where !next.sessionOpen.contains(app.appID) {
++            for app in demand where !next.sessionOpen.contains(app.appID) && !app.isDraining {
+                 next.sessionOpen.insert(app.appID)
+                 ops.append(.open(appID: app.appID, pid: app.pid))
+             }
+---- swift test --skip AUHALWorkerIntegrationTests --skip CaptureE2ETests --filter ReducerModel
+	 Executed 11 tests, with 2 failures (1 unexpected) in 0.220 (0.221) seconds
+	 Executed 11 tests, with 2 failures (1 unexpected) in 0.220 (0.222) seconds
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.050 (0.051) seconds
+	 Executed 9 tests, with 2 failures (1 unexpected) in 0.169 (0.170) seconds
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:160: error: -[ManbokPlatformTests.ReducerModelReplayTests test_P4_holderListedBlipWhileCaptureWasDown_getsSessionWhenCaptureComesUp] : XCTAssertEqual failed: ("[]") is not eq
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:253: error: -[ManbokPlatformTests.ReducerModelReplayTests test_ExclNew_excludedDrainingAppWithoutSession_shouldNotGetSessionWhenCaptureComesUp] : Expected failure 'finding: D
+AUHAL started count: 0
+---- restored: git status for Sources/ManbokCore/Application/DemandReducer.swift: []
