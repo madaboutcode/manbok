@@ -41,6 +41,10 @@ import Foundation
 //   requestPermissionIfNeeded() at launch (lifecycle.md R1); the guard is the second line. .denied/.restricted defer. A deferral is not a failed start: it creates
 //   no worker, never calls recordRestart, never consumes or grows the backoff. When a request is
 //   answered, `onPermissionResolved` fires (any thread) so the owner can step at once.
+// - Audible-chunk tap: `onAudibleChunk` fires (worker delivery thread, after the sink lock is
+//   released) for every chunk with peak > 0 — the same floor as the digital-silence watchdog. It
+//   feeds the silent-mic alarm and never affects restarts. `boundDeviceName` is the running
+//   worker's device name, nil while no worker runs (any thread).
 // - apply returns post-decision status: isCapturing, health.
 //
 // EXPECTS: apply calls serialized; start() before lifecycle.start(); stop() after
@@ -62,6 +66,8 @@ public final class CaptureSupervisor: CaptureSupervising {
 
     /// Called on an arbitrary thread when a permission request the supervisor made is answered.
     public var onPermissionResolved: (@Sendable () -> Void)?
+    /// Called on the worker's delivery thread for each chunk with peak > 0. Set before start().
+    public var onAudibleChunk: (@Sendable () -> Void)?
     private let requestLock = NSLock()
     private var requestInFlight = false
 
@@ -80,6 +86,13 @@ public final class CaptureSupervisor: CaptureSupervising {
     private let sinkLock = NSLock()
     private var lastDataAt: Date?
     private var silentSince: Date?    // start of continuous peak==0 run; nil if last chunk had signal
+    private var boundDeviceNameCell: String?
+
+    public var boundDeviceName: String? {
+        sinkLock.lock()
+        defer { sinkLock.unlock() }
+        return boundDeviceNameCell
+    }
 
     // Signal mailbox (lock-protected — written from signal handler thread)
     private var pendingSignals: [EnvironmentSignal] = []
@@ -360,6 +373,7 @@ public final class CaptureSupervisor: CaptureSupervising {
                     self.silentSince = nil
                 }
                 self.sinkLock.unlock()
+                if chunk.peak != 0 { self.onAudibleChunk?() }
             }
             worker = newWorker
             workerTarget = target
@@ -367,6 +381,9 @@ public final class CaptureSupervisor: CaptureSupervising {
             isHolding = false
 
             let deviceName = newWorker.boundDevice.map { InputDeviceObserver.deviceName($0) } ?? "unknown"
+            sinkLock.lock()
+            boundDeviceNameCell = deviceName
+            sinkLock.unlock()
             let deviceID = newWorker.boundDevice.map { String($0) } ?? "?"
             let switchedFrom = previousTarget.flatMap { $0 != target ? " (from \(Self.describe($0)))" : nil } ?? ""
             log.notice("capture started — \(trigger) → \(deviceName) [\(deviceID)]\(switchedFrom)")
@@ -420,6 +437,7 @@ public final class CaptureSupervisor: CaptureSupervising {
         captureStartedAt = nil
         sinkLock.lock()
         silentSince = nil
+        boundDeviceNameCell = nil
         pendingSignals.removeAll()
         sinkLock.unlock()
     }

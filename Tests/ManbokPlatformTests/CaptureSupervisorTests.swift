@@ -469,4 +469,39 @@ final class CaptureSupervisorTests: XCTestCase {
         _ = sup.apply(demand: [demand("com.app.b", [1])], now: clockNow)
         XCTAssertEqual(escalations(), 1)
     }
+
+    // MARK: - Audible-chunk tap (silent-mic alarm feed)
+
+    func test_onAudibleChunk_firesOnlyForChunksWithSignal() {
+        let sup = makeSupervisor()
+        let audible = AudibleCounter()
+        sup.onAudibleChunk = { audible.bump() }
+        _ = sup.apply(demand: [demand("com.app.a", [1])], now: clockNow)
+
+        workers[0].deliverSilence()
+        workers[0].deliverSilence()
+        XCTAssertEqual(audible.count, 0)
+        workers[0].deliverChunk(peak: 1)
+        workers[0].deliverChunk(peak: 1000)
+        XCTAssertEqual(audible.count, 2)
+    }
+
+    func test_boundDeviceName_isSetWhileWorkerRunsAndClearedOnRelease() {
+        let sup = makeSupervisor()
+        XCTAssertNil(sup.boundDeviceName)
+
+        _ = sup.apply(demand: [demand("com.app.a", [1])], now: clockNow)
+        XCTAssertEqual(sup.boundDeviceName, InputDeviceObserver.deviceName(1))
+
+        clockNow = clockNow.addingTimeInterval(2)
+        _ = sup.apply(demand: [], now: clockNow)
+        XCTAssertNil(sup.boundDeviceName)
+    }
+}
+
+private final class AudibleCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var n = 0
+    func bump() { lock.lock(); n += 1; lock.unlock() }
+    var count: Int { lock.lock(); defer { lock.unlock() }; return n }
 }

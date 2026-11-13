@@ -68,4 +68,43 @@ final class SettingsStoreTests: XCTestCase {
         store.excludedApps = []
         XCTAssertEqual(calls, [["a"], []])
     }
+
+    // MARK: - Silent-mic alarm
+
+    func test_silenceAlarm_defaultsOffAt30Seconds() {
+        let store = SettingsStore(defaults: defaults)
+
+        XCTAssertEqual(store.silenceAlarmEnabled, false)
+        XCTAssertEqual(store.silenceAlarmSeconds, 30)
+    }
+
+    func test_silenceAlarm_roundTripsAcrossInstances() {
+        let first = SettingsStore(defaults: defaults)
+        first.silenceAlarmEnabled = true
+        first.silenceAlarmSeconds = 120
+
+        let second = SettingsStore(defaults: defaults)
+        XCTAssertEqual(second.silenceAlarm, SilenceAlarmConfig(enabled: true, seconds: 120))
+    }
+
+    func test_silenceAlarm_offListStoredSecondsLoadAsDefault() {
+        defaults.set(45, forKey: "silenceAlarmSeconds")
+
+        XCTAssertEqual(SettingsStore(defaults: defaults).silenceAlarmSeconds, 30)
+    }
+
+    func test_silenceAlarm_changesForwardNewConfig_initDoesNot() {
+        var received: [SilenceAlarmConfig] = []
+        let store = SettingsStore(defaults: defaults)
+        store.silenceAlarmDidChange = { received.append($0) }
+
+        store.silenceAlarmEnabled = true
+        store.silenceAlarmSeconds = 10
+        store.silenceAlarmSeconds = 10
+
+        XCTAssertEqual(received, [
+            SilenceAlarmConfig(enabled: true, seconds: 30),
+            SilenceAlarmConfig(enabled: true, seconds: 10),
+        ])
+    }
 }
