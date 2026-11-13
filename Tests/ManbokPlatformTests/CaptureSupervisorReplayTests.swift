@@ -180,6 +180,27 @@ final class CaptureSupervisorReplayTests: XCTestCase {
     /// A failed start after the silence ladder gave up leaves health at holdingSilent with no worker (rule R5_holdHealth).
     func test_B2_failedStartAfterHoldKeepsHoldingSilentHealth() { assertReplay("B2", ReplayExpected.B2_holdThenStartFailure_steps, ReplayExpected.B2_holdThenStartFailure) }
     func test_B3_backoffCountSurvivesLongHealthyRun() { assertReplay("B3", ReplayExpected.B3_staleBackoffAfterLongFlow_steps, ReplayExpected.B3_staleBackoffAfterLongFlow) }
+    /// F5: every captureDisturbed restart logs one .notice line (persisted by unified logging) naming the reason.
+    func test_F5_captureDisturbedRestartLogsOneNotice() {
+        let recorder = NoticeRecorder()
+        Diagnostics.install(recorder)
+        _ = SupervisorReplay().run(ReplayExpected.N6_signalRestart_steps)
+        let restartLines = recorder.notices.filter { $0.contains("device switch — replay") }
+        XCTAssertEqual(restartLines.count, 1, "one notice for the one disturbed restart: \(recorder.notices)")
+    }
+
+    /// H7: after the silence ladder gave up (holding) and the next start fails, a later tick starts the worker again while
+    /// the app still holds the mic, and the hold flag clears with the successful start.
+    func test_H7_laterTickRetriesStartAfterHoldAndFailedStart() {
+        let rows = SupervisorReplay().run(ReplayExpected.B2_holdThenStartFailure_steps)
+        let failed = rows[rows.count - 2], retried = rows[rows.count - 1]
+        XCTAssertEqual(failed.capturing, false, "the start after the hold threw: no worker")
+        XCTAssertTrue(failed.holding, "health stays holdingSilent with no worker (finding F1)")
+        XCTAssertEqual(retried.attempts, failed.attempts + 1, "the next tick attempts another start")
+        XCTAssertTrue(retried.capturing, "that start succeeded while the recorder still holds the mic")
+        XCTAssertFalse(retried.holding)
+    }
+
     // MARK: mutant counterexamples (fail when the matching fix is removed from production code)
 
     /// A worker's end records whether bytes were flowing. Fix removed (release records "not flowing"): switches grow the backoff.
