@@ -15,8 +15,8 @@ import ManbokCore
 // - restore() returns the newest generation whose manifest decodes, has the current format version, carries
 //   the generation matching its directory, and whose manifest.ringFilledBytes equals the PCM file size.
 //   An invalid newer generation is skipped (warning with the reason) in favour of the next complete one.
-//   It then deletes older generations (not the one it returned) and every `checkpoint.tmp-*`, one persisted
-//   log line each.
+//   It then fsyncs the state directory (so a rename left unsynced by a crashed save is durable), deletes
+//   older generations (not the one it returned) and every `checkpoint.tmp-*`, one persisted log line each.
 // - Legacy layout (`ring.pcm`/`ring.json` at the state root) is read only when no `checkpoint-*` exists,
 //   and removed after it restores successfully.
 // - restore() leaves the restored generation on disk: the last saved checkpoint stays until the next
@@ -89,6 +89,12 @@ public enum StatePersistenceService {
         }
 
         if let restored {
+            // A save that died between rename and its directory fsync left this generation's name unsynced; make it durable before relying on it.
+            do {
+                try fsyncDirectory(state)
+            } catch {
+                log.warning("could not fsync state directory after restoring generation \(restored.seq): \(error)")   // FALLBACK-OK: contract "restore() never throws; any failure logs a warning"
+            }
             for old in found where old.seq < restored.seq {
                 remove(old.url, why: "older than restored generation \(restored.seq)")
             }

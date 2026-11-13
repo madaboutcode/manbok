@@ -107,6 +107,7 @@ final class IPCReliabilityReplayTests: XCTestCase {
         let fd = connectRaw(url)
         let line = "PING\n"
         _ = line.withCString { write(fd, $0, 5) }
+        usleep(100_000)   // the server has accepted and configured the socket (and is in the slow handler) before the client leaves
         close(fd)
         usleep(800_000)
         XCTAssertEqual(sigpipeCount, 0, "server received SIGPIPE writing to a closed client (default action kills the app)")

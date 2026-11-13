@@ -1,0 +1,16 @@
+{
+  "commit": "19bc2c8",
+  "syncedAt": "2026-11-13T06:26:04.113Z",
+  "covers": {
+    "Sources/ManbokPlatform/IPC/UnixSocketServer.swift#run": "153775c0",
+    "Sources/ManbokPlatform/IPC/UnixSocketServer.swift#serveConnection": "153775c0",
+    "Sources/ManbokPlatform/IPC/UnixSocketServer.swift#readLine": "153775c0",
+    "Sources/ManbokPlatform/IPC/UnixSocketServer.swift#writeLine": "153775c0",
+    "Sources/ManbokPlatform/IPC/UnixSocketServer.swift#configureClientSocket": "153775c0"
+  },
+  "rules": {
+    "PingBound": "7b50deb8",
+    "ReplyOwn": "fe9a7ee5",
+    "NoSigpipe": "1393b758"
+  }
+}
