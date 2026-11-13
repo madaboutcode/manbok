@@ -27,7 +27,14 @@ One column, three zones:
   minutes (e.g. "7:12 / 30:00"); reads "Ring empty" when the ring holds nothing.
   Watching is never amber — amber is reserved for the warning badge (R16).
 - R5 — **Session list:** sessions newest-start-first (open sessions therefore at/near top);
-  scrolls past ~5 rows.
+  scrolls once the rows no longer fit. Sizing: the popup opens at 66% of the active screen's
+  usable height (`NSScreen.visibleFrame`), floored at 360 pt and capped at 680 pt, and never
+  taller than `visibleFrame.height - 16 pt` — the available-space limit wins on short screens,
+  so a typical display shows ~4-6 rows and the list scrolls beyond that. The active screen is
+  the one hosting the popover window (a `MenuBarExtra` status item appears in every menu bar;
+  `NSScreen.main` is the wrong display), re-evaluated whenever the popover opens or its window
+  changes displays. Header and footer keep their intrinsic heights and stay visible at every
+  size; the empty (R14) and permission (R15) states keep their own compact height.
 - R6 — **Footer:** About (left) · Settings… (middle) · Quit (right, red-tinted text) — plain
   text items, hover color shift only. About opens the standard about panel (name, version,
   "rolling audio memory in your menu bar"). Quit per `lifecycle.md` R7.

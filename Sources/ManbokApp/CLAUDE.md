@@ -28,3 +28,10 @@ App entry point, MenuBarExtra popover, Settings window, PopoverViewModel, icon s
 - No direct AVFoundation imports — use SessionLifecycleController from ManbokPlatform
 - Views observe SessionLifecycleController (environmentObject) for icon/badge state
 - Settings window calls SessionRegistry.resize() directly (no IPC verb)
+- Popover width is fixed at 320 pt. The session-list state pins the window height via
+  `PopoverSizing.totalHeight` off the *hosting* screen's `visibleFrame` (`NSScreen.main` is
+  the wrong display for a `MenuBarExtra`), and `SessionListView` is the only flexible zone.
+  Keep that screen information as a height **value**: the Dock or resolution can change on the
+  same `NSScreen` instance, and an unchanged height must not re-lay out the popover. Never
+  reintroduce a bare `maxHeight` on that `ScrollView`: a `LazyVStack` has no stable ideal
+  height, so the window collapses to ~1 row.

@@ -439,7 +439,8 @@ ManbokApp/                  # SwiftUI app target — no ArgumentParser
     PopoverViewModel.swift    # polls SessionRegistry at ~1 Hz while popover visible; ExportService wrapper
   Views/
     PopoverContentView, HeaderView, SessionListView, SessionRowView, WaveformView,
-    EmptyStateView, PermissionDeniedView, FooterView, SettingsView
+    EmptyStateView, PermissionDeniedView, FooterView, SettingsView,
+    PopoverSizing            # pure: popup height from the hosting screen's visibleFrame
 
 manbok/                     # CLI executable — thin IPC client
   CLI/
@@ -821,6 +822,14 @@ STOP                    → OK (app exits)
 - `init()` runs `MigrationService.runIfNeeded()`, builds `SettingsStore` → `SessionRegistry` (sized from the persisted preset) → `AVAudioCapture` → `CaptureOrchestrator` → `PopoverViewModel`, starts the IPC server against that same registry/orchestrator, then calls `orchestrator.start()`.
 - `AppDelegate.anotherInstanceRunning()` pings the existing socket at launch; if another instance answers, this one terminates instead of fighting over the ring/socket.
 - Menu bar icon reflects `micPermission`/`anySessionOpen` state (denied / recording / watching).
+- Popover sizing: the session-list state pins the popup to `PopoverSizing.totalHeight` — 66%
+  of the hosting screen's `visibleFrame` height, floored at 360 pt, capped at 680 pt, never
+  taller than `visibleFrame - 16 pt` (the available-space limit wins on short screens). The
+  hosting screen is read from the popover's own window (`HostingScreenReader`) and crosses into
+  the view as a height *value*, so a Dock or resolution change on the same `NSScreen` still
+  resizes the popover while an unchanged height does not re-lay it out. The header/footer keep
+  their laid-out heights and the session list is the only flexible zone, so no chrome constant
+  can drift.
 
 **DOES NOT:** Implement domain logic — it wires L2/L3 components together and hosts the IPC dispatch.
 
