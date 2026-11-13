@@ -92,6 +92,7 @@ final class CaptureSupervisorTests: XCTestCase {
                 workerIndex += 1
                 return w
             },
+            authorizer: FakeMicrophoneAuthorizer(status: .authorized),
             signals: signals,
             appendSink: { [self] data in appendedData.append(data) },
             restartPolicy: restartPolicy,

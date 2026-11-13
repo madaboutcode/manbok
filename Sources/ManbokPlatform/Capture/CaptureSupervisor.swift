@@ -34,6 +34,11 @@ import Foundation
 //   candidate device, supervisor stop) logs one "capture stopped — reason" .notice. A "device switch" caused
 //   by CaptureDevicePolicy's tie-break carries which branch fired ("tie: newest
 //   relationship" / "tie: lowest-id fallback"); a plain (non-tied) switch does not.
+// - Permission guard: before the first worker start of an arrival, microphone status is read.
+//   .authorized proceeds. .notDetermined requests access once (asynchronous; apply never waits for
+//   the user) and defers. .denied/.restricted defer. A deferral is not a failed start: it creates
+//   no worker, never calls recordRestart, never consumes or grows the backoff. When a request is
+//   answered, `onPermissionResolved` fires (any thread) so the owner can step at once.
 // - apply returns post-decision status: isCapturing, health.
 //
 // EXPECTS: apply calls serialized; start() before lifecycle.start(); stop() after
@@ -43,7 +48,7 @@ import Foundation
 //   No candidate device → target nil: running worker released (logged .notice), no worker
 //   started, health is .deferredNoDevice (logged .notice).
 //
-// DOES NOT: open/close sessions, publish UI state, parse HAL structures, own a dispatch queue.
+// DOES NOT: wait for the permission prompt, open/close sessions, publish UI state, parse HAL structures, own a dispatch queue.
 
 public final class CaptureSupervisor: CaptureSupervising {
     // Injected dependencies
@@ -51,6 +56,12 @@ public final class CaptureSupervisor: CaptureSupervising {
     private let signals: EnvironmentSignaling
     private let appendSink: (Data) -> Void
     private let clock: () -> Date
+    private let authorizer: MicrophoneAuthorizing
+
+    /// Called on an arbitrary thread when a permission request the supervisor made is answered.
+    public var onPermissionResolved: (@Sendable () -> Void)?
+    private let requestLock = NSLock()
+    private var requestInFlight = false
 
     // Policies (value types, mutated in apply)
     private var restartPolicy: CaptureRestartPolicy
@@ -79,6 +90,7 @@ public final class CaptureSupervisor: CaptureSupervising {
 
     public init(
         makeWorker: @escaping () -> PinnedAudioCapturing,
+        authorizer: MicrophoneAuthorizing,
         signals: EnvironmentSignaling,
         appendSink: @escaping (Data) -> Void,
         restartPolicy: CaptureRestartPolicy = .init(),
@@ -86,6 +98,7 @@ public final class CaptureSupervisor: CaptureSupervising {
         clock: @escaping () -> Date = Date.init
     ) {
         self.makeWorker = makeWorker
+        self.authorizer = authorizer
         self.signals = signals
         self.appendSink = appendSink
         self.restartPolicy = restartPolicy
@@ -144,7 +157,9 @@ public final class CaptureSupervisor: CaptureSupervising {
 
         if let target {
             if worker == nil {
-                if restartPolicy.mayRestart(now: now) {
+                if !permissionAllowsStart() {
+                    // deferred by the permission guard: no start attempt, backoff untouched
+                } else if restartPolicy.mayRestart(now: now) {
                     // lastDataAt survives only a release for "no candidate device"; otherwise nil.
                     let wasFlowing = bytesFlowing(now: now)
                     sinkLock.lock(); lastDataAt = nil; sinkLock.unlock()
@@ -264,6 +279,34 @@ public final class CaptureSupervisor: CaptureSupervising {
         }
 
         return CaptureStatus(isCapturing: worker != nil, health: health)
+    }
+
+    // MARK: - Permission guard
+
+    private func permissionAllowsStart() -> Bool {
+        switch authorizer.status {
+        case .authorized:
+            return true
+        case .denied, .restricted:
+            return false
+        case .notDetermined:
+            requestLock.lock()
+            let alreadyAsked = requestInFlight
+            requestInFlight = true
+            requestLock.unlock()
+            if !alreadyAsked {
+                log.notice("microphone permission requested — capture deferred until answered")
+                authorizer.requestAccess { [weak self] granted in
+                    guard let self else { return }
+                    self.requestLock.lock()
+                    self.requestInFlight = false
+                    self.requestLock.unlock()
+                    self.log.notice("microphone permission \(granted ? "granted" : "denied")")
+                    self.onPermissionResolved?()
+                }
+            }
+            return false
+        }
     }
 
     // MARK: - Target resolution

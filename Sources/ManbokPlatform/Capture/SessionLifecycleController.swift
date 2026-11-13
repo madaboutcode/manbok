@@ -29,6 +29,8 @@ import ManbokCore
 // - DemandEntry.arrivedAt is wall-clock (Date): a fixed origin plus the reducer's monotonic arrival.
 // - anySessionOpen = registry.anySessionOpen (an open session covers holding and draining apps).
 // - micPermission refreshed via permission() at 30s cadence.
+// - permissionDidChange(): refreshes micPermission and runs one tick at once (no wait for the timer)
+//   while running; used when a permission request is answered. A tick never waits for the user.
 // - stop(): cancel timers, final supervisor.apply(demand: [], now:), close every open session,
 //   publish anySessionOpen=false. Composition root then calls supervisor.stop().
 //
@@ -141,6 +143,15 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
             guard exclusion.userGroups != groups else { return }
             exclusion = HolderExclusion(userGroups: groups)
             if isRunning { tick() }
+        }
+    }
+
+    /// A permission request was answered: publish the new state and step now.
+    public func permissionDidChange() {
+        queue.async { [self] in
+            guard isRunning else { return }
+            refreshPermission()
+            tick()
         }
     }
 

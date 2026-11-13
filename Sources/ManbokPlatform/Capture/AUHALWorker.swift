@@ -32,6 +32,8 @@ import ManbokCore
 // - boundDevice is non-nil after a successful start and constant until stop().
 //
 // EXPECTS
+// - Microphone permission already granted (CaptureSupervisor guards this); start() only checks it
+//   and throws .permissionDenied otherwise — it never blocks on the system prompt.
 // - Exactly one start() per instance — a second call is a programmer error
 //   (preconditionFailure). A restart means a NEW instance.
 // - start()/stop() called from one caller thread (the supervisor's apply context).
@@ -94,7 +96,8 @@ public final class AUHALWorker: PinnedAudioCapturing {
         started = true
         stateLock.unlock()
 
-        guard MicrophoneAuthorization.ensureAuthorized() else {
+        // The supervisor requests permission before creating a worker; this must never wait on a prompt.
+        guard MicrophoneAuthorization.currentStatus() == .authorized else {
             throw PinnedCaptureError.permissionDenied
         }
 

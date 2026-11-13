@@ -858,7 +858,8 @@ ManbokApp.init() → MigrationService.runIfNeeded()   (bootout legacy LaunchAgen
                  → bind ~/.manbok/run.sock, serve IPCCommand inline against registry/orchestrator
                  → orchestrator.start()                (begins polling for mic-holding processes)
 AppDelegate.applicationDidFinishLaunching → PING existing socket; if answered, terminate self
-                                          → request mic permission if not yet determined
+(mic permission is NOT requested at launch: CaptureSupervisor asks at first demand, asynchronously;
+ the lifecycle queue never waits for the prompt, and an answer triggers an immediate lifecycle tick)
 ```
 
 ### App session lifecycle (per mic-holding app)

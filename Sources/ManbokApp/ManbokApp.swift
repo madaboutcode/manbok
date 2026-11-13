@@ -47,12 +47,14 @@ struct ManbokApp: App {
         let signals = AUHALEnvironmentSignals()
         let supervisor = CaptureSupervisor(
             makeWorker: { AUHALWorker() },
+            authorizer: SystemMicrophoneAuthorizer(),
             signals: signals,
             appendSink: { reg.append($0) })
         let lifecycleController = SessionLifecycleController(
             supervisor: supervisor, registry: reg,
             holderSnapshot: { monitor.holderSnapshot() },
             excludedGroups: settingsStore.excludedApps)
+        supervisor.onPermissionResolved = { [weak lifecycleController] in lifecycleController?.permissionDidChange() }
         settingsStore.excludedAppsDidChange = { lifecycleController.setExcludedGroups($0) }
         let vm = PopoverViewModel(registry: reg, lifecycle: lifecycleController)
 
@@ -289,8 +291,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ProcessInfo.processInfo.disableAutomaticTermination("manbok is a long-running audio buffer")
         ProcessInfo.processInfo.disableSuddenTermination()
         log.notice("delegate: auto-termination disabled")
-
-        requestMicPermission()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -303,17 +303,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         log.info("delegate: reopen requested (hasVisibleWindows=\(flag))")
         return true
-    }
-
-    private func requestMicPermission() {
-        let status = AVCaptureDevice.authorizationStatus(for: .audio)
-        log.notice("delegate: mic authorization status=\(status.rawValue)")
-        if status == .notDetermined {
-            log.info("delegate: requesting mic access")
-            AVCaptureDevice.requestAccess(for: .audio) { [self] granted in
-                log.notice("delegate: mic access \(granted ? "granted" : "denied")")
-            }
-        }
     }
 
 }

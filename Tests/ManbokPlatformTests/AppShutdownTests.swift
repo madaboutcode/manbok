@@ -13,6 +13,19 @@ private final class StartableWorker: PinnedAudioCapturing {
     func stop() { lock.lock(); _stopCount += 1; lock.unlock() }
 }
 
+/// Stands in for any hang inside lifecycle.stop(); AppShutdown's 2 s bound must hold regardless of cause.
+private final class BlockingStartWorker: PinnedAudioCapturing {
+    let entered = DispatchSemaphore(value: 0)
+    let release = DispatchSemaphore(value: 0)
+    private(set) var boundDevice: AudioDeviceID?
+    func start(target: CaptureTarget, sink: @escaping (CaptureChunk) -> Void) throws {
+        entered.signal()
+        release.wait()
+        throw PinnedCaptureError.permissionDenied
+    }
+    func stop() {}
+}
+
 final class AppShutdownTests: XCTestCase {
     private let app = HolderObservation(appID: "com.test.app", pid: 4242, inputDevices: [77])
 
@@ -20,7 +33,7 @@ final class AppShutdownTests: XCTestCase {
         let registry = SessionRegistry(ringCapacity: BufferPolicy.capacityBytes(for: .min5))
         let snapshot = { [app] in HolderSnapshot(holders: [app], liveInputDevices: [77]) }
         let supervisor = CaptureSupervisor(
-            makeWorker: { worker }, signals: NoSignals(), appendSink: { registry.append($0) })
+            makeWorker: { worker }, authorizer: FakeMicrophoneAuthorizer(status: .authorized), signals: NoSignals(), appendSink: { registry.append($0) })
         let lifecycle = SessionLifecycleController(
             supervisor: supervisor, registry: registry, holderSnapshot: snapshot,
             permission: { .authorized }, pollInterval: 0.1, gracePeriod: 0.3)
