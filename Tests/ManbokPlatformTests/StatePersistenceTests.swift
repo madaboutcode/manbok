@@ -70,29 +70,64 @@ final class StatePersistenceTests: XCTestCase {
         XCTAssertEqual(pcm.first, 0xAA)
     }
 
-    func test_restore_allGenerationsInvalid_returnsNilAndDoesNotReadLegacy() throws {
-        let state = installTempStateDirectory()
-        try publish("BAD", byte: 0xAA, generation: 1, in: state)
-        try Data().write(to: state.appendingPathComponent("checkpoint-1/ring.pcm"))
-        try Data(repeating: 0xCC, count: 32).write(to: AppStatePaths.ringDataURL)
+    private func writeLegacy(_ name: String, byte: UInt8) throws {
+        try Data(repeating: byte, count: 32).write(to: AppStatePaths.ringDataURL)
         let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601
-        try enc.encode(manifest("LEGACY", filled: 32)).write(to: AppStatePaths.ringManifestURL)
-
-        XCTAssertNil(StatePersistenceService.restore())
+        try enc.encode(manifest(name, filled: 32)).write(to: AppStatePaths.ringManifestURL)
     }
 
-    func test_restore_legacyRootLayout_readOnceThenRemoved() throws {
+    func test_restore_legacyRootLayout_returnsItAndLeavesFilesOnDisk() throws {
         let state = installTempStateDirectory()
-        try Data(repeating: 0xCC, count: 32).write(to: AppStatePaths.ringDataURL)
-        let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601
-        try enc.encode(manifest("LEGACY", filled: 32)).write(to: AppStatePaths.ringManifestURL)
+        try writeLegacy("LEGACY", byte: 0xCC)
 
         let (m, pcm) = try XCTUnwrap(StatePersistenceService.restore())
 
         XCTAssertEqual(m.sessions.first?.displayName, "LEGACY")
         XCTAssertEqual(pcm.first, 0xCC)
-        XCTAssertEqual(names(state), [])
-        XCTAssertNil(StatePersistenceService.restore())
+        XCTAssertEqual(names(state), ["ring.json", "ring.pcm"])
+    }
+
+    func test_restore_legacyAfterCrash_restoresAgain() throws {
+        _ = installTempStateDirectory()
+        try writeLegacy("LEGACY", byte: 0xCC)
+
+        _ = StatePersistenceService.restore()
+        let second = try XCTUnwrap(StatePersistenceService.restore())
+
+        XCTAssertEqual(second.0.sessions.first?.displayName, "LEGACY")
+    }
+
+    func test_save_afterLegacyRestore_removesLegacyFiles() throws {
+        let state = installTempStateDirectory()
+        try writeLegacy("LEGACY", byte: 0xCC)
+        _ = StatePersistenceService.restore()
+
+        try StatePersistenceService.save(manifest: manifest("RUN1", filled: 32), ringData: Data(repeating: 0xAA, count: 32))
+
+        XCTAssertEqual(names(state), ["checkpoint-1"])
+    }
+
+    func test_restore_completeGenerationAndLegacy_prefersGenerationAndKeepsLegacyUntilSave() throws {
+        let state = installTempStateDirectory()
+        try publish("GEN", byte: 0xAA, generation: 1, in: state)
+        try writeLegacy("LEGACY", byte: 0xCC)
+
+        let (m, _) = try XCTUnwrap(StatePersistenceService.restore())
+        XCTAssertEqual(m.sessions.first?.displayName, "GEN")
+        XCTAssertEqual(names(state), ["checkpoint-1", "ring.json", "ring.pcm"])
+
+        try StatePersistenceService.save(manifest: manifest("RUN2", filled: 32), ringData: Data(repeating: 0xBB, count: 32))
+        XCTAssertEqual(names(state), ["checkpoint-2"])
+    }
+
+    func test_restore_allGenerationsInvalid_fallsBackToLegacy() throws {
+        let state = installTempStateDirectory()
+        try publish("BAD", byte: 0xAA, generation: 1, in: state)
+        try Data().write(to: state.appendingPathComponent("checkpoint-1/ring.pcm"))
+        try writeLegacy("LEGACY", byte: 0xCC)
+
+        let (m, _) = try XCTUnwrap(StatePersistenceService.restore())
+        XCTAssertEqual(m.sessions.first?.displayName, "LEGACY")
     }
 
     func test_restore_twiceWithoutSaveInBetween_returnsSameAudio() throws {

@@ -11,14 +11,16 @@ import ManbokCore
 // - save() writes both files into `<state>/checkpoint.tmp-<uuid>/`, fsyncs them, renames the directory to
 //   its new `checkpoint-<seq>` name, then fsyncs the state directory. Nothing is ever replaced in place, so
 //   a crash at any point leaves every earlier generation intact and the new one either absent or complete.
-// - After a successful save, older generations and the legacy root files are deleted.
+// - After a successful save, older generations and the legacy root files are deleted (not before).
 // - restore() returns the newest generation whose manifest decodes, has the current format version, carries
 //   the generation matching its directory, and whose manifest.ringFilledBytes equals the PCM file size.
 //   An invalid newer generation is skipped (warning with the reason) in favour of the next complete one.
 //   It then fsyncs the state directory (so a rename left unsynced by a crashed save is durable), deletes
 //   older generations (not the one it returned) and every `checkpoint.tmp-*`, one persisted log line each.
-// - Legacy layout (`ring.pcm`/`ring.json` at the state root) is read only when no `checkpoint-*` exists,
-//   and removed after it restores successfully.
+//   Legacy root files are left in place.
+// - The legacy layout (`ring.pcm`/`ring.json` at the state root) counts as the oldest generation: restore()
+//   reads it only when no generation is complete, and never deletes it. It is deleted by the next
+//   successful save(), the same point where older generations are deleted.
 // - restore() leaves the restored generation on disk: the last saved checkpoint stays until the next
 //   successful save replaces it, so a crash after launch loses nothing. Only older generations and
 //   interrupted-save debris are deleted by restore().
@@ -103,11 +105,9 @@ public enum StatePersistenceService {
             remove(tmp, why: "interrupted save")
         }
         if let restored { return (restored.manifest, restored.pcm) }
-        guard found.isEmpty else { return nil }
 
         switch load(manifestURL: AppStatePaths.ringManifestURL, pcmURL: AppStatePaths.ringDataURL, expectedGeneration: nil) {
         case .success(let (manifest, pcm)):
-            removeLegacyFiles(why: "restored")
             return (manifest, pcm)
         case .failure(let reason):
             if reason != .absent { log.warning("legacy checkpoint unusable: \(reason.message)") }

@@ -38,7 +38,7 @@ public enum AppStatePaths {
         stateDirectory.appendingPathComponent(lockFileName)
     }
 
-    /// Legacy pre-generation checkpoint location (state root). Read once by `StatePersistenceService.restore`.
+    /// Legacy pre-generation checkpoint location (state root). Treated by `StatePersistenceService` as the oldest generation: restored from, deleted by the next successful save.
     public static var ringManifestURL: URL {
         stateDirectory.appendingPathComponent("ring.json")
     }

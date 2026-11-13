@@ -58,7 +58,7 @@ Needs a first-ever checkpoint: with an older generation present, the revert brin
 
 ## Not modelled
 
-- Legacy root files (`ring.pcm` / `ring.json` at the state root): unit tests only (`StatePersistenceTests.test_restore_legacyRootLayout_readOnceThenRemoved`).
+- Legacy root files (`ring.pcm` / `ring.json` at the state root): unit tests only (`StatePersistenceTests.test_restore_legacyRootLayout_returnsItAndLeavesFilesOnDisk`, `test_save_afterLegacyRestore_removesLegacyFiles`). Rule: legacy files count as the oldest generation, restore never deletes them, the next successful save does. This change was not re-model-checked.
 - File sizes: every non-empty PCM has the size its manifest states (ring full). The size check cannot tell two saves apart (worst case). Real sizes differ when the ring is not full, which only helps detection.
 - Fine-grained power-loss outcomes: one data outcome (persist / lose both files / PCM garbage with intact manifest) and one name outcome (persist / revert) for all unsynced items together. APFS ordering of rename before unlink is assumed.
 - Garbage manifest content (it fails to decode and is detected).
