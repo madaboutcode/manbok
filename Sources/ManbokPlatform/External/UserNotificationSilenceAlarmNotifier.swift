@@ -11,7 +11,7 @@ public final class UserNotificationSilenceAlarmNotifier: NSObject, SilenceAlarmN
 
     public override init() { super.init() }
 
-    public func requestAuthorization() {
+    public func requestAuthorization(_ completion: @escaping @Sendable (Bool) -> Void) {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         center.requestAuthorization(options: [.alert, .sound]) { [log] granted, error in
@@ -20,6 +20,7 @@ public final class UserNotificationSilenceAlarmNotifier: NSObject, SilenceAlarmN
             } else {
                 log.notice("notification authorization \(granted ? "granted" : "denied")")
             }
+            completion(granted && error == nil)
         }
     }
 
@@ -33,7 +34,11 @@ public final class UserNotificationSilenceAlarmNotifier: NSObject, SilenceAlarmN
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         center.add(request) { [log] error in
-            if let error { log.error("notification post failed: \(error.localizedDescription)") }
+            if let error {
+                log.error("notification post failed: \(error.localizedDescription)")
+            } else {
+                log.notice("notification posted")
+            }
         }
     }
 

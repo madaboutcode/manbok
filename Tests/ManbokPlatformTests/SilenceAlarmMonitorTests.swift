@@ -7,7 +7,13 @@ private final class RecordingNotifier: SilenceAlarmNotifying, @unchecked Sendabl
     private(set) var authorizationRequests = 0
     private(set) var posted: [SilenceAlarmNotice] = []
     private(set) var withdrawals = 0
-    func requestAuthorization() { authorizationRequests += 1 }
+    var answersImmediately = true
+    private var answers: [@Sendable (Bool) -> Void] = []
+    func requestAuthorization(_ completion: @escaping @Sendable (Bool) -> Void) {
+        authorizationRequests += 1
+        if answersImmediately { completion(true) } else { answers.append(completion) }
+    }
+    func answerPending(granted: Bool) { answers.forEach { $0(granted) }; answers = [] }
     func post(_ notice: SilenceAlarmNotice) { posted.append(notice) }
     func withdraw() { withdrawals += 1 }
 }
@@ -112,5 +118,61 @@ final class SilenceAlarmMonitorTests: XCTestCase {
     func test_alarmInitiallyEnabled_doesNotRequestAuthorization() {
         _ = makeMonitor(enabled: true)
         XCTAssertEqual(notifier.authorizationRequests, 0)
+    }
+
+    // MARK: - Notice held until authorization is answered
+
+    func test_raiseBeforeAuthorizationAnswer_deliversOneNoticeAfterGrant() {
+        notifier.answersImmediately = false
+        let m = makeMonitor(enabled: false)
+        m.sessionsOpen(true)
+        now = 100
+        m.configure(SilenceAlarmConfig(enabled: true, seconds: 30))
+        m.tick()
+        XCTAssertTrue(notifier.posted.isEmpty, "posting before authorization would be lost")
+
+        now = 108
+        notifier.answerPending(granted: true)
+        notifier.answerPending(granted: true)
+
+        XCTAssertEqual(notifier.posted.count, 1)
+    }
+
+    func test_clearBeforeAuthorizationAnswer_deliversNothing() {
+        notifier.answersImmediately = false
+        let m = makeMonitor(enabled: false)
+        m.sessionsOpen(true)
+        now = 100
+        m.configure(SilenceAlarmConfig(enabled: true, seconds: 30))
+        m.tick()
+
+        now = 105; m.audibleChunk()
+        notifier.answerPending(granted: true)
+
+        XCTAssertTrue(notifier.posted.isEmpty)
+        XCTAssertEqual(notifier.withdrawals, 1)
+    }
+
+    func test_deniedAuthorization_deliversNothing() {
+        notifier.answersImmediately = false
+        let m = makeMonitor(enabled: false)
+        m.sessionsOpen(true)
+        now = 100
+        m.configure(SilenceAlarmConfig(enabled: true, seconds: 30))
+        m.tick()
+
+        notifier.answerPending(granted: false)
+
+        XCTAssertTrue(notifier.posted.isEmpty)
+    }
+
+    func test_raiseAfterAuthorizationAnswered_postsImmediately() {
+        let m = makeMonitor(enabled: false)
+        m.sessionsOpen(true)
+        now = 100
+        m.configure(SilenceAlarmConfig(enabled: true, seconds: 30))
+        m.tick()
+
+        XCTAssertEqual(notifier.posted.count, 1)
     }
 }

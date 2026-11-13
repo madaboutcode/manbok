@@ -17,6 +17,9 @@ import ManbokCore
 //   logs one .capture notice with the reason, and sets `status` to nil.
 // - Switching the alarm on (off -> on after init) asks the notifier for authorization once per
 //   switch. The initial config given to init never does.
+// - While that request is unanswered, a raise is held, not posted (the system drops notices posted
+//   before authorization). When the answer is "granted", the held notice is posted if the alarm is
+//   still raised; "denied" drops it. A clear drops it too. At most one notice is held (the latest).
 // - `status` is written on the main queue only.
 //
 // DOES NOT: decide when silence is alarming (SilenceAlarmPolicy), decide audibility (the caller),
@@ -38,6 +41,8 @@ public final class SilenceAlarmMonitor: ObservableObject, @unchecked Sendable {
     private let tickInterval: TimeInterval
     private let queue = DispatchQueue(label: "ai.manbok.app.silence-alarm", qos: .utility)
     private var timer: DispatchSourceTimer?
+    private var authorizationPending = false
+    private var heldNotice: SilenceAlarmNotice?
     private var sessionsCancellable: AnyCancellable?
     private let log = AppLog(category: .capture)
 
@@ -90,8 +95,25 @@ public final class SilenceAlarmMonitor: ObservableObject, @unchecked Sendable {
         lock.lock()
         let wasEnabled = policy.config.enabled
         lock.unlock()
-        if config.enabled && !wasEnabled { notifier.requestAuthorization() }
+        if config.enabled && !wasEnabled {
+            lock.lock()
+            authorizationPending = true
+            lock.unlock()
+            notifier.requestAuthorization { [weak self] granted in self?.authorizationAnswered(granted) }
+        }
         apply(.config(config))
+    }
+
+    private func authorizationAnswered(_ granted: Bool) {
+        lock.lock()
+        defer { lock.unlock() }
+        authorizationPending = false
+        let held = heldNotice
+        heldNotice = nil
+        if granted, let held {
+            log.notice("notification authorization answered — posting held notice")
+            notifier.post(held)
+        }
     }
 
     private func apply(_ input: SilenceAlarmInput) {
@@ -104,10 +126,17 @@ public final class SilenceAlarmMonitor: ObservableObject, @unchecked Sendable {
             let (apps, device) = context()
             let seconds = policy.config.seconds
             log.notice("silent-mic alarm raised — \(apps.joined(separator: ", ")) on \(device), silent \(Int(silentFor)) s")
-            notifier.post(SilenceAlarmNotice(apps: apps, device: device, silentSeconds: seconds))
+            let notice = SilenceAlarmNotice(apps: apps, device: device, silentSeconds: seconds)
+            if authorizationPending {
+                heldNotice = notice
+                log.notice("notification held until authorization is answered")
+            } else {
+                notifier.post(notice)
+            }
             publish(SilenceAlarmStatus(device: device, seconds: seconds))
         case .clear(let reason):
             log.notice("silent-mic alarm cleared — \(reason.rawValue)")
+            heldNotice = nil
             notifier.withdraw()
             publish(nil)
         }
