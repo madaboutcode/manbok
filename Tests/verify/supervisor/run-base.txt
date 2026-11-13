@@ -1,0 +1,109 @@
+command: env MODEL_VARIANT=base node check.mjs supervisor.model.mjs --max-states 6000000 --max-mb 3000
+manbok CaptureSupervisor executor [base]
+covers  Sources/ManbokPlatform/Capture/CaptureSupervisor.swift apply() restart() startWorker() bytesFlowing() releaseWorkerKeepingFlowEvidence() abandonWorker() stop() · Sources/ManbokPlatform/Capture/CaptureRestartPolicy.swift · Sources/ManbokPlatform/Capture/SilenceRecoveryPolicy.swift   hand-mirrored: apply(), restart(), startWorker(), bytesFlowing(), releaseWorkerKeepingFlowEvidence(), abandonWorker(), stop(), Sources/ManbokPlatform/Capture/CaptureRestartPolicy.swift, Sources/ManbokPlatform/Capture/SilenceRecoveryPolicy.swift
+drift   no sync record yet (run --sync once the model matches the code)
+exploring: 19,473 states so far, depth 12
+exploring: 33,164 states so far, depth 17
+exploring: 46,158 states so far, depth 19
+exploring: 55,937 states so far, depth 20
+exploring: 66,107 states so far, depth 22
+exploring: 81,952 states so far, depth 25
+exploring: 95,705 states so far, depth 27
+exploring: 112,574 states so far, depth 29
+exploring: 123,017 states so far, depth 30
+exploring: 133,197 states so far, depth 30
+exploring: 144,216 states so far, depth 31
+exploring: 153,402 states so far, depth 32
+exploring: 167,450 states so far, depth 33
+exploring: 175,596 states so far, depth 34
+exploring: 189,905 states so far, depth 35
+exploring: 196,248 states so far, depth 36
+exploring: 201,399 states so far, depth 37
+exploring: 204,461 states so far, depth 38
+exploring: 216,189 states so far, depth 39
+exploring: 232,115 states so far, depth 41
+exploring: 242,479 states so far, depth 42
+exploring: 254,355 states so far, depth 43
+exploring: 268,140 states so far, depth 44
+exploring: 283,217 states so far, depth 45
+exploring: 293,054 states so far, depth 46
+exploring: 302,014 states so far, depth 47
+exploring: 312,304 states so far, depth 48
+exploring: 321,511 states so far, depth 48
+exploring: 334,063 states so far, depth 49
+exploring: 340,710 states so far, depth 50
+exploring: 349,456 states so far, depth 51
+exploring: 351,802 states so far, depth 51
+exploring: 360,389 states so far, depth 53
+exploring: 372,365 states so far, depth 55
+exploring: 378,621 states so far, depth 58
+holds   R1_run  after a poll the worker runs only if demand has a candidate device; with a candidate device it runs unless the start failed or the restart budget blocked the attempt (CaptureSupervisor CONTRACT: worker runs iff demand non-empty and some entry lists a device, subject to restart budget)
+holds   R2_healthyRestart  a start or restart made while bytes were flowing within watchdogThreshold does not grow the backoff (CaptureRestartPolicy CONTRACT: resets on any restart of a working engine)
+holds   R2m_micSwitch  ASSUMPTION (design-v2 A3: a healthy mic switch does not grow the backoff): a mic released for no device and restarted on a candidate no more than 1 poll(s) after the poll that last saw its bytes does not grow the backoff (K=1 means start at most ~4 s after the last byte)
+holds   R3_bounded  the restart delay never exceeds maxDelay (CaptureRestartPolicy CONTRACT: capped at maxDelay)
+holds   R3e_sustained  (off: set MODEL_SUSTAIN=1)
+holds   R4_stall  the stall watchdog never restarts a worker before watchdogThreshold has passed since its start and since its last byte (CaptureRestartPolicy CONTRACT: a fresh engine gets watchdogThreshold to produce its first byte)
+holds   R5_ladderOrder  the silence ladder moves armed, re-resolving, retrying, holding one step at a time, or back to armed; a ladder restart starts only from armed or re-resolving, and holdEntered only from retrying (SilenceRecoveryPolicy CONTRACT)
+holds   R5_ladderReset  a poll that sees real signal (no digital-silence run) or a demand/target change from outside the ladder leaves the ladder armed (SilenceRecoveryPolicy CONTRACT: evaluate with silentSince nil re-arms; noteExternalChange re-arms)
+breaks  R5_holdHealth  health is 'holding silent' only while a worker is capturing (CaptureWaist CONTRACT: holdingSilent = capturing, silence ladder exhausted)
+    1. app 1 holds the mic and lists mic 1
+    2. chunks arrive but are digital silence
+    3. poll tick (2 s pass, apply runs)
+    4. poll tick (2 s pass, apply runs)
+    5. poll tick (2 s pass, apply runs)
+    6. poll tick (2 s pass, apply runs)
+    7. poll tick (2 s pass, apply runs)
+    8. poll tick (2 s pass, apply runs)
+    9. poll tick (2 s pass, apply runs)
+    10. poll tick (2 s pass, apply runs)
+    11. poll tick (2 s pass, apply runs)
+    12. poll tick (2 s pass, apply runs)
+    13. poll tick (2 s pass, apply runs)
+    14. poll tick (2 s pass, apply runs)
+    15. poll tick (2 s pass, apply runs)
+    16. poll tick (2 s pass, apply runs)
+    17. poll tick (2 s pass, apply runs)
+    18. poll tick (2 s pass, apply runs)
+    19. poll tick (2 s pass, apply runs)
+    20. poll tick (2 s pass, apply runs)
+    21. a captureDisturbed signal arrives
+    22. poll tick (2 s pass, apply runs)
+    ends in: Idle
+breaks  R5_holdFlag  ASSUMPTION: the 'holding silent' flag is set only while the ladder is in holding (H7 in sm-inventory)
+    1. app 1 holds the mic and lists mic 1
+    2. chunks arrive but are digital silence
+    3. poll tick (2 s pass, apply runs)
+    4. poll tick (2 s pass, apply runs)
+    5. poll tick (2 s pass, apply runs)
+    6. poll tick (2 s pass, apply runs)
+    7. poll tick (2 s pass, apply runs)
+    8. poll tick (2 s pass, apply runs)
+    9. poll tick (2 s pass, apply runs)
+    10. poll tick (2 s pass, apply runs)
+    11. poll tick (2 s pass, apply runs)
+    12. poll tick (2 s pass, apply runs)
+    13. poll tick (2 s pass, apply runs)
+    14. poll tick (2 s pass, apply runs)
+    15. poll tick (2 s pass, apply runs)
+    16. poll tick (2 s pass, apply runs)
+    17. poll tick (2 s pass, apply runs)
+    18. poll tick (2 s pass, apply runs)
+    19. poll tick (2 s pass, apply runs)
+    20. poll tick (2 s pass, apply runs)
+    21. poll tick (2 s pass, apply runs)
+    22. app 1 holds the mic but no mic device is listed
+    23. poll tick (2 s pass, apply runs)
+    ends in: Released (evidence kept)
+holds   R6_lifetime  empty demand and stop() clear the carried byte-flow evidence, the restart budget, the ladder and the hold flag (design-v2 A3: lifetime; variant a3-leak)
+holds   R6b_noLeak  byte-flow evidence without a worker exists only between a release for no candidate device and the next start attempt
+holds   Rdefer  ASSUMPTION: with a candidate device and no start failure, the worker waits at most 99 poll(s) because of the restart budget
+holds   R8_noStorm  ASSUMPTION (CaptureRestartPolicy CONTRACT: 'no flap loop'): recovery restarts (stall, signal, silence) do not happen in more than 99 polls in a row
+holds   NoDeadlock  the system never gets stuck with nothing left to do
+holds   CanIdle  from any point, the worker can end up stopped
+bounds  pollUnits=20 watchdog=40 baseDelay=10 maxDelay=300 silence=100 mics=2 demandIds=1 restartCountSat=6 variant="base" restrict="none" switchMaxPolls=1 deferMax=99
+assumes  poll = 2 s; watchdogThreshold 4 s, baseDelay 1 s, maxDelay 30 s, silenceThreshold 10 s, maxSilentRestarts 2 (code defaults) · a signal arrives between polls and is consumed at the next apply; one pending signal is enough · a start can fail at any attempt (device busy) · the environment may change the app list, the chunk mode and signals at any time between polls
+not modeled  device choice: the resolved target (CaptureDevicePolicy tie-break) is a free input each poll, 2 mics · the demand reducer and sessions (other model); one app in demand, with 2 ids so an id change can occur · real chunk timing: each 2 s interval is one of four modes (flowing, digital silence, none, flowing then stops mid-interval); a chunk just before a poll has age 1 · stale chunks from a stopped worker (H4) · defaultInputChanged signal (inert in the code); the enum case restartInPlace (evaluate never returns it) · sleep/wake and wall-clock jumps (Date() is wall clock; no handler exists) · thread interleaving of stop() on the socket thread (EXPECTS says apply and stop are serialized) · health enum and log lines; only isHolding is kept · restart count saturates at 6 (delay is at maxDelay from 5)
+2 of 16 rules break · 380,358 states · depth 63 · 78.3 s
+exit 1
+exit code: 1
+elapsed: 78s

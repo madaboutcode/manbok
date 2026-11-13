@@ -1,0 +1,31 @@
+{
+  "commit": "889608f",
+  "syncedAt": "2026-11-13T03:41:00.378Z",
+  "covers": {
+    "Sources/ManbokPlatform/Capture/CaptureSupervisor.swift#apply": "5ab5f344",
+    "Sources/ManbokPlatform/Capture/CaptureSupervisor.swift#restart": "5ab5f344",
+    "Sources/ManbokPlatform/Capture/CaptureSupervisor.swift#startWorker": "5ab5f344",
+    "Sources/ManbokPlatform/Capture/CaptureSupervisor.swift#bytesFlowing": "5ab5f344",
+    "Sources/ManbokPlatform/Capture/CaptureSupervisor.swift#releaseWorkerKeepingFlowEvidence": "5ab5f344",
+    "Sources/ManbokPlatform/Capture/CaptureSupervisor.swift#abandonWorker": "5ab5f344",
+    "Sources/ManbokPlatform/Capture/CaptureSupervisor.swift#stop": "5ab5f344",
+    "Sources/ManbokPlatform/Capture/CaptureRestartPolicy.swift": "16b3b515",
+    "Sources/ManbokPlatform/Capture/SilenceRecoveryPolicy.swift": "850e40df"
+  },
+  "rules": {
+    "R1_run": "55792575",
+    "R2_healthyRestart": "1c3a333b",
+    "R2m_micSwitch": "ea7a5514",
+    "R3_bounded": "5a06f9ad",
+    "R3e_sustained": "894db5ee",
+    "R4_stall": "6f37c490",
+    "R5_ladderOrder": "47bf1978",
+    "R5_ladderReset": "45979545",
+    "R5_holdHealth": "e8efe116",
+    "R5_holdFlag": "233e32a8",
+    "R6_lifetime": "be8db0fc",
+    "R6b_noLeak": "7b839dbb",
+    "Rdefer": "8aa61c36",
+    "R8_noStorm": "e97a9682"
+  }
+}
