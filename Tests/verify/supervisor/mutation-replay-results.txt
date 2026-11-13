@@ -1,0 +1,51 @@
+Failing-first evidence for CaptureSupervisorReplayTests (19 tests).
+Method: one temporary edit of production code per mutant (listed), `swift test --skip AUHALWorkerIntegrationTests --skip CaptureE2ETests --filter CaptureSupervisorReplayTests`, then the edit is reverted (git status shows no change under Sources/).
+Unmutated code: 19 executed, 0 failures (see README, 'XCTest replays').
+
+== mutant clear-on-release
+edit: CaptureSupervisor.swift releaseWorkerKeepingFlowEvidence: add `lastDataAt = nil` (A3 evidence dropped on release)
+failing tests: M1_fastMicSwitchesDoNotGrowBackoff
+tests executed, failed assertions: ('19', '9')  AUHAL started: 0
+  error: -[ManbokPlatformTests.CaptureSupervisorReplayTests test_M1_fastMicSwitchesDoNotGrowBackoff] : XCTAssertTrue failed - M1 row 12: real (capturing, target, attempts, holding, deferred) = (capturing: false, target: 0, attempts:
+  error: -[ManbokPlatformTests.CaptureSupervisorReplayTests test_M1_fastMicSwitchesDoNotGrowBackoff] : XCTAssertTrue failed - M1 row 15: real (capturing, target, attempts, holding, deferred) = (capturing: false, target: 0, attempts:
+
+== mutant never-reset
+edit: CaptureRestartPolicy.swift recordRestart: `if lastRestartAt != nil, !wasFlowing` -> `if lastRestartAt != nil` (never reset on a healthy restart)
+failing tests: B2_failedStartAfterHoldKeepsHoldingSilentHealth, M1_fastMicSwitchesDoNotGrowBackoff, M2_liveSwitchesResetBackoff
+tests executed, failed assertions: ('19', '19')  AUHAL started: 0
+  error: -[ManbokPlatformTests.CaptureSupervisorReplayTests test_B2_failedStartAfterHoldKeepsHoldingSilentHealth] : XCTAssertTrue failed - B2 row 21: real (capturing, target, attempts, holding, deferred) = (capturing: false, target:
+  error: -[ManbokPlatformTests.CaptureSupervisorReplayTests test_M1_fastMicSwitchesDoNotGrowBackoff] : XCTAssertTrue failed - M1 row 12: real (capturing, target, attempts, holding, deferred) = (capturing: false, target: 0, attempts:
+
+== mutant stall-lastdata-only
+edit: CaptureRestartPolicy.swift isStalled: `max(lastDataAt ?? .distantPast, captureStartedAt)` -> `lastDataAt ?? .distantPast` (no grace for a fresh worker)
+failing tests: B3_backoffCountSurvivesLongHealthyRun, M3_freshWorkerGetsGraceBeforeStall, N4_stallWatchdogRestartsDeadWorker
+tests executed, failed assertions: ('19', '32')  AUHAL started: 0
+  error: -[ManbokPlatformTests.CaptureSupervisorReplayTests test_B3_backoffCountSurvivesLongHealthyRun] : XCTAssertTrue failed - B3 row 2: real (capturing, target, attempts, holding, deferred) = (capturing: true, target: 1, attempts
+  error: -[ManbokPlatformTests.CaptureSupervisorReplayTests test_B3_backoffCountSurvivesLongHealthyRun] : XCTAssertTrue failed - B3 row 3: real (capturing, target, attempts, holding, deferred) = (capturing: true, target: 1, attempts
+
+== mutant ladder-skip
+edit: SilenceRecoveryPolicy.swift noteRestart: armed -> `.retrying` instead of `.reResolving`
+failing tests: B2_failedStartAfterHoldKeepsHoldingSilentHealth, M4_silenceLadderStepsBeforeHold, N5_silenceLadderThenHold
+tests executed, failed assertions: ('19', '29')  AUHAL started: 0
+  error: -[ManbokPlatformTests.CaptureSupervisorReplayTests test_B2_failedStartAfterHoldKeepsHoldingSilentHealth] : XCTAssertTrue failed - B2 row 13: real (capturing, target, attempts, holding, deferred) = (capturing: true, target: 
+  error: -[ManbokPlatformTests.CaptureSupervisorReplayTests test_B2_failedStartAfterHoldKeepsHoldingSilentHealth] : XCTAssertTrue failed - B2 row 14: real (capturing, target, attempts, holding, deferred) = (capturing: true, target: 
+
+== mutant leak-empty
+edit: CaptureSupervisor.swift abandonWorker: drop `lastDataAt = nil`
+failing tests: NONE (mutant survives)
+tests executed, failed assertions: ('19', '0')  AUHAL started: 0
+
+== mutant gaphold
+edit: CaptureSupervisor.swift apply, target == nil branch: do not call releaseWorkerKeepingFlowEvidence() (worker kept)
+failing tests: B1_slowMicSwitchesGrowBackoffAndDeferFifthStart, M1_fastMicSwitchesDoNotGrowBackoff, M5_emptyDemandReleasesWorkerAndReturnStartsFresh, M6_noCandidateDeviceReleasesWorker, N7_releaseThenStart
+tests executed, failed assertions: ('19', '40')  AUHAL started: 0
+  error: -[ManbokPlatformTests.CaptureSupervisorReplayTests test_B1_slowMicSwitchesGrowBackoffAndDeferFifthStart] : XCTAssertTrue failed - B1 row 2: real (capturing, target, attempts, holding, deferred) = (capturing: true, target: 1
+  error: -[ManbokPlatformTests.CaptureSupervisorReplayTests test_B1_slowMicSwitchesGrowBackoffAndDeferFifthStart] : XCTAssertTrue failed - B1 row 3: real (capturing, target, attempts, holding, deferred) = (capturing: true, target: 1
+
+== mutant uncapped-delay
+edit: CaptureRestartPolicy.swift currentDelay: drop `min(..., maxDelay)`
+failing tests: M7_restartDelayIsCapped
+tests executed, failed assertions: ?  AUHAL started: 0
+  error: -[ManbokPlatformTests.CaptureSupervisorReplayTests test_M7_restartDelayIsCapped] : XCTAssertTrue failed - M7 row 32: real (capturing, target, attempts, holding, deferred) = (capturing: false, target: 0, attempts: 6, holding
+
+== mutant leak-empty against the existing CaptureSupervisorTests (15 tests): ('15', '0') -> survives there too. Behaviourally equivalent in the current code (see README, 'leak-empty').
