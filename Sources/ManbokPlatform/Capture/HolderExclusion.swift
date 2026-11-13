@@ -45,6 +45,9 @@ public struct HolderExclusion: Equatable, Sendable {
         "com.apple.SiriNCService",               // Siri notification center
         "com.apple.accessibility.heard",         // Live Listen (hearing aid feature)
         "com.apple.cmio.ContinuityCaptureAgent", // Continuity Camera agent
+        // ARK (Audio Routing Kit) system-audio routing agent for Rogue Amoeba apps. Lists no input
+        // device, so the holder rule ignores it anyway; kept as an explicit built-in.
+        "com.rogueamoeba.arkaudiod",
     ]
 
     private static let ignoredBundleIDPrefixes: [String] = [

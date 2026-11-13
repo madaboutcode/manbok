@@ -32,7 +32,12 @@ struct SessionListView: View {
                 }
             }
         }
-        .frame(maxHeight: 320)
+        // The list is the popover's only flexible zone: `PopoverContentView` pins
+        // the popup to `PopoverSizing.totalHeight`, the header and footer keep
+        // their laid-out heights, and this absorbs the remainder. An explicit
+        // height here would need a chrome constant that silently drifts from the
+        // real header/footer the day either is edited.
+        .frame(maxHeight: .infinity)
     }
 
     private struct DayGroup: Identifiable {

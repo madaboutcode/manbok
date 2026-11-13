@@ -52,3 +52,8 @@ macOS system processes that briefly touch the mic (e.g., System Settings → Sou
 - `com.apple.Sound-Settings.extension` — Sound settings input meter
 - `com.apple.systempreferences.*` — System Settings panels
 - `com.apple.audio.*` — Audio system helpers
+
+Infrastructure helpers that can hold `IsRunningInput=true` permanently are filtered by exact bundle ID in `HolderExclusion.alwaysOnBundleIDs` (formerly `ProcessAudioMonitor.alwaysOnProcesses`) (Siri/CoreSpeech, Continuity Camera, and Rogue Amoeba's ARK agent). These never open sessions or demand capture.
+
+- `com.rogueamoeba.arkaudiod` — ARK (Audio Routing Kit). It performs system-audio routing for Loopback/Audio Hijack and can report `IsRunningInput=true` with **no input device** indefinitely. Before this exclusion it kept Manbok's capture alive after the real recording app stopped (`pdv# gap — holding current capture` with no bound). Under the holder rule (a holder must list an input device, `IsRunningInput` is not read) arkaudiod lists no input device and would not trigger capture anyway.
+- **Attribution limitation:** HAL exposes no link from ARK's IO to the client app, so excluding it is all-or-nothing. An app whose microphone capture is performed *only* by ARK, without setting its own process's `IsRunningInput`, will not be tracked as a mic holder. Observed real apps (e.g. Pipit, `com.pxkan.pipit2`) set their own flag and remain tracked. Do not broaden this to a `com.rogueamoeba.*` prefix — that would also hide real Rogue Amoeba apps.

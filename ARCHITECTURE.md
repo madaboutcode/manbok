@@ -361,6 +361,20 @@ Reversal:     render overloads or silence gaps in real captures → move convers
               render thread (drain worker + lock-free ring), which subsumes buffer rotation
 ```
 
+**Mic-holder filtering (2026-10-19):** `HolderExclusion` (formerly a list in `ProcessAudioMonitor`) drops always-on
+infrastructure helpers by exact bundle ID. This includes
+`com.rogueamoeba.arkaudiod` (ARK / Audio Routing Kit), which can hold
+`IsRunningInput=true` indefinitely while exposing no input device (system-audio
+routing). Without the exclusion it creates permanent demand and capture stays held
+after the real recording app stops. Under the holder rule (a holder must list an input device) arkaudiod lists no input
+device and would not trigger capture anyway; the exclusion now lives in `HolderExclusion`.
+Under the holder rule (a holder must list an input device) arkaudiod lists no input
+device and would not trigger capture anyway; the exclusion now lives in `HolderExclusion`.
+**Limitation:** HAL attributes no consumer
+identity to ARK's IO, so an app that records only through ARK without setting its
+own `IsRunningInput` is not tracked; observed apps (e.g. Pipit) set their own
+flag. See `docs/claude-references/logging.md` §False Mic Sessions.
+
 **AVAudioConverter pull-API invariants (2026-07-08):** two capture-quality bugs (spliced
 "choppy/robotic" audio; periodic clicks) shipped from misusing the converter. The invariants
 are enforced in `CanonicalPCMConverter` + `AUHALWorker` and guarded by fractional-ratio
@@ -435,7 +449,8 @@ ManbokApp/                  # SwiftUI app target — no ArgumentParser
     PopoverViewModel.swift    # polls SessionRegistry at ~1 Hz while popover visible; ExportService wrapper
   Views/
     PopoverContentView, HeaderView, SessionListView, SessionRowView, WaveformView,
-    EmptyStateView, PermissionDeniedView, FooterView, SettingsView
+    EmptyStateView, PermissionDeniedView, FooterView, SettingsView,
+    PopoverSizing            # pure: popup height from the hosting screen's visibleFrame
 
 manbok/                     # CLI executable — thin IPC client
   CLI/
@@ -819,6 +834,14 @@ STOP                    → OK (app exits)
 - `init()` runs `MigrationService.runIfNeeded()`, builds `SettingsStore` → `SessionRegistry` (sized from the persisted preset) → `AVAudioCapture` → `CaptureOrchestrator` → `PopoverViewModel`, starts the IPC server against that same registry/orchestrator, then calls `orchestrator.start()`.
 - `init()` first calls `SingleInstance.claim()` (flock on `instance.lock`); if another instance holds the lock, this one PINGs it, logs, and exits before migration/restore/socket work. The lock is held for the process lifetime.
 - Menu bar icon reflects `micPermission`/`anySessionOpen` state (denied / recording / watching).
+- Popover sizing: the session-list state pins the popup to `PopoverSizing.totalHeight` — 66%
+  of the hosting screen's `visibleFrame` height, floored at 360 pt, capped at 680 pt, never
+  taller than `visibleFrame - 16 pt` (the available-space limit wins on short screens). The
+  hosting screen is read from the popover's own window (`HostingScreenReader`) and crosses into
+  the view as a height *value*, so a Dock or resolution change on the same `NSScreen` still
+  resizes the popover while an unchanged height does not re-lay it out. The header/footer keep
+  their laid-out heights and the session list is the only flexible zone, so no chrome constant
+  can drift.
 
 **DOES NOT:** Implement domain logic — it wires L2/L3 components together and hosts the IPC dispatch.
 
