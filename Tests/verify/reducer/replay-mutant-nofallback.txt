@@ -1,0 +1,26 @@
+mutant: nofallback
+file: Sources/ManbokCore/Application/DemandReducer.swift
+---- git diff of the temporary edit
+diff --git a/Sources/ManbokCore/Application/DemandReducer.swift b/Sources/ManbokCore/Application/DemandReducer.swift
+index 121262e..1bd8eae 100644
+--- a/Sources/ManbokCore/Application/DemandReducer.swift
++++ b/Sources/ManbokCore/Application/DemandReducer.swift
+@@ -193,7 +193,7 @@ public struct DemandReducer: Sendable {
+             case .holding(let arrivedAt, let pid, let devices):
+                 return DemandApp(appID: appID, pid: pid, arrivedAt: arrivedAt, devices: devices, isDraining: false)
+             case .draining(let arrivedAt, let pid, let kept, _):
+-                let candidates = anyHolderListsDevice ? [] : kept.intersection(live)
++                let candidates: Set<UInt32> = []
+                 return DemandApp(appID: appID, pid: pid, arrivedAt: arrivedAt, devices: candidates, isDraining: true)
+             }
+         }
+---- swift test --skip AUHALWorkerIntegrationTests --skip CaptureE2ETests --filter ReducerModel
+	 Executed 11 tests, with 4 failures (0 unexpected) in 0.212 (0.214) seconds
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.047 (0.047) seconds
+	 Executed 9 tests, with 4 failures (0 unexpected) in 0.165 (0.166) seconds
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:134: error: -[ManbokPlatformTests.ReducerModelReplayTests test_normalPath_holdDrainReclaimExpire] : XCTAssertTrue failed
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:159: error: -[ManbokPlatformTests.ReducerModelReplayTests test_P4_holderListedBlipWhileCaptureWasDown_getsSessionWhenCaptureComesUp] : XCTAssertTrue failed
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:160: error: -[ManbokPlatformTests.ReducerModelReplayTests test_P4_holderListedBlipWhileCaptureWasDown_getsSessionWhenCaptureComesUp] : XCTAssertEqual failed: ("[]") is not eq
+/private/tmp/manbok-T1081-fix/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:198: error: -[ManbokPlatformTests.ReducerModelReplayTests test_P1_listBlipKeepsCaptureOnKeptDevice] : XCTAssertTrue failed - the kept mic still exists: capture must not drop 
+AUHAL started count: 0
+---- restored: git status for Sources/ManbokCore/Application/DemandReducer.swift: []
