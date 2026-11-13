@@ -1,0 +1,19 @@
+{
+  "commit": "19bc2c8",
+  "syncedAt": "2026-11-13T06:26:04.306Z",
+  "covers": {
+    "Sources/ManbokPlatform/IO/StatePersistenceService.swift#save": "24dc6867",
+    "Sources/ManbokPlatform/IO/StatePersistenceService.swift#restore": "24dc6867",
+    "Sources/ManbokPlatform/IO/StatePersistenceService.swift#stage": "24dc6867",
+    "Sources/ManbokPlatform/Process/SingleInstance.swift#claim": "10b99471",
+    "Sources/ManbokPlatform/Process/SingleInstance.swift#acquire": "10b99471",
+    "Sources/ManbokPlatform/Runtime/AppShutdown.swift#perform": "25cb31e1"
+  },
+  "rules": {
+    "OneSave": "1b6d623b",
+    "Newest": "b3a22797",
+    "NoRegress": "150e765a",
+    "Q4Keep": "786d8935",
+    "SecondInstance": "01f24d24"
+  }
+}
