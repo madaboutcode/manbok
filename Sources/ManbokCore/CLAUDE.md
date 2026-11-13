@@ -26,7 +26,7 @@ ListenerService ───────────────┘ (legacy/debug)
 | `Domain/` | `AudioFormat`, `ByteRingBuffer`, `BufferPolicy`, `DumpRange`, `DumpSessionSelector`, `RingBufferSummary`, `SessionSummary` (+Display), `WaveformSampler`, `WavPCMEncoder`, `AppEvent` |
 | `Audio/` | `AudioActivitySnapshot`, `SpeechActivityDetector` |
 | `Ports/` | `AudioCapturing`, `DumpSink` |
-| `Application/` | `SessionRegistry`, `DemandReducer` (pure per-poll demand/session decision), `ListenerService` |
+| `Application/` | `SessionRegistry`, `DemandReducer` (pure per-poll demand/session decision), `SilenceAlarmPolicy` (pure silent-mic alarm rule + `SilenceAlarmConfig`), `ListenerService` |
 | `Persistence/` | `CheckpointManifest` — Codable manifest for quit/launch state persistence |
 | `IPC/` | `IPCCommand`, `IPCResponse` |
 

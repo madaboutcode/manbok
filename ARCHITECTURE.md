@@ -775,9 +775,19 @@ STOP                    → OK (app exits)
 
 **Responsibility:** Thin `UserDefaults`-backed store for user-configurable settings (buffer preset, start-at-login), published for SwiftUI binding.
 
-**GUARANTEES:** An unreadable/unrecognized stored preset falls back to `BufferPolicy.Preset.default` rather than crashing.
+**GUARANTEES:** An unreadable/unrecognized stored preset falls back to `BufferPolicy.Preset.default` rather than crashing. Also persists `silenceAlarmEnabled` (default false) and `silenceAlarmSeconds` (default 30; choices 10, 20, 30, 60, 120, 300) and forwards changes through `silenceAlarmDidChange`.
 
 **DOES NOT:** Resize the ring when `bufferPreset` changes (`SessionRegistry.resize`), or register/unregister login items when `startAtLogin` changes (`ManbokApp` wires that).
+
+---
+
+#### Silent-mic alarm (`SilenceAlarmPolicy`, `SilenceAlarmMonitor`)
+
+**Responsibility:** Tell the user when an app holds the mic but no audible chunk (`peak > 0`, the digital-silence watchdog's floor) has arrived for the configured time. Off by default.
+
+`SilenceAlarmPolicy` (Core, pure, `step(input, now)`) holds the rule: some session open AND no audible chunk for `duration`; the clock starts at the later of the sessions-open transition and the last audible chunk; missing chunks count as silence; one raise per silent stretch; clears on an audible chunk, when all sessions close, or when switched off. `SilenceAlarmMonitor` (Platform) feeds it from `CaptureSupervisor.onAudibleChunk`, `SessionLifecycleController.anySessionOpen` and `SettingsStore.silenceAlarmDidChange`, ticks every 2 s on its own timer, and acts on the result: a system notification through the `SilenceAlarmNotifying` port (`UserNotificationSilenceAlarmNotifier`; authorization is requested when the user switches the alarm on), a published `status` (menu-bar `mic.slash` icon and one popover line), and `.capture` log lines. It does not change the silence watchdog, session detection or app exclusions.
+
+**Limitation:** a muted device that still delivers a few LSB of noise is not detected (floor 0).
 
 ---
 

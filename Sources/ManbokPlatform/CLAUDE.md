@@ -18,7 +18,7 @@ Implements Core ports (`AudioCapturing`, `DumpSink`) and provides infrastructure
 
 | Folder | Role |
 |--------|------|
-| `Capture/` | `CaptureSupervisor` (device/restart policy, owns workers), `AUHALWorker` (device-pinned HAL capture; disposable, one start per instance), `CanonicalPCMConverter` (device-native → s16le 16 kHz mono; enforces the AVAudioConverter pull-API invariants — see ARCHITECTURE.md §Capture stack), `CaptureWaist`/`PinnedAudioCapturing` (worker boundary), `SessionLifecycleController` (poll + executor for `DemandReducer`), `CaptureDevicePolicy`, `CaptureRestartPolicy`, `SilenceRecoveryPolicy`, `AUHALEnvironmentSignals`/`EnvironmentSignals`, `AppIdentityCatalog` (bundle ID → {display name, icon bundle ID}, pure/unit-tested), `AppIdentityResolver`, `InputDeviceObserver`, `MicrophoneAuthorization` (+ `MicrophoneAuthorizing` async boundary; supervisor requests permission at first demand, never blocks the lifecycle queue), `ProcessAudioMonitor` (holder = `pdv#` input device, not `IsRunningInput`), `HolderExclusion` (`appGroup`, built-in + user exclusion predicate, Settings row builder) |
+| `Capture/` | `CaptureSupervisor` (device/restart policy, owns workers), `AUHALWorker` (device-pinned HAL capture; disposable, one start per instance), `CanonicalPCMConverter` (device-native → s16le 16 kHz mono; enforces the AVAudioConverter pull-API invariants — see ARCHITECTURE.md §Capture stack), `CaptureWaist`/`PinnedAudioCapturing` (worker boundary), `SessionLifecycleController` (poll + executor for `DemandReducer`), `CaptureDevicePolicy`, `CaptureRestartPolicy`, `SilenceRecoveryPolicy`, `AUHALEnvironmentSignals`/`EnvironmentSignals`, `AppIdentityCatalog` (bundle ID → {display name, icon bundle ID}, pure/unit-tested), `AppIdentityResolver`, `InputDeviceObserver`, `MicrophoneAuthorization` (+ `MicrophoneAuthorizing` async boundary; supervisor requests permission at first demand, never blocks the lifecycle queue), `ProcessAudioMonitor` (holder = `pdv#` input device, not `IsRunningInput`), `SilenceAlarmMonitor` (runs `SilenceAlarmPolicy`; fed by `CaptureSupervisor.onAudibleChunk` and the lifecycle's `anySessionOpen`; notifies, publishes `status`, logs), `HolderExclusion` (`appGroup`, built-in + user exclusion predicate, Settings row builder) |
 | `IPC/` | `UnixSocketServer`, `UnixSocketClient` |
 | `IO/` | `AppStatePaths`, `DumpPaths`, `WavFileWriter`, `PlatformDumpSink`, `ExportService` (Finder reveal + clipboard), `StatePersistenceService` (checkpoint save/restore/clear) |
 | `Settings/` | `SettingsStore` (UserDefaults persistence), `LoginItemManager` (SMAppService) |
@@ -26,7 +26,7 @@ Implements Core ports (`AudioCapturing`, `DumpSink`) and provides infrastructure
 | `Process/` | `DaemonProcess`, `SingleInstance` (flock launch guard) |
 | `Logging/` | `AppLog`, `Diagnostics`, `DiagnosticsWriting` |
 | `UI/` | `ActivityPresenting`, `TerminalCaptureMeter`, `TerminalPainter` (debug-only terminal UI) |
-| `External/` | `AudacityLauncher` |
+| `External/` | `AudacityLauncher`, `UserNotificationSilenceAlarmNotifier` (UNUserNotificationCenter; bundle-only, never constructed in tests) |
 
 ### Paths
 

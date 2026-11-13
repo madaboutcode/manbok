@@ -29,6 +29,7 @@ App entry point, MenuBarExtra popover, Settings window, PopoverViewModel, icon s
 - Views observe SessionLifecycleController (environmentObject) for icon/badge state
 - Settings window calls SessionRegistry.resize() directly (no IPC verb)
 - Settings "Apps" section: rows from `SessionLifecycleController.holdingNow` + `SettingsStore.excludedApps` + registry sessions (`ExclusionRows.build`); the Record toggle edits `excludedApps`, and `ManbokApp` forwards changes to `setExcludedGroups`. Built and source-read only; not viewed running.
+- Silent-mic alarm: `SilenceAlarmMonitor.status` drives the `mic.slash` menu-bar icon (above recording, below no-access) and one line under the popover header; Settings "Silent mic" section binds `SettingsStore.silenceAlarmEnabled`/`silenceAlarmSeconds`. Built and source-read only; not viewed running.
 - Popover width is fixed at 320 pt. The session-list state pins the window height via
   `PopoverSizing.totalHeight` off the *hosting* screen's `visibleFrame` (`NSScreen.main` is
   the wrong display for a `MenuBarExtra`), and `SessionListView` is the only flexible zone.

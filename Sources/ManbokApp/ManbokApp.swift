@@ -9,6 +9,7 @@ struct ManbokApp: App {
     @StateObject private var lifecycle: SessionLifecycleController
     @StateObject private var settings: SettingsStore
     @StateObject private var viewModel: PopoverViewModel
+    @StateObject private var silenceAlarm: SilenceAlarmMonitor
 
     private let registry: SessionRegistry
     /// Held for the process lifetime; the OS releases it on exit or crash.
@@ -58,14 +59,28 @@ struct ManbokApp: App {
         settingsStore.excludedAppsDidChange = { lifecycleController.setExcludedGroups($0) }
         let vm = PopoverViewModel(registry: reg, lifecycle: lifecycleController)
 
+        let alarm = SilenceAlarmMonitor(
+            config: settingsStore.silenceAlarm,
+            notifier: UserNotificationSilenceAlarmNotifier(),
+            context: {
+                (apps: reg.listSessions().filter(\.isOpen).map(\.displayName),
+                 // No worker runs while capture is deferred (no permission or no candidate device).
+                 device: supervisor.boundDeviceName ?? "the mic")
+            })
+        supervisor.onAudibleChunk = { alarm.audibleChunk() }
+        settingsStore.silenceAlarmDidChange = { alarm.configure($0) }
+        alarm.bind(sessionsOpen: lifecycleController.$anySessionOpen)
+
         self.registry = reg
         _lifecycle = StateObject(wrappedValue: lifecycleController)
         _settings = StateObject(wrappedValue: settingsStore)
         _viewModel = StateObject(wrappedValue: vm)
+        _silenceAlarm = StateObject(wrappedValue: alarm)
 
         startIPCServer(registry: reg, lifecycle: lifecycleController, supervisor: supervisor, instanceLock: instanceLock)
         supervisor.start()
         lifecycleController.start()
+        alarm.start()
         supervisor.requestPermissionIfNeeded()
 
         appDelegate.performShutdown = {
@@ -92,10 +107,12 @@ struct ManbokApp: App {
                 .environmentObject(lifecycle)
                 .environmentObject(settings)
                 .environmentObject(viewModel)
+                .environmentObject(silenceAlarm)
         } label: {
             MenuBarIcon(
                 anySessionOpen: lifecycle.anySessionOpen,
-                micPermission: lifecycle.micPermission
+                micPermission: lifecycle.micPermission,
+                silentMicAlarm: silenceAlarm.status != nil
             )
         }
         .menuBarExtraStyle(.window)
@@ -234,6 +251,7 @@ struct ManbokApp: App {
 struct MenuBarIcon: View {
     let anySessionOpen: Bool
     let micPermission: MicPermissionState
+    let silentMicAlarm: Bool
 
     var body: some View {
         image
@@ -243,6 +261,9 @@ struct MenuBarIcon: View {
     private var image: some View {
         if micPermission == .denied {
             loadIcon("ear-noaccess", template: false)
+        } else if silentMicAlarm {
+            Image(systemName: "mic.slash")
+                .foregroundStyle(.orange)
         } else if anySessionOpen {
             loadIcon("ear-recording", template: true)
                 .foregroundStyle(.red)

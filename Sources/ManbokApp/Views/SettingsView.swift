@@ -23,6 +23,8 @@ struct SettingsView: View {
             Rectangle().fill(Theme.line).frame(height: 1)
             appsSection
             Rectangle().fill(Theme.line).frame(height: 1)
+            silenceAlarmSection
+            Rectangle().fill(Theme.line).frame(height: 1)
             loginSection
         }
         .padding(20)
@@ -148,6 +150,44 @@ struct SettingsView: View {
         var excluded = settings.excludedApps
         if recording { excluded.remove(group) } else { excluded.insert(group) }
         settings.excludedApps = excluded
+    }
+
+    private var silenceAlarmSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            MicroLabel(text: "Silent mic")
+
+            Toggle(isOn: $settings.silenceAlarmEnabled) {
+                Text("Alert me when the mic is silent")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.cream)
+            }
+            .toggleStyle(ThemedCheckboxToggleStyle())
+
+            HStack(spacing: 8) {
+                Text("After")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.creamDim)
+                Picker("After", selection: $settings.silenceAlarmSeconds) {
+                    ForEach(SilenceAlarmConfig.durationChoices, id: \.self) { seconds in
+                        Text(durationLabel(seconds)).tag(seconds)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
+                .disabled(!settings.silenceAlarmEnabled)
+            }
+
+            Text("Shows a notification when an app is using the mic but it delivers only silence for this long. A muted mic or a stalled device looks like this.")
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.creamDim)
+                .fixedSize(horizontal: false, vertical: true)
+                .lineSpacing(2)
+        }
+    }
+
+    private func durationLabel(_ seconds: Int) -> String {
+        seconds < 60 ? "\(seconds) seconds" : "\(seconds / 60) minute\(seconds == 60 ? "" : "s")"
     }
 
     private var loginSection: some View {
