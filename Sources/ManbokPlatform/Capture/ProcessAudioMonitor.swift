@@ -6,7 +6,9 @@ import os
 //
 // GUARANTEES:
 // - otherInputProcesses() returns all HAL audio processes with IsRunningInput=true, excluding own PID
-//   and known always-on system processes that permanently hold the mic (alwaysOnProcesses).
+//   and known always-on infrastructure processes that permanently hold the mic (alwaysOnProcesses).
+//   Exclusion in alwaysOnProcesses is by exact bundle ID only; ignoredBundleIDPrefixes
+//   applies prefix matching separately. HAL exposes no attribution from helper to client app.
 // - appName(for:) resolves bundle IDs to human-readable names.
 // - All CoreAudio reads are non-destructive (no engine stop required).
 // - deviceIDs: read per process object via kAudioProcessPropertyDevices at snapshot time,
@@ -73,6 +75,10 @@ public final class ProcessAudioMonitor {
         "com.apple.SiriNCService",               // Siri notification center
         "com.apple.accessibility.heard",         // Live Listen (hearing aid feature)
         "com.apple.cmio.ContinuityCaptureAgent", // Continuity Camera agent
+        // ARK (Audio Routing Kit) agent performs system-audio routing for Rogue Amoeba apps;
+        // it can hold IsRunningInput=true indefinitely while exposing no input device. HAL gives
+        // no client identity, so an app recording only through ARK is untracked (see logging.md).
+        "com.rogueamoeba.arkaudiod",
     ]
 
     private static let ignoredBundleIDPrefixes: [String] = [

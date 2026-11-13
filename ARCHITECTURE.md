@@ -355,6 +355,16 @@ Reversal:     render overloads or silence gaps in real captures → move convers
               render thread (drain worker + lock-free ring), which subsumes buffer rotation
 ```
 
+**Mic-holder filtering (2026-10-19):** `ProcessAudioMonitor` drops always-on
+infrastructure helpers by exact bundle ID before reading devices. This includes
+`com.rogueamoeba.arkaudiod` (ARK / Audio Routing Kit), which can hold
+`IsRunningInput=true` indefinitely while exposing no input device (system-audio
+routing). Without the exclusion it creates permanent demand and capture stays held
+after the real recording app stops. **Limitation:** HAL attributes no consumer
+identity to ARK's IO, so an app that records only through ARK without setting its
+own `IsRunningInput` is not tracked; observed apps (e.g. Pipit) set their own
+flag. See `docs/claude-references/logging.md` §False Mic Sessions.
+
 **AVAudioConverter pull-API invariants (2026-07-08):** two capture-quality bugs (spliced
 "choppy/robotic" audio; periodic clicks) shipped from misusing the converter. The invariants
 are enforced in `CanonicalPCMConverter` + `AUHALWorker` and guarded by fractional-ratio
