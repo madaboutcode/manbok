@@ -368,8 +368,6 @@ infrastructure helpers by exact bundle ID. This includes
 routing). Without the exclusion it creates permanent demand and capture stays held
 after the real recording app stops. Under the holder rule (a holder must list an input device) arkaudiod lists no input
 device and would not trigger capture anyway; the exclusion now lives in `HolderExclusion`.
-Under the holder rule (a holder must list an input device) arkaudiod lists no input
-device and would not trigger capture anyway; the exclusion now lives in `HolderExclusion`.
 **Limitation:** HAL attributes no consumer
 identity to ARK's IO, so an app that records only through ARK without setting its
 own `IsRunningInput` is not tracked; observed apps (e.g. Pipit) set their own
