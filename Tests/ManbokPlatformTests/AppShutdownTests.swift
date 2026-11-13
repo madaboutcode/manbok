@@ -14,15 +14,15 @@ private final class StartableWorker: PinnedAudioCapturing {
 }
 
 final class AppShutdownTests: XCTestCase {
-    private let app = AudioProcessInfo(pid: 4242, bundleID: "com.test.app", isRunningInput: true, deviceIDs: [77])
+    private let app = HolderObservation(appID: "com.test.app", pid: 4242, inputDevices: [77])
 
     private func makeStack(worker: PinnedAudioCapturing) -> (SessionLifecycleController, CaptureSupervisor, SessionRegistry) {
         let registry = SessionRegistry(ringCapacity: BufferPolicy.capacityBytes(for: .min5))
-        let snapshot = { [app] in [app] }
+        let snapshot = { [app] in HolderSnapshot(holders: [app], liveInputDevices: [77]) }
         let supervisor = CaptureSupervisor(
-            makeWorker: { worker }, processSnapshot: snapshot, signals: NoSignals(), appendSink: { registry.append($0) })
+            makeWorker: { worker }, signals: NoSignals(), appendSink: { registry.append($0) })
         let lifecycle = SessionLifecycleController(
-            supervisor: supervisor, registry: registry, processSnapshot: snapshot,
+            supervisor: supervisor, registry: registry, holderSnapshot: snapshot,
             permission: { .authorized }, pollInterval: 0.1, gracePeriod: 0.3)
         supervisor.start()
         lifecycle.start()

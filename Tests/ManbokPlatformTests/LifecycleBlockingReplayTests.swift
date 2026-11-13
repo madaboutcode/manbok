@@ -30,13 +30,13 @@ final class NoSignals: EnvironmentSignaling {
 final class LifecycleBlockingReplayTests: XCTestCase {
     func test_stopReturnsPromptlyWhileMicPermissionPromptIsOpen() {
         let worker = BlockingStartWorker()
-        let app = AudioProcessInfo(pid: 4242, bundleID: "com.test.app", isRunningInput: true, deviceIDs: [77])
+        let app = HolderObservation(appID: "com.test.app", pid: 4242, inputDevices: [77])
         let registry = SessionRegistry(ringCapacity: BufferPolicy.capacityBytes(for: .min5))
         let supervisor = CaptureSupervisor(
-            makeWorker: { worker }, processSnapshot: { [app] in [app] },
+            makeWorker: { worker },
             signals: NoSignals(), appendSink: { registry.append($0) })
         let lifecycle = SessionLifecycleController(
-            supervisor: supervisor, registry: registry, processSnapshot: { [app] in [app] },
+            supervisor: supervisor, registry: registry, holderSnapshot: { [app] in HolderSnapshot(holders: [app], liveInputDevices: [77]) },
             permission: { .authorized }, pollInterval: 0.1, gracePeriod: 0.3)
         supervisor.start()
         lifecycle.start()
