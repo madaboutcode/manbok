@@ -80,8 +80,8 @@ enum ReplayExpected {
         (true, 1, 1, false, false),
         (false, 0, 1, false, false),
     ]
-    static let B1_fourSlowSwitchesDeferFifth_steps: [String] = ["list:1:1", "poll", "list:1:0", "poll", "poll", "list:1:1", "poll", "list:1:0", "poll", "poll", "list:1:1", "poll", "list:1:0", "poll", "poll", "list:1:1", "poll", "list:1:0", "poll", "list:1:1", "poll", "poll", "poll", "poll"]
-    static let B1_fourSlowSwitchesDeferFifth: [Row] = [
+    static let N10_fourSlowSwitchesStartWithoutDelay_steps: [String] = ["list:1:1", "poll", "list:1:0", "poll", "poll", "list:1:1", "poll", "list:1:0", "poll", "poll", "list:1:1", "poll", "list:1:0", "poll", "poll", "list:1:1", "poll", "list:1:0", "poll", "list:1:1", "poll", "poll", "poll", "poll"]
+    static let N10_fourSlowSwitchesStartWithoutDelay: [Row] = [
         (true, 1, 1, false, false),
         (false, 0, 1, false, true),
         (false, 0, 1, false, true),
@@ -93,10 +93,32 @@ enum ReplayExpected {
         (false, 0, 3, false, true),
         (true, 1, 4, false, false),
         (false, 0, 4, false, true),
-        (false, 0, 4, false, false),
-        (false, 0, 4, false, false),
         (true, 1, 5, false, false),
         (true, 1, 5, false, false),
+        (true, 1, 5, false, false),
+        (true, 1, 5, false, false),
+    ]
+    static let M8_flowValueIsConsumedOnce_steps: [String] = ["list:1:1", "poll", "poll", "list:1:0", "poll", "list:1:1", "poll!", "poll", "mode:N", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll"]
+    static let M8_flowValueIsConsumedOnce: [Row] = [
+        (true, 1, 1, false, false),
+        (true, 1, 1, false, false),
+        (false, 0, 1, false, true),
+        (false, 0, 2, false, false),
+        (true, 1, 3, false, false),
+        (true, 1, 3, false, false),
+        (true, 1, 4, false, false),
+        (true, 1, 4, false, false),
+        (true, 1, 4, false, false),
+        (true, 1, 4, false, false),
+        (true, 1, 5, false, false),
+        (true, 1, 5, false, false),
+        (true, 1, 5, false, false),
+        (true, 1, 5, false, false),
+        (true, 1, 5, false, false),
+        (true, 1, 5, false, false),
+        (true, 1, 5, false, false),
+        (true, 1, 5, false, false),
+        (true, 1, 6, false, false),
     ]
     static let B2_holdThenStartFailure_steps: [String] = ["list:1:1", "mode:S", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "poll", "signal", "poll!", "poll"]
     static let B2_holdThenStartFailure: [Row] = [

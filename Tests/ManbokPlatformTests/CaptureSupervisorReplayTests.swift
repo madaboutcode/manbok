@@ -48,6 +48,17 @@ private final class SilentDiagnostics: DiagnosticsWriting, @unchecked Sendable {
     func debug(category: AppLog.Category, _ message: String) {}
 }
 
+private final class NoticeRecorder: DiagnosticsWriting, @unchecked Sendable {
+    private let lock = NSLock()
+    private var lines: [String] = []
+    var notices: [String] { lock.lock(); defer { lock.unlock() }; return lines }
+    func notice(category: AppLog.Category, _ message: String) { lock.lock(); lines.append(message); lock.unlock() }
+    func info(category: AppLog.Category, _ message: String) {}
+    func warning(category: AppLog.Category, _ message: String) {}
+    func error(category: AppLog.Category, _ message: String) {}
+    func debug(category: AppLog.Category, _ message: String) {}
+}
+
 /// Interprets the scenario tokens of replay.mjs: list:<app>:<mic> | empty | mode:F|S|N|FN | signal | poll | poll! | stop.
 private final class SupervisorReplay {
     typealias Row = ReplayExpected.Row
@@ -160,19 +171,21 @@ final class CaptureSupervisorReplayTests: XCTestCase {
     func test_N7_releaseThenStart() { assertReplay("N7", ReplayExpected.N7_releaseThenStart_steps, ReplayExpected.N7_releaseThenStart) }
     func test_N8_startFailuresBackOff() { assertReplay("N8", ReplayExpected.N8_startFailureBackoff_steps, ReplayExpected.N8_startFailureBackoff) }
     func test_N9_stopReleasesWorker() { assertReplay("N9", ReplayExpected.N9_stop_steps, ReplayExpected.N9_stop) }
+    /// Slow rule: four mic switches that each take more than 4 s from the last byte to the new start; bytes were flowing when
+    /// each worker ended, so the fifth start is not delayed (before the fix it waited two extra polls).
+    func test_N10_slowMicSwitchesDoNotGrowBackoff() { assertReplay("N10", ReplayExpected.N10_fourSlowSwitchesStartWithoutDelay_steps, ReplayExpected.N10_fourSlowSwitchesStartWithoutDelay) }
 
     // MARK: break paths on the current code (model findings; the expected rows describe today's behaviour)
 
-    /// Four mic switches that each take more than 4 s from the last byte: the fifth capture start waits two extra polls.
-    func test_B1_slowMicSwitchesGrowBackoffAndDeferFifthStart() { assertReplay("B1", ReplayExpected.B1_fourSlowSwitchesDeferFifth_steps, ReplayExpected.B1_fourSlowSwitchesDeferFifth) }
     /// A failed start after the silence ladder gave up leaves health at holdingSilent with no worker (rule R5_holdHealth).
     func test_B2_failedStartAfterHoldKeepsHoldingSilentHealth() { assertReplay("B2", ReplayExpected.B2_holdThenStartFailure_steps, ReplayExpected.B2_holdThenStartFailure) }
     func test_B3_backoffCountSurvivesLongHealthyRun() { assertReplay("B3", ReplayExpected.B3_staleBackoffAfterLongFlow_steps, ReplayExpected.B3_staleBackoffAfterLongFlow) }
-
     // MARK: mutant counterexamples (fail when the matching fix is removed from production code)
 
-    /// A3: a release for "no candidate device" keeps lastDataAt. Fix removed (clear on release): fast switches grow the backoff.
+    /// A worker's end records whether bytes were flowing. Fix removed (release records "not flowing"): switches grow the backoff.
     func test_M1_fastMicSwitchesDoNotGrowBackoff() { assertReplay("M1", ReplayExpected.M1_fastSwitchesKeepBackoffLow_steps, ReplayExpected.M1_fastSwitchesKeepBackoffLow) }
+    /// The recorded value is read once by the next start. Fix removed (not cleared): a start after a failed start reuses it.
+    func test_M8_flowValueIsConsumedOnce() { assertReplay("M8", ReplayExpected.M8_flowValueIsConsumedOnce_steps, ReplayExpected.M8_flowValueIsConsumedOnce) }
     /// CaptureRestartPolicy.recordRestart resets the count on a restart of a flowing worker.
     func test_M2_liveSwitchesResetBackoff() { assertReplay("M2", ReplayExpected.M2_liveSwitchesResetBackoff_steps, ReplayExpected.M2_liveSwitchesResetBackoff) }
     /// CaptureRestartPolicy.isStalled counts the capture start as evidence.

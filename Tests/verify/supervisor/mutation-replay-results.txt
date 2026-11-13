@@ -49,3 +49,8 @@ tests executed, failed assertions: ?  AUHAL started: 0
   error: -[ManbokPlatformTests.CaptureSupervisorReplayTests test_M7_restartDelayIsCapped] : XCTAssertTrue failed - M7 row 32: real (capturing, target, attempts, holding, deferred) = (capturing: false, target: 0, attempts: 6, holding
 
 == mutant leak-empty against the existing CaptureSupervisorTests (15 tests): ('15', '0') -> survives there too. Behaviourally equivalent in the current code (see README, 'leak-empty').
+
+== FIX-A: Slow fix (wasFlowing recorded when a worker ends, consumed once by the next start)
+Old code = CaptureSupervisor.swift at 4f7ba59 (A3 lastDataAt carry, start evaluates byte age), restored afterwards. Full output: ../reducer/replay-mutant-oldslow.txt.
+Result with the old code, full suite 318 tests: 3 failed assertions in 2 tests: CaptureSupervisorReplayTests.test_N10_slowMicSwitchesDoNotGrowBackoff (rows 12, 13: the fifth start is two polls late) and ReducerModelBudgetReplayTests.test_Slow_switchRestartedAfter4sOfLastByte_doesNotGrowBackoff. AUHAL started: 0.
+Mutant not-consumed (production edit: delete the line `wasFlowingAtLastEnd = false` in startWorker, so the value is not cleared by a start): CaptureSupervisorReplayTests.test_M8_flowValueIsConsumedOnce fails (rows 9-19; 1 test of 22 fails). Raw: /tmp/fixa-notcons.log (AUHAL started: 0). Code restored afterwards. Model: m-not-consumed breaks R2c_carry and R6b_noLeak (run-m-not-consumed.txt).

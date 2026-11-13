@@ -1,0 +1,28 @@
+command: env MODEL_VARIANT=base MODEL_RESTRICT=switch MODEL_DEFER_MAX=0 node check.mjs supervisor.model.mjs --max-states 6000000 --max-mb 3000
+manbok CaptureSupervisor executor [base]
+covers  Sources/ManbokPlatform/Capture/CaptureSupervisor.swift apply() restart() startWorker() recordWorkerEnd() releaseWorker() abandonWorker() stop() · Sources/ManbokPlatform/Capture/CaptureRestartPolicy.swift · Sources/ManbokPlatform/Capture/SilenceRecoveryPolicy.swift   hand-mirrored: apply(), restart(), startWorker(), recordWorkerEnd(), releaseWorker(), abandonWorker(), stop(), Sources/ManbokPlatform/Capture/CaptureRestartPolicy.swift, Sources/ManbokPlatform/Capture/SilenceRecoveryPolicy.swift
+drift   apply() changed since sync (hash 5ab5 → 29d4); restart() changed since sync (hash 5ab5 → 29d4); startWorker() changed since sync (hash 5ab5 → 29d4); recordWorkerEnd() changed since sync (hash new → 29d4); releaseWorker() changed since sync (hash new → 29d4); abandonWorker() changed since sync (hash 5ab5 → 29d4); stop() changed since sync (hash 5ab5 → 29d4)   rule text changed: R2m_micSwitch, R6_lifetime, R6b_noLeak, Rdefer, R2c_carry
+holds   R1_run  after a poll the worker runs only if demand has a candidate device; with a candidate device it runs unless the start failed or the restart budget blocked the attempt (CaptureSupervisor CONTRACT: worker runs iff demand non-empty and some entry lists a device, subject to restart budget)
+holds   R2_healthyRestart  a start or restart made while bytes were flowing within watchdogThreshold does not grow the backoff (CaptureRestartPolicy CONTRACT: resets on any restart of a working engine)
+holds   R2m_micSwitch  design-v2 A3 + advisor round 9 (Slow): a mic released for no device while bytes were flowing, then started on a candidate after ANY gap (no cap), does not grow the backoff
+holds   R2c_carry  ASSUMPTION: a start uses exactly the wasFlowing value recorded when the previous worker ended, once: a start after a failed start sees no older value
+holds   R3_bounded  the restart delay never exceeds maxDelay (CaptureRestartPolicy CONTRACT: capped at maxDelay)
+holds   R3e_sustained  (off: set MODEL_SUSTAIN=1)
+holds   R4_stall  the stall watchdog never restarts a worker before watchdogThreshold has passed since its start and since its last byte (CaptureRestartPolicy CONTRACT: a fresh engine gets watchdogThreshold to produce its first byte)
+holds   R5_ladderOrder  the silence ladder moves armed, re-resolving, retrying, holding one step at a time, or back to armed; a ladder restart starts only from armed or re-resolving, and holdEntered only from retrying (SilenceRecoveryPolicy CONTRACT)
+holds   R5_ladderReset  a poll that sees real signal (no digital-silence run) or a demand/target change from outside the ladder leaves the ladder armed (SilenceRecoveryPolicy CONTRACT: evaluate with silentSince nil re-arms; noteExternalChange re-arms)
+holds   R5_holdHealth  health is 'holding silent' only while a worker is capturing (CaptureWaist CONTRACT: holdingSilent = capturing, silence ladder exhausted)
+holds   R5_holdFlag  ASSUMPTION: the 'holding silent' flag is set only while the ladder is in holding (H7 in sm-inventory)
+holds   R6_lifetime  empty demand and stop() clear the byte clock, the restart budget, the ladder and the hold flag
+holds   R6b_noLeak  the recorded wasFlowing value exists only between a worker end and the next start attempt: it is cleared while a worker runs
+holds   Rdefer  ASSUMPTION: with a candidate device and no start failure, the worker waits at most 0 poll(s) because of the restart budget
+holds   R8_noStorm  ASSUMPTION (CaptureRestartPolicy CONTRACT: 'no flap loop'): recovery restarts (stall, signal, silence) do not happen in more than 99 polls in a row
+holds   NoDeadlock  the system never gets stuck with nothing left to do
+holds   CanIdle  from any point, the worker can end up stopped
+bounds  pollUnits=20 watchdog=40 baseDelay=10 maxDelay=300 silence=100 mics=2 demandIds=1 restartCountSat=6 variant="base" restrict="switch" deferMax=0
+assumes  poll = 2 s; watchdogThreshold 4 s, baseDelay 1 s, maxDelay 30 s, silenceThreshold 10 s, maxSilentRestarts 2 (code defaults) · a signal arrives between polls and is consumed at the next apply; one pending signal is enough · a start can fail at any attempt (device busy) · the environment may change the app list, the chunk mode and signals at any time between polls
+not modeled  device choice: the resolved target (CaptureDevicePolicy tie-break) is a free input each poll, 2 mics · the demand reducer and sessions (other model); one app in demand, with 2 ids so an id change can occur · real chunk timing: each 2 s interval is one of four modes (flowing, digital silence, none, flowing then stops mid-interval); a chunk just before a poll has age 1 · stale chunks from a stopped worker (H4) · defaultInputChanged signal (inert in the code); the enum case restartInPlace (evaluate never returns it) · sleep/wake and wall-clock jumps (Date() is wall clock; no handler exists) · thread interleaving of stop() on the socket thread (EXPECTS says apply and stop are serialized) · health enum and log lines; only isHolding is kept · restart count saturates at 6 (delay is at maxDelay from 5)
+17 rules hold · 110 states · depth 9 · 0.0 s
+exit 0
+exit code: 0
+elapsed: 0s

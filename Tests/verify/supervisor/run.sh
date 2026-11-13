@@ -20,11 +20,8 @@ if [[ "$1" == "all" ]]; then
   one sustain-scaled MODEL_VARIANT=base MODEL_SUSTAIN=1 MODEL_MAX=60
   one storm4 MODEL_VARIANT=base MODEL_RECOV_MAX=4
   one switch-only MODEL_VARIANT=base MODEL_RESTRICT=switch
-  one switch-only-k2 MODEL_VARIANT=base MODEL_RESTRICT=switch MODEL_SWITCH_MAX=2
-  one switch-only-defer12 MODEL_VARIANT=base MODEL_RESTRICT=switch MODEL_DEFER_MAX=12
-  one switch-only-defer13 MODEL_VARIANT=base MODEL_RESTRICT=switch MODEL_DEFER_MAX=13
-  one switch-only-defer14 MODEL_VARIANT=base MODEL_RESTRICT=switch MODEL_DEFER_MAX=14
-  for v in m-clear-on-release m-never-reset m-stall-lastdata-only m-ladder-skip m-leak-empty m-gaphold m-uncapped-delay; do
+  one switch-only-defer0 MODEL_VARIANT=base MODEL_RESTRICT=switch MODEL_DEFER_MAX=0
+  for v in m-clear-on-release m-not-consumed m-never-reset m-stall-lastdata-only m-ladder-skip m-leak-empty m-gaphold m-uncapped-delay; do
     one $v MODEL_VARIANT=$v
   done
 else

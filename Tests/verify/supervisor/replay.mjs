@@ -14,11 +14,13 @@ export const scenarios = {
   N8_startFailureBackoff: ["list:1:1", "poll!", "poll!", "poll!", "poll!", "poll!", "poll!", "poll"],
   N9_stop: ["list:1:1", "poll", "poll", "stop"],
   // Break-path replays (a model rule fails on the same steps, see README)
-  B1_fourSlowSwitchesDeferFifth: ["list:1:1", "poll",
+  N10_fourSlowSwitchesStartWithoutDelay: ["list:1:1", "poll",
     "list:1:0", "poll", "poll", "list:1:1", "poll",
     "list:1:0", "poll", "poll", "list:1:1", "poll",
     "list:1:0", "poll", "poll", "list:1:1", "poll",
     "list:1:0", "poll", "list:1:1", "poll", "poll", "poll", "poll"],
+  // Chunks flow, mic released, then the next start throws twice and succeeds: the second attempt must not inherit the first release's value.
+  M8_flowValueIsConsumedOnce: ["list:1:1", "poll", "poll", "list:1:0", "poll", "list:1:1", "poll!", "poll", "mode:N", ...Array(14).fill("poll")],
   B2_holdThenStartFailure: ["list:1:1", "mode:S", ...Array(19).fill("poll"), "signal", "poll!", "poll"],
   // Mutant-discriminating replays: the rows differ between the base model and the named mutant model
   // (see README, "mutant -> rule -> replay"). Each fails on the real code when the matching fix is removed.

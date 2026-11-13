@@ -1,12 +1,11 @@
 // Order model of manbok's CaptureSupervisor executor (T1081 V1-supmodel), mirrored by hand.
 // Composition: restart budget (CaptureRestartPolicy), silence ladder (SilenceRecoveryPolicy), stall watchdog,
-// environment-signal mailbox, A3 lastDataAt carry across a no-device release, with a fake worker.
+// environment-signal mailbox, and the wasFlowing value recorded when a worker ends and consumed once by the next start (FIX-A), with a fake worker.
 //
 // Env switches (read at load):
-//   MODEL_VARIANT     base | m-clear-on-release | m-never-reset | m-stall-lastdata-only | m-ladder-skip |
+//   MODEL_VARIANT     base | m-clear-on-release (release records "not flowing") | m-not-consumed (a start does not clear
+//                     the recorded value) | m-never-reset | m-stall-lastdata-only | m-ladder-skip |
 //                     m-leak-empty | m-gaphold | m-uncapped-delay
-//   MODEL_SWITCH_MAX  polls. Rule R2m: a flowing mic released for no device and restarted within N polls of the
-//                     release does not grow the backoff (default 1)
 //   MODEL_RESTRICT    "switch": only app-list changes, chunks always flow, no start failure, no signals
 //   MODEL_DEFER_MAX   Rdefer bound: polls a candidate device may wait on the restart budget (default 99 = off)
 //   MODEL_SUSTAIN     1: track sustained flow (rule R3e)
@@ -17,7 +16,6 @@
 // before the poll" has age 1 (epsilon). Ages are stored relative to "now" and capped at the largest value the
 // code compares them with, so the state space is finite without a depth limit.
 const VARIANT = process.env.MODEL_VARIANT ?? "base";
-const SWITCH_MAX = +(process.env.MODEL_SWITCH_MAX ?? 1);
 const RESTRICT = process.env.MODEL_RESTRICT === "switch";
 const DEFER_MAX = +(process.env.MODEL_DEFER_MAX ?? 99);
 const SUSTAIN = process.env.MODEL_SUSTAIN === "1";
@@ -29,7 +27,7 @@ const SIL = +(process.env.MODEL_SIL ?? 100);
 const SRC = "Sources/ManbokPlatform/Capture/";
 const SUSTAIN_POLLS = Math.ceil(MAXD / P);
 const CMAX = 6;
-const LACAP = 100;   // last-byte age kept up to 5 polls so the model can measure a mic-switch gap
+const LACAP = 40;    // last-byte age is only compared with watchdogThreshold
 
 export const meta = {
   title: `manbok CaptureSupervisor executor [${VARIANT}]`,
@@ -37,8 +35,8 @@ export const meta = {
     { file: SRC + "CaptureSupervisor.swift", fn: "apply", mirrored: true },
     { file: SRC + "CaptureSupervisor.swift", fn: "restart", mirrored: true },
     { file: SRC + "CaptureSupervisor.swift", fn: "startWorker", mirrored: true },
-    { file: SRC + "CaptureSupervisor.swift", fn: "bytesFlowing", mirrored: true },
-    { file: SRC + "CaptureSupervisor.swift", fn: "releaseWorkerKeepingFlowEvidence", mirrored: true },
+    { file: SRC + "CaptureSupervisor.swift", fn: "recordWorkerEnd", mirrored: true },
+    { file: SRC + "CaptureSupervisor.swift", fn: "releaseWorker", mirrored: true },
     { file: SRC + "CaptureSupervisor.swift", fn: "abandonWorker", mirrored: true },
     { file: SRC + "CaptureSupervisor.swift", fn: "stop", mirrored: true },
     { file: SRC + "CaptureRestartPolicy.swift", mirrored: true },
@@ -63,15 +61,15 @@ export const meta = {
   ],
   variant: VARIANT,
 };
-export const bounds = { pollUnits: P, watchdog: WD, baseDelay: BASE, maxDelay: MAXD, silence: SIL, mics: MICS, demandIds: IDS, restartCountSat: CMAX, variant: VARIANT, restrict: RESTRICT ? "switch" : "none", switchMaxPolls: SWITCH_MAX, deferMax: DEFER_MAX };
+export const bounds = { pollUnits: P, watchdog: WD, baseDelay: BASE, maxDelay: MAXD, silence: SIL, mics: MICS, demandIds: IDS, restartCountSat: CMAX, variant: VARIANT, restrict: RESTRICT ? "switch" : "none", deferMax: DEFER_MAX };
 
 const EV0 = { polled: false, empty: false, trig: null, ok: null, startFailed: false, blocked: false, flowedPrev: false, stallLegit: null,
   cBefore: 0, cAfter: 0, ladBefore: 0, ladAfter: 0, ladRestart: false, holdEnter: false, silentNilEval: false, external: false,
-  arrivalRelFlowed: false, arrivalGapPolls: 0, lhPrev: false };
+  arrivalTf: false, lhPrev: false };
 export const init = {
   stopped: false, w: false, wt: 0, sa: null, la: null, ss: null, c: 0, lr: null, lad: 0, lprt: 0, hold: false,
   pids: 0, pt: 0, pend: false, mode: "F", inp: { id: 0, tgt: 0 },
-  rel: false, rla: null, defer: 0, recov: 0, fr: 0, lh: false, ev: EV0,
+  wf: null, tf: false, defer: 0, recov: 0, fr: 0, lh: false, ev: EV0,
 };
 
 const delayOf = (c) => VARIANT === "m-uncapped-delay" ? BASE * 2 ** c : Math.min(BASE * 2 ** c, MAXD);
@@ -89,7 +87,7 @@ function startWorker(s, target, wasFlowing, fails) {                  // startWo
   return out;
 }
 function restartW(s, target, fails) {                                 // restart(): evidence, clear, stop, start
-  const wasFlowing = flowing(s);
+  const wasFlowing = flowing(s);                                      // recordWorkerEnd: flow at the moment this worker ends
   return startWorker({ ...s, la: null, ss: null, w: false, wt: 0, sa: null }, target, wasFlowing, fails).map((b) => ({ ...b, wasFlowing }));
 }
 function noteRestart(s, target) {                                     // SilenceRecoveryPolicy.noteRestart
@@ -103,7 +101,7 @@ function noteRestart(s, target) {                                     // Silence
 
 function advance(s) {                                                 // 2 s pass: ages grow, the worker's chunks arrive
   const A = (v, m) => (v === null ? null : Math.min(v + P, m));
-  let la = A(s.la, LACAP), ss = A(s.ss, SIL), sa = A(s.sa, SIL), lr = A(s.lr, delayOf(s.c)), rla = A(s.rla, LACAP), fr = s.fr, lh = s.lh;
+  let la = A(s.la, LACAP), ss = A(s.ss, SIL), sa = A(s.sa, SIL), lr = A(s.lr, delayOf(s.c)), fr = s.fr, lh = s.lh;
   if (s.w) {
     if (s.mode === "F") { la = 1; ss = null; fr = Math.min(fr + 1, SUSTAIN_POLLS); }
     else if (s.mode === "S") { la = 1; ss = ss === null ? 19 : ss; fr = 0; }
@@ -111,7 +109,7 @@ function advance(s) {                                                 // 2 s pas
     else fr = 0;
     if (SUSTAIN && fr >= SUSTAIN_POLLS) lh = true;
   }
-  return { ...s, la, ss, sa, lr, rla, fr: SUSTAIN ? fr : 0, lh: SUSTAIN ? lh : false, mode: s.mode === "FN" ? "N" : s.mode };
+  return { ...s, la, ss, sa, lr, fr: SUSTAIN ? fr : 0, lh: SUSTAIN ? lh : false, mode: s.mode === "FN" ? "N" : s.mode };
 }
 
 const ev = (st, f) => ({ ...st, ev: { ...st.ev, ...f(st.ev) } });
@@ -122,8 +120,9 @@ function apply(s0) {
   const inp = s0.inp;
   let s = { ...s0, ev: { ...EV0, polled: true, cBefore: s0.c, ladBefore: s0.lad, lhPrev: s0.lh } };
   if (inp.id === 0) {                                                // empty demand: abandonWorker + reset
+    const f = flowing(s);                                              // abandonWorker records flow at the end, then the policy is reset
     return [{ ...s, w: false, wt: 0, sa: null, ss: null, la: VARIANT === "m-leak-empty" ? s.la : null, pend: false,
-      c: 0, lr: null, lad: 0, lprt: 0, hold: false, pids: 0, pt: 0, rel: VARIANT === "m-leak-empty" ? s.rel : false, rla: VARIANT === "m-leak-empty" ? s.rla : null,
+      c: 0, lr: null, lad: 0, lprt: 0, hold: false, pids: 0, pt: 0, wf: f, tf: f,
       ev: { ...s.ev, empty: true } }];
   }
   const pendEnv = s.pend;
@@ -135,11 +134,10 @@ function apply(s0) {
   if (target !== 0) {
     if (!s.w) {
       if (mayRestart(s)) {
-        const wasFlowing = flowing(s);
-        const wasRel = s.rel, gap = s.rla === null ? 99 : Math.floor((s.rla - 1) / P);   // rla: history copy of the last-byte age at release, unaffected by variants
-        outs = startWorker({ ...s, la: null, rel: false, rla: null }, target, wasFlowing, fails).map((b) => ev(b.st, () => ({
-          trig: "arrival", ok: b.ok, startFailed: !b.ok, flowedPrev: wasFlowing,
-          arrivalRelFlowed: wasRel, arrivalGapPolls: gap })));
+        const wasFlowing = s.wf === true;                             // the start reads the recorded value once; it never looks at byte age
+        const oracle = s.tf;                                           // history copy of the value recorded at the last end (variants never touch it)
+        outs = startWorker({ ...s, la: null, wf: VARIANT === "m-not-consumed" ? s.wf : null, tf: false }, target, wasFlowing, fails).map((b) => ev(b.st, () => ({
+          trig: "arrival", ok: b.ok, startFailed: !b.ok, flowedPrev: wasFlowing, arrivalTf: oracle })));
       } else outs = [ev(s, () => ({ blocked: true }))];
     } else {
       const stage = (list, f) => list.flatMap((st) => (st.ev.trig ? [st] : f(st)));   // `!restartHappened` guards
@@ -175,9 +173,10 @@ function apply(s0) {
         return restartW(st, target, fails).map((b) => ev(b.st, () => ({ trig: "signal", ok: b.ok, startFailed: !b.ok, flowedPrev: b.wasFlowing })));
       });
     }
-  } else if (s.w) {                                                   // releaseWorkerKeepingFlowEvidence
+  } else if (s.w) {                                                   // releaseWorker: recordWorkerEnd
+    const f = flowing(s);
     outs = [VARIANT === "m-gaphold" ? s : { ...s, w: false, wt: 0, sa: null, ss: null, pend: false,
-      la: VARIANT === "m-clear-on-release" ? null : s.la, rel: true, rla: s.la }];
+      la: null, wf: VARIANT === "m-clear-on-release" ? false : f, tf: f }];
   }
   return outs.map((st) => {
     if (external && !st.ev.ladRestart) st = { ...st, lad: 0, lprt: 0 };  // noteExternalChange
@@ -209,7 +208,7 @@ for (const [m, text] of Object.entries(modes)) {
 if (!RESTRICT) actions["a captureDisturbed signal arrives"] = (s) => !s.stopped && !s.pend && { ...s, pend: true, ev: EV0 };
 actions["poll tick (2 s pass, apply runs)"] = (s) => !s.stopped && apply(advance(s)).map((x) => post(s, x));
 actions["supervisor stop()"] = (s) => !s.stopped && ({ ...s, stopped: true, w: false, wt: 0, sa: null, la: null, ss: null, pend: false,
-  c: 0, lr: null, lad: 0, lprt: 0, hold: false, pids: 0, pt: 0, rel: false, rla: null, ev: EV0 });
+  c: 0, lr: null, lad: 0, lprt: 0, hold: false, pids: 0, pt: 0, wf: flowing(s), tf: flowing(s), ev: EV0 });
 
 // ---------------- rules ----------------
 const af = (s) => s.ev.polled && !s.stopped;                          // state right after a poll
@@ -218,8 +217,10 @@ export const rules = {
     holds: (s) => !af(s) || (s.ev.empty ? !s.w : ((!s.w || s.inp.tgt !== 0) && (s.inp.tgt === 0 || s.w || s.ev.startFailed || s.ev.blocked))) },
   R2_healthyRestart: { says: "a start or restart made while bytes were flowing within watchdogThreshold does not grow the backoff (CaptureRestartPolicy CONTRACT: resets on any restart of a working engine)",
     holds: (s) => !af(s) || !s.ev.trig || !s.ev.ok || !s.ev.flowedPrev || s.ev.cAfter === 0 },
-  R2m_micSwitch: { says: `ASSUMPTION (design-v2 A3: a healthy mic switch does not grow the backoff): a mic released for no device and restarted on a candidate no more than ${SWITCH_MAX} poll(s) after the poll that last saw its bytes does not grow the backoff (K=1 means start at most ~4 s after the last byte)`,
-    holds: (s) => !af(s) || !s.ev.arrivalRelFlowed || !s.ev.ok || s.ev.arrivalGapPolls > SWITCH_MAX || s.ev.cAfter <= s.ev.cBefore },
+  R2m_micSwitch: { says: "design-v2 A3 + advisor round 9 (Slow): a mic released for no device while bytes were flowing, then started on a candidate after ANY gap (no cap), does not grow the backoff",
+    holds: (s) => !af(s) || !s.ev.arrivalTf || !s.ev.ok || s.ev.cAfter <= s.ev.cBefore },
+  R2c_carry: { says: "ASSUMPTION: a start uses exactly the wasFlowing value recorded when the previous worker ended, once: a start after a failed start sees no older value",
+    holds: (s) => !af(s) || s.ev.trig !== "arrival" || s.ev.flowedPrev === s.ev.arrivalTf },
   R3_bounded: { says: "the restart delay never exceeds maxDelay (CaptureRestartPolicy CONTRACT: capped at maxDelay)",
     holds: (s) => delayOf(s.c) <= MAXD },
   R3e_sustained: { says: SUSTAIN ? "ASSUMPTION: after one worker has flowed for maxDelay without a break, a later stall or signal restart starts from the base delay (count at most 1), not from an old count" : "(off: set MODEL_SUSTAIN=1)",
@@ -235,10 +236,10 @@ export const rules = {
     holds: (s) => !af(s) || !s.hold || (s.inp.tgt === 0 && !s.w) || s.w },
   R5_holdFlag: { says: "ASSUMPTION: the 'holding silent' flag is set only while the ladder is in holding (H7 in sm-inventory)",
     holds: (s) => !s.hold || s.lad === 3 },
-  R6_lifetime: { says: "empty demand and stop() clear the carried byte-flow evidence, the restart budget, the ladder and the hold flag (design-v2 A3: lifetime; variant a3-leak)",
+  R6_lifetime: { says: "empty demand and stop() clear the byte clock, the restart budget, the ladder and the hold flag",
     holds: (s) => !(s.stopped || (af(s) && s.ev.empty)) || (!s.w && s.la === null && s.c === 0 && s.lr === null && s.lad === 0 && !s.hold) },
-  R6b_noLeak: { says: "byte-flow evidence without a worker exists only between a release for no candidate device and the next start attempt",
-    holds: (s) => s.w || s.la === null || s.rel },
+  R6b_noLeak: { says: "the recorded wasFlowing value exists only between a worker end and the next start attempt: it is cleared while a worker runs",
+    holds: (s) => !s.w || s.wf === null },
   Rdefer: { says: `ASSUMPTION: with a candidate device and no start failure, the worker waits at most ${DEFER_MAX} poll(s) because of the restart budget`,
     holds: (s) => s.defer <= DEFER_MAX },
   R8_noStorm: { says: `ASSUMPTION (CaptureRestartPolicy CONTRACT: 'no flap loop'): recovery restarts (stall, signal, silence) do not happen in more than ${RECOV_MAX} polls in a row`,
@@ -248,7 +249,7 @@ export const canReach = {
   CanIdle: { says: "from any point, the worker can end up stopped", goal: (s) => !s.w },
 };
 export const done = (s) => s.stopped;
-export const label = (s) => s.stopped ? "Stopped" : s.w ? "Capturing" : s.rel ? "Released (evidence kept)" : "Idle";
+export const label = (s) => s.stopped ? "Stopped" : s.w ? "Capturing" : s.wf !== null ? "Released (flow value recorded)" : "Idle";
 
 // ---------------- replay support (used by replay.mjs, not by the checker) ----------------
 // Tokens: list:<id>:<mic> | empty | mode:F|S|N|FN | signal | poll | poll! (every start in this poll throws) | stop

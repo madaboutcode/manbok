@@ -11,10 +11,11 @@ import Foundation
 //   applied the holder/draining/live-device rule; no HAL read here), via
 //   CaptureDevicePolicy.resolve (passing workerTarget as currentTarget for its tie-break);
 //   every (re)start creates a FRESH worker via makeWorker.
-// - Releasing the worker for "no candidate device" remembers whether bytes were flowing
-//   by keeping lastDataAt (abandon for empty demand and stop() clear it). The next arrival start
-//   computes wasFlowing from it exactly as restart() does (lastDataAt within watchdogThreshold),
-//   consumes it, so a healthy mic switch does not grow the restart backoff.
+// - Whenever a worker ends (no-candidate release, restart, stall, silence, abandon for empty
+//   demand, stop) the supervisor records wasFlowing = bytes were flowing at that moment (last byte
+//   within watchdogThreshold). The next start reads that value once and clears it (consume-once);
+//   a start never evaluates byte age itself. A healthy mic switch therefore does not grow the
+//   restart backoff, however long the gap before the new device appears.
 // - All restarts share CaptureRestartPolicy: mayRestart gates every attempt;
 //   recordRestart(wasFlowing:) on every attempt; .error log from 3rd consecutive
 //   unhealthy attempt; reset() on clean stop.
@@ -72,6 +73,8 @@ public final class CaptureSupervisor: CaptureSupervising {
     private var worker: PinnedAudioCapturing?
     private var workerTarget: CaptureTarget?
     private var captureStartedAt: Date?
+    /// Whether bytes were flowing when the most recent worker ended; read once by the next start.
+    private var wasFlowingAtLastEnd = false
 
     // Sink-side state (lock-protected — written from worker's delivery thread)
     private let sinkLock = NSLock()
@@ -118,7 +121,7 @@ public final class CaptureSupervisor: CaptureSupervising {
     }
 
     public func stop() {
-        abandonWorker(reason: "supervisor stopped")
+        abandonWorker(reason: "supervisor stopped", now: clock())
         signals.deactivate()
         signals.handler = nil
         restartPolicy.reset()
@@ -131,7 +134,7 @@ public final class CaptureSupervisor: CaptureSupervising {
 
     public func apply(demand: [DemandEntry], now: Date) -> CaptureStatus {
         guard !demand.isEmpty else {
-            abandonWorker(reason: "no demand")
+            abandonWorker(reason: "no demand", now: now)
             restartPolicy.reset()
             silencePolicy.noteExternalChange()
             health = .idle
@@ -161,10 +164,7 @@ public final class CaptureSupervisor: CaptureSupervising {
                 if !permissionAllowsStart() {
                     // deferred by the permission guard: no start attempt, backoff untouched
                 } else if restartPolicy.mayRestart(now: now) {
-                    // lastDataAt survives only a release for "no candidate device"; otherwise nil.
-                    let wasFlowing = bytesFlowing(now: now)
-                    sinkLock.lock(); lastDataAt = nil; sinkLock.unlock()
-                    startWorker(target: target, now: now, trigger: "arrival", wasFlowing: wasFlowing)
+                    startWorker(target: target, now: now, trigger: "arrival")
                     restartHappened = true
                 }
                 // else: arrival stays deferred, retried next tick — health resolves to .idle below.
@@ -253,7 +253,7 @@ public final class CaptureSupervisor: CaptureSupervising {
             // log only on state entry to avoid spam.
             if worker != nil {
                 let from = workerTarget.map(Self.describe) ?? "?"
-                releaseWorkerKeepingFlowEvidence()
+                releaseWorker(now: now)
                 log.notice("capture stopped — no candidate device (was \(from))")
             } else if previousTarget != nil || previousDemandBundleIDs.isEmpty {
                 log.notice("demand present but no device visible — deferring capture")
@@ -342,7 +342,9 @@ public final class CaptureSupervisor: CaptureSupervising {
         }
     }
 
-    private func startWorker(target: CaptureTarget, now: Date, trigger: String, wasFlowing: Bool) {
+    private func startWorker(target: CaptureTarget, now: Date, trigger: String) {
+        let wasFlowing = wasFlowingAtLastEnd
+        wasFlowingAtLastEnd = false
         let previousTarget = workerTarget
         let newWorker = makeWorker()
         do {
@@ -388,28 +390,30 @@ public final class CaptureSupervisor: CaptureSupervising {
         }
     }
 
-    /// Captures byte-flow evidence from the OUTGOING worker before tearing down its
-    /// state, so CaptureRestartPolicy can tell a live-engine switch (wasFlowing=true,
-    /// backoff resets) from restarting a dead one (wasFlowing=false, backoff grows).
+    /// Ends the running worker and starts a fresh one; the end records byte-flow evidence so
+    /// CaptureRestartPolicy can tell a live-engine switch (wasFlowing=true, backoff resets) from
+    /// restarting a dead one (wasFlowing=false, backoff grows).
     private func restart(target: CaptureTarget, now: Date, trigger: String) {
-        let wasFlowing = bytesFlowing(now: now)
+        recordWorkerEnd(now: now)
         sinkLock.lock()
-        lastDataAt = nil
         silentSince = nil
         sinkLock.unlock()
 
         worker?.stop()
         worker = nil
-        startWorker(target: target, now: now, trigger: trigger, wasFlowing: wasFlowing)
+        startWorker(target: target, now: now, trigger: trigger)
     }
 
-    private func bytesFlowing(now: Date) -> Bool {
+    /// Records whether bytes were flowing at the moment a worker ends, then clears the byte clock.
+    private func recordWorkerEnd(now: Date) {
         sinkLock.lock()
-        defer { sinkLock.unlock() }
-        return lastDataAt.map { now.timeIntervalSince($0) < restartPolicy.watchdogThreshold } ?? false
+        wasFlowingAtLastEnd = lastDataAt.map { now.timeIntervalSince($0) < restartPolicy.watchdogThreshold } ?? false
+        lastDataAt = nil
+        sinkLock.unlock()
     }
 
-    private func releaseWorkerKeepingFlowEvidence() {
+    private func releaseWorker(now: Date) {
+        recordWorkerEnd(now: now)
         worker?.stop()
         worker = nil
         workerTarget = nil
@@ -420,16 +424,8 @@ public final class CaptureSupervisor: CaptureSupervising {
         sinkLock.unlock()
     }
 
-    private func abandonWorker(reason: String) {
+    private func abandonWorker(reason: String, now: Date) {
         if worker != nil { log.notice("capture stopped — \(reason)") }
-        worker?.stop()
-        worker = nil
-        workerTarget = nil
-        captureStartedAt = nil
-        sinkLock.lock()
-        lastDataAt = nil
-        silentSince = nil
-        pendingSignals.removeAll()
-        sinkLock.unlock()
+        releaseWorker(now: now)
     }
 }

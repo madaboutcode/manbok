@@ -1,67 +1,164 @@
 command: env MODEL_VARIANT=m-ladder-skip node check.mjs supervisor.model.mjs --max-states 6000000 --max-mb 3000
 manbok CaptureSupervisor executor [m-ladder-skip]
-covers  Sources/ManbokPlatform/Capture/CaptureSupervisor.swift apply() restart() startWorker() bytesFlowing() releaseWorkerKeepingFlowEvidence() abandonWorker() stop() · Sources/ManbokPlatform/Capture/CaptureRestartPolicy.swift · Sources/ManbokPlatform/Capture/SilenceRecoveryPolicy.swift   hand-mirrored: apply(), restart(), startWorker(), bytesFlowing(), releaseWorkerKeepingFlowEvidence(), abandonWorker(), stop(), Sources/ManbokPlatform/Capture/CaptureRestartPolicy.swift, Sources/ManbokPlatform/Capture/SilenceRecoveryPolicy.swift
-drift   no sync record yet (run --sync once the model matches the code)
-exploring: 17,624 states so far, depth 12
-exploring: 33,158 states so far, depth 17
-exploring: 47,567 states so far, depth 19
-exploring: 59,256 states so far, depth 20
-exploring: 65,351 states so far, depth 21
-exploring: 71,953 states so far, depth 23
-exploring: 83,877 states so far, depth 25
-exploring: 91,195 states so far, depth 26
-exploring: 96,914 states so far, depth 27
-exploring: 101,769 states so far, depth 27
-exploring: 105,065 states so far, depth 28
-exploring: 108,238 states so far, depth 28
-exploring: 109,122 states so far, depth 28
-exploring: 113,688 states so far, depth 28
-exploring: 114,725 states so far, depth 29
-exploring: 116,971 states so far, depth 29
-exploring: 118,730 states so far, depth 29
-exploring: 119,662 states so far, depth 29
-exploring: 121,077 states so far, depth 29
-exploring: 123,099 states so far, depth 29
-exploring: 126,229 states so far, depth 30
-exploring: 129,968 states so far, depth 30
-exploring: 134,395 states so far, depth 30
-exploring: 140,438 states so far, depth 31
-exploring: 147,151 states so far, depth 32
-exploring: 152,088 states so far, depth 32
-exploring: 156,636 states so far, depth 32
-exploring: 161,274 states so far, depth 33
-exploring: 164,057 states so far, depth 33
-exploring: 167,497 states so far, depth 33
-exploring: 170,523 states so far, depth 34
-exploring: 173,154 states so far, depth 34
-exploring: 175,291 states so far, depth 34
-exploring: 177,136 states so far, depth 34
-exploring: 181,228 states so far, depth 34
-exploring: 192,757 states so far, depth 35
-exploring: 201,865 states so far, depth 36
-exploring: 211,629 states so far, depth 37
-exploring: 220,496 states so far, depth 39
-exploring: 227,838 states so far, depth 40
-exploring: 233,380 states so far, depth 41
-exploring: 235,829 states so far, depth 41
-exploring: 240,333 states so far, depth 42
-exploring: 246,250 states so far, depth 42
-exploring: 252,843 states so far, depth 43
-exploring: 257,428 states so far, depth 43
-exploring: 259,694 states so far, depth 44
-exploring: 265,159 states so far, depth 44
-exploring: 275,881 states so far, depth 45
-exploring: 287,772 states so far, depth 46
-exploring: 298,593 states so far, depth 47
-exploring: 312,383 states so far, depth 48
-exploring: 323,102 states so far, depth 49
-exploring: 335,604 states so far, depth 50
-exploring: 345,274 states so far, depth 51
-exploring: 350,554 states so far, depth 51
-exploring: 357,723 states so far, depth 53
+covers  Sources/ManbokPlatform/Capture/CaptureSupervisor.swift apply() restart() startWorker() recordWorkerEnd() releaseWorker() abandonWorker() stop() · Sources/ManbokPlatform/Capture/CaptureRestartPolicy.swift · Sources/ManbokPlatform/Capture/SilenceRecoveryPolicy.swift   hand-mirrored: apply(), restart(), startWorker(), recordWorkerEnd(), releaseWorker(), abandonWorker(), stop(), Sources/ManbokPlatform/Capture/CaptureRestartPolicy.swift, Sources/ManbokPlatform/Capture/SilenceRecoveryPolicy.swift
+drift   apply() changed since sync (hash 5ab5 → 29d4); restart() changed since sync (hash 5ab5 → 29d4); startWorker() changed since sync (hash 5ab5 → 29d4); recordWorkerEnd() changed since sync (hash new → 29d4); releaseWorker() changed since sync (hash new → 29d4); abandonWorker() changed since sync (hash 5ab5 → 29d4); stop() changed since sync (hash 5ab5 → 29d4)   rule text changed: R2m_micSwitch, R6_lifetime, R6b_noLeak, R2c_carry
+exploring: 9,652 states so far, depth 10
+exploring: 16,999 states so far, depth 12
+exploring: 24,384 states so far, depth 15
+exploring: 33,068 states so far, depth 18
+exploring: 35,475 states so far, depth 18
+exploring: 36,655 states so far, depth 18
+exploring: 37,822 states so far, depth 19
+exploring: 39,024 states so far, depth 19
+exploring: 41,282 states so far, depth 19
+exploring: 43,457 states so far, depth 20
+exploring: 45,459 states so far, depth 20
+exploring: 48,220 states so far, depth 20
+exploring: 50,554 states so far, depth 21
+exploring: 52,230 states so far, depth 21
+exploring: 53,094 states so far, depth 22
+exploring: 53,882 states so far, depth 22
+exploring: 54,519 states so far, depth 22
+exploring: 55,482 states so far, depth 22
+exploring: 56,190 states so far, depth 23
+exploring: 58,255 states so far, depth 23
+exploring: 59,302 states so far, depth 24
+exploring: 60,428 states so far, depth 24
+exploring: 61,704 states so far, depth 24
+exploring: 62,886 states so far, depth 24
+exploring: 63,958 states so far, depth 25
+exploring: 65,210 states so far, depth 25
+exploring: 66,373 states so far, depth 25
+exploring: 67,541 states so far, depth 25
+exploring: 68,660 states so far, depth 26
+exploring: 71,052 states so far, depth 26
+exploring: 72,002 states so far, depth 26
+exploring: 73,139 states so far, depth 27
+exploring: 74,214 states so far, depth 27
+exploring: 75,379 states so far, depth 27
+exploring: 76,541 states so far, depth 27
+exploring: 77,502 states so far, depth 27
+exploring: 78,651 states so far, depth 27
+exploring: 79,682 states so far, depth 28
+exploring: 80,846 states so far, depth 28
+exploring: 81,901 states so far, depth 28
+exploring: 82,965 states so far, depth 28
+exploring: 83,980 states so far, depth 28
+exploring: 85,045 states so far, depth 29
+exploring: 86,058 states so far, depth 29
+exploring: 87,186 states so far, depth 29
+exploring: 88,162 states so far, depth 29
+exploring: 89,213 states so far, depth 29
+exploring: 90,212 states so far, depth 29
+exploring: 91,224 states so far, depth 30
+exploring: 93,325 states so far, depth 30
+exploring: 94,325 states so far, depth 30
+exploring: 95,426 states so far, depth 30
+exploring: 96,393 states so far, depth 30
+exploring: 97,433 states so far, depth 30
+exploring: 98,489 states so far, depth 31
+exploring: 99,570 states so far, depth 31
+exploring: 100,612 states so far, depth 31
+exploring: 101,616 states so far, depth 31
+exploring: 102,736 states so far, depth 31
+exploring: 103,694 states so far, depth 31
+exploring: 104,765 states so far, depth 32
+exploring: 105,930 states so far, depth 32
+exploring: 107,042 states so far, depth 32
+exploring: 108,027 states so far, depth 32
+exploring: 109,096 states so far, depth 32
+exploring: 110,138 states so far, depth 32
+exploring: 111,061 states so far, depth 32
+exploring: 112,209 states so far, depth 33
+exploring: 113,387 states so far, depth 33
+exploring: 114,464 states so far, depth 33
+exploring: 115,455 states so far, depth 33
+exploring: 116,538 states so far, depth 33
+exploring: 117,561 states so far, depth 33
+exploring: 118,494 states so far, depth 33
+exploring: 119,629 states so far, depth 34
+exploring: 120,822 states so far, depth 34
+exploring: 121,892 states so far, depth 34
+exploring: 122,973 states so far, depth 34
+exploring: 123,878 states so far, depth 34
+exploring: 124,930 states so far, depth 34
+exploring: 125,882 states so far, depth 34
+exploring: 126,931 states so far, depth 34
+exploring: 128,046 states so far, depth 35
+exploring: 129,156 states so far, depth 35
+exploring: 130,160 states so far, depth 35
+exploring: 131,044 states so far, depth 35
+exploring: 131,760 states so far, depth 35
+exploring: 132,587 states so far, depth 35
+exploring: 133,458 states so far, depth 35
+exploring: 134,380 states so far, depth 36
+exploring: 135,482 states so far, depth 36
+exploring: 136,462 states so far, depth 36
+exploring: 137,221 states so far, depth 36
+exploring: 137,725 states so far, depth 36
+exploring: 138,207 states so far, depth 36
+exploring: 139,077 states so far, depth 36
+exploring: 139,696 states so far, depth 36
+exploring: 140,708 states so far, depth 37
+exploring: 142,522 states so far, depth 37
+exploring: 142,854 states so far, depth 37
+exploring: 143,722 states so far, depth 37
+exploring: 145,554 states so far, depth 38
+exploring: 146,580 states so far, depth 38
+exploring: 147,360 states so far, depth 38
+exploring: 148,507 states so far, depth 38
+exploring: 150,599 states so far, depth 39
+exploring: 151,386 states so far, depth 39
+exploring: 152,716 states so far, depth 39
+exploring: 153,834 states so far, depth 39
+exploring: 154,885 states so far, depth 40
+exploring: 155,447 states so far, depth 40
+exploring: 156,726 states so far, depth 40
+exploring: 157,813 states so far, depth 40
+exploring: 159,017 states so far, depth 41
+exploring: 159,683 states so far, depth 41
+exploring: 160,575 states so far, depth 41
+exploring: 161,830 states so far, depth 41
+exploring: 162,913 states so far, depth 41
+exploring: 164,097 states so far, depth 42
+exploring: 164,729 states so far, depth 42
+exploring: 165,916 states so far, depth 42
+exploring: 167,034 states so far, depth 42
+exploring: 168,130 states so far, depth 42
+exploring: 170,246 states so far, depth 43
+exploring: 171,431 states so far, depth 43
+exploring: 173,613 states so far, depth 43
+exploring: 174,598 states so far, depth 43
+exploring: 175,781 states so far, depth 44
+exploring: 178,003 states so far, depth 44
+exploring: 180,137 states so far, depth 44
+exploring: 182,306 states so far, depth 45
+exploring: 185,579 states so far, depth 45
+exploring: 187,576 states so far, depth 45
+exploring: 189,898 states so far, depth 46
+exploring: 191,988 states so far, depth 46
+exploring: 195,070 states so far, depth 47
+exploring: 198,453 states so far, depth 47
+exploring: 201,441 states so far, depth 47
+exploring: 203,588 states so far, depth 48
+exploring: 205,852 states so far, depth 48
+exploring: 208,941 states so far, depth 48
+exploring: 213,208 states so far, depth 49
+exploring: 215,225 states so far, depth 49
+exploring: 216,267 states so far, depth 49
+exploring: 219,190 states so far, depth 50
+exploring: 221,331 states so far, depth 50
+exploring: 223,121 states so far, depth 50
+exploring: 225,456 states so far, depth 50
+exploring: 227,218 states so far, depth 51
+exploring: 229,324 states so far, depth 51
+exploring: 231,965 states so far, depth 52
+exploring: 233,115 states so far, depth 52
+exploring: 235,825 states so far, depth 55
 holds   R1_run  after a poll the worker runs only if demand has a candidate device; with a candidate device it runs unless the start failed or the restart budget blocked the attempt (CaptureSupervisor CONTRACT: worker runs iff demand non-empty and some entry lists a device, subject to restart budget)
 holds   R2_healthyRestart  a start or restart made while bytes were flowing within watchdogThreshold does not grow the backoff (CaptureRestartPolicy CONTRACT: resets on any restart of a working engine)
-holds   R2m_micSwitch  ASSUMPTION (design-v2 A3: a healthy mic switch does not grow the backoff): a mic released for no device and restarted on a candidate no more than 1 poll(s) after the poll that last saw its bytes does not grow the backoff (K=1 means start at most ~4 s after the last byte)
+holds   R2m_micSwitch  design-v2 A3 + advisor round 9 (Slow): a mic released for no device while bytes were flowing, then started on a candidate after ANY gap (no cap), does not grow the backoff
+holds   R2c_carry  ASSUMPTION: a start uses exactly the wasFlowing value recorded when the previous worker ended, once: a start after a failed start sees no older value
 holds   R3_bounded  the restart delay never exceeds maxDelay (CaptureRestartPolicy CONTRACT: capped at maxDelay)
 holds   R3e_sustained  (off: set MODEL_SUSTAIN=1)
 holds   R4_stall  the stall watchdog never restarts a worker before watchdogThreshold has passed since its start and since its last byte (CaptureRestartPolicy CONTRACT: a fresh engine gets watchdogThreshold to produce its first byte)
@@ -113,17 +210,17 @@ breaks  R5_holdFlag  ASSUMPTION: the 'holding silent' flag is set only while the
     15. poll tick (2 s pass, apply runs)
     16. app 1 holds the mic but no mic device is listed
     17. poll tick (2 s pass, apply runs)
-    ends in: Released (evidence kept)
-holds   R6_lifetime  empty demand and stop() clear the carried byte-flow evidence, the restart budget, the ladder and the hold flag (design-v2 A3: lifetime; variant a3-leak)
-holds   R6b_noLeak  byte-flow evidence without a worker exists only between a release for no candidate device and the next start attempt
+    ends in: Released (flow value recorded)
+holds   R6_lifetime  empty demand and stop() clear the byte clock, the restart budget, the ladder and the hold flag
+holds   R6b_noLeak  the recorded wasFlowing value exists only between a worker end and the next start attempt: it is cleared while a worker runs
 holds   Rdefer  ASSUMPTION: with a candidate device and no start failure, the worker waits at most 99 poll(s) because of the restart budget
 holds   R8_noStorm  ASSUMPTION (CaptureRestartPolicy CONTRACT: 'no flap loop'): recovery restarts (stall, signal, silence) do not happen in more than 99 polls in a row
 holds   NoDeadlock  the system never gets stuck with nothing left to do
 holds   CanIdle  from any point, the worker can end up stopped
-bounds  pollUnits=20 watchdog=40 baseDelay=10 maxDelay=300 silence=100 mics=2 demandIds=1 restartCountSat=6 variant="m-ladder-skip" restrict="none" switchMaxPolls=1 deferMax=99
+bounds  pollUnits=20 watchdog=40 baseDelay=10 maxDelay=300 silence=100 mics=2 demandIds=1 restartCountSat=6 variant="m-ladder-skip" restrict="none" deferMax=99
 assumes  poll = 2 s; watchdogThreshold 4 s, baseDelay 1 s, maxDelay 30 s, silenceThreshold 10 s, maxSilentRestarts 2 (code defaults) · a signal arrives between polls and is consumed at the next apply; one pending signal is enough · a start can fail at any attempt (device busy) · the environment may change the app list, the chunk mode and signals at any time between polls
 not modeled  device choice: the resolved target (CaptureDevicePolicy tie-break) is a free input each poll, 2 mics · the demand reducer and sessions (other model); one app in demand, with 2 ids so an id change can occur · real chunk timing: each 2 s interval is one of four modes (flowing, digital silence, none, flowing then stops mid-interval); a chunk just before a poll has age 1 · stale chunks from a stopped worker (H4) · defaultInputChanged signal (inert in the code); the enum case restartInPlace (evaluate never returns it) · sleep/wake and wall-clock jumps (Date() is wall clock; no handler exists) · thread interleaving of stop() on the socket thread (EXPECTS says apply and stop are serialized) · health enum and log lines; only isHolding is kept · restart count saturates at 6 (delay is at maxDelay from 5)
-3 of 16 rules break · 359,772 states · depth 58 · 139.0 s
+3 of 17 rules break · 236,215 states · depth 58 · 636.3 s
 exit 1
 exit code: 1
-elapsed: 139s
+elapsed: 636s
