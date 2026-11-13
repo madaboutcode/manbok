@@ -24,81 +24,83 @@ Code covered (branch A head 889608f): `Sources/ManbokCore/Application/DemandRedu
 | P2b | After a poll, capture running means some app holds a mic or is draining after holding. | `DemandReducer.swift` 22; `demand()` 186-200 |
 | P3 | Capture stops within 8 s (grace 5 s + 2 s poll + 1 s) of the last non-excluded holder stopping. Timers config only. | `DemandReducer.swift` 14-16; SLC 119 |
 | Plat | An app's session closes within 8 s of that app stopping. Timers config only. | same |
-| P4 | A non-excluded app the reducer has seen, holding while capture runs, has an open session after a poll. Includes the recheck step when capture status changes in the same tick. | `DemandReducer.swift` 19; SLC tick |
+| P4 | A non-excluded app the reducer lists as holding at that step (phase holding), while capture runs, has an open session after a poll. A holder missing from one poll's list (draining at that step) gets its session one poll later. Includes the recheck step when capture status changes in the same tick. | `DemandReducer.swift` session rule; SLC tick |
+| NoSessNonHolding | No session opens for an app that does not hold at that step (a draining app never gets one). Added in FIX-A. | `DemandReducer.swift` session rule |
+| ExclNew | After an app is excluded it gets no new session. Holds because the reducer input is "holds AND NOT excluded" and a session opens only for a holding entry. Reducer has no exclusion knowledge. | `DemandReducer.swift`; SLC `setExcludedGroups` |
+| Carry | A start uses exactly the wasFlowing value recorded when the previous worker ended, read once. | `CaptureSupervisor.swift` `recordWorkerEnd`, `startWorker` |
 | P5 | The chosen device never favours a draining app's device over a holder's and is never a vanished device. | `DemandReducer.swift` 22, `demand()` 186-200 |
 | Cold | A cold start after idle does not inherit a healthy flag: first attempt uses wasFlowing=false. Inferred rule. | `CaptureSupervisor.swift` 15-19, 148-151, 380 |
-| A3 | A mic switch through a no-device poll, restarted within 4 s of the last audio byte, with no start failure, never raises the backoff. | `CaptureSupervisor.swift` 15-17; `CaptureRestartPolicy.swift` 11, 21-22 |
+| A3 | A mic switch through a no-device poll, restarted after any gap, with no start failure, never raises the backoff. | `CaptureSupervisor.swift` `recordWorkerEnd`; `CaptureRestartPolicy.swift` 11, 21-22 |
+| Slow | A mic switch with no start failure never raises the restart backoff, however long the gap between the last byte and the start. Was a finding before FIX-A; now a normal rule. | same |
 | Cont | A session never closes while its app really holds a mic and is not excluded. | `DemandReducer.swift` 14-16 |
 | Excl | After an app is excluded, its session and capture for it alone end within 8 s. | SLC `setExcludedGroups` 139, tick |
 | Idem | `step` is idempotent on an unchanged input. | `DemandReducer.swift` 126-166 |
 | NoDeadlock, CanIdle | The system never gets stuck; capture can always end up stopped. | model-level |
-| Slow, ExclNew, P1s, P5s | Findings rules, only with `MODEL_FINDINGS=1`. See Findings. | |
+| P1s, P5s | Findings rules, only with `MODEL_FINDINGS=1`. See Findings. | |
 
 ## Runs (all from this folder; Node only, no audio device, no app)
 
 Configs: A = `MODEL_APPS=2 MODEL_DEVS=2 MODEL_TOT=1 MODEL_EXAPPS=0`; B = `APPS=1 DEVS=2 TOT=6 EXAPPS=0`; C = `APPS=2 DEVS=1 TOT=2 EXAPPS=1`; L = `TIMERS=1 APPS=2 DEVS=1 TOT=1 EXAPPS=1`. TOT is the fault budget (mic switch, list blip, mic vanish, start failure, sleep, exclusion toggle). The full command is the first line of each file. `elapsed` is in each file.
 
-Variant `fix` (the code as it is):
+Variant `fix` (the code as it is). All four end by themselves (whole space explored, no cap):
 
 | Run file | States | Exit | Result |
 |---|---|---|---|
-| run-fix-A.txt | 290,054 | 0 | 13 rules hold |
-| run-fix-B.txt | 573,074 | 0 | 13 hold |
-| run-fix-C.txt | 528,718 | 0 | 13 hold |
-| run-fix-L.txt | 586,351 | 0 | 15 hold (adds P3, Plat) |
+| run-fix-A.txt | 217,616 | 0 | 16 rules hold |
+| run-fix-B.txt | 321,240 | 0 | 16 hold |
+| run-fix-C.txt | 404,908 | 0 | 16 hold |
+| run-fix-L.txt | 505,750 | 0 | 18 hold (adds P3, Plat) |
 
-Mutants: each breaks the model the way the code could break. A mutant counts as detected only when the rule listed breaks. Runs with "capped" stopped at 600,000 states after the first break was found; the other rules were then not checked.
+Mutants: each breaks the model the way the code could break. A mutant counts as detected only when the rule listed breaks. "capped" = stopped at 600,000 states after the first break; the other rules were then not checked.
 
-| Run file | Variant (the break made) | States | Exit | Rule broken |
+| Run file | Variant (the break made) | States | Exit | Rules broken |
 |---|---|---|---|---|
-| run-no-a3-B.txt | no-a3: forget `lastDataAt` at release (HEAD behaviour before A3) | 600,000 capped | 1 | A3 |
-| run-a3-leak-B.txt | a3-leak: do not clear `lastDataAt` when demand empties | 600,000 capped | 1 | Cold |
+| run-no-a3-B.txt | no-a3: forget the flow evidence at release (old HEAD behaviour) | 600,000 capped | 1 | Carry A3 Slow |
+| run-a3-leak-B.txt | a3-leak: do not clear the recorded value when demand empties | 600,000 capped | 1 | Carry |
+| run-not-consumed-B.txt | not-consumed: a start does not clear the recorded value | 600,000 capped | 1 | Carry |
+| run-drainsess-A.txt, run-drainsess-C.txt | drainsess: old session rule, a draining app also gets a session | 267,516 (A); 514,423 (C) | 1 | NoSessNonHolding (A); NoSessNonHolding ExclNew (C) |
 | run-gaphold-A.txt, run-gaphold-L.txt | gaphold: an app with a device-less flag but no mic device still holds | 600,000 capped | 1 | P2a P2b P5 (A); P2a P2b P3 Plat P5 (L) |
-| run-flag-A.txt, run-flag-L.txt | flag: holding decided by the device-less flag alone, mic list ignored | 600,000 capped | 1 | P2a (A); P2a Plat (L) |
-| run-p5union-A.txt | p5union: candidates are the union of holders' and draining apps' devices | 302,833 | 1 | P5 |
-| run-stale-A.txt | stale: draining app's kept devices not intersected with live devices | 209,564 | 1 | P5 |
-| run-rowsess-A.txt | rowsess (same variant, TOT=1) | 291,670 | 0 | none: this bound is too small to catch it |
-| run-rowsess-A2.txt | rowsess: only holding apps get a session, draining apps do not; TOT=2 | 600,000 capped | 1 | P4 |
-| run-nostep2-A.txt | nostep2: no recheck `step` after capture status changes | 299,608 | 1 | P4 |
-| run-ticks-A.txt | ticks: grace counted in polls, not by the clock | 246,546 | 1 | P2b Idem |
-| run-nofallback-A.txt | nofallback: candidates from holders only, no draining app's kept device (list blip) | 600,000 capped | 1 | P1 |
-| run-excl-late-C.txt | excl-late: exclusion only blocks new arrivals, not an existing session | 600,000 capped | 1 | Excl |
-| run-excl-ignore-C.txt | excl-ignore: exclusion ignored for holding | 600,000 capped | 1 | Excl |
-| run-timer-C.txt | timer: session closes only by a separate timer, not by the reducer | 600,000 capped | 1 | Cont Excl |
-| run-excl-dropnosess-C.txt | excl-dropnosess: exclusion drops a draining app that has no open session | 519,756 | 1 | P2b Cont Idem |
-| run-tight-b7-L.txt | `fix`, BSTOP tightened to 7 | 586,351 | 1 | P3 Plat |
-| run-tight-bex5-C.txt | `fix`, BEX tightened to 5 | 528,718 | 1 | Excl |
+| run-flag-A.txt, run-flag-L.txt | flag: holding decided by the device-less flag alone | 600,000 capped | 1 | P2a (A); P2a Plat (L) |
+| run-p5union-A.txt | p5union: candidates are the union of holders' and draining apps' devices | 244,339 | 1 | P5 |
+| run-stale-A.txt | stale: draining app's kept devices not intersected with live devices | 211,634 | 1 | P5 |
+| run-rowsess-A.txt | rowsess (TOT=1; pre-FIX-A file, session rule now in drainsess) | 291,670 | 0 | none: bound too small. Obsolete |
+| run-rowsess-A2.txt | rowsess, TOT=2 (pre-FIX-A file) | 600,000 capped | 1 | P4. Obsolete |
+| run-nostep2-A.txt | nostep2: no recheck `step` after capture status changes | 299,940 | 1 | P4 |
+| run-ticks-A.txt | ticks: grace counted in polls, not by the clock | 197,414 | 1 | P2b Idem |
+| run-nofallback-A.txt | nofallback: candidates from holders only (list blip) | 215,294 | 1 | P1 |
+| run-excl-late-C.txt | excl-late: exclusion only blocks new arrivals | 498,475 | 1 | ExclNew Excl |
+| run-excl-ignore-C.txt | excl-ignore: exclusion ignored for holding | 600,000 capped | 1 | ExclNew Excl |
+| run-timer-C.txt | timer: session closes only by a separate timer | 600,000 capped | 1 | Cont Excl |
+| run-excl-dropnosess-C.txt | excl-dropnosess: exclusion drops a draining app that has no session | 396,370 | 1 | P2b Cont Idem |
+| run-tight-b7-L.txt | `fix`, BSTOP tightened to 7 | 505,750 | 1 | P3 Plat |
+| run-tight-bex5-C.txt | `fix`, BEX tightened to 5 | 404,908 | 1 | Excl |
 
-Mutants with no code analogue (they show the model can detect the class of fault, not that the code has it): ticks, timer, flag, gaphold, no-a3, a3-leak, excl-dropnosess, and the tight-bound runs. Mutants that map to real code and have a replay: rowsess, p5union, stale, nofallback, nostep2, excl-ignore, excl-late.
+Mutants with no code analogue (they show the model detects the class of fault): ticks, timer, flag, gaphold, no-a3, a3-leak, excl-dropnosess, the tight-bound runs. Mutants that map to real code and have a replay: drainsess (old session rule), p5union, stale, nofallback, nostep2, excl-ignore, excl-late, no-a3 / not-consumed (supervisor replays M1, M8, N10).
 
-Findings runs (`MODEL_FINDINGS=1`, exit 1 is expected):
+Findings runs (`MODEL_FINDINGS=1`, exit 1 is expected). Only P5s now breaks (Slow and ExclNew moved into the main rules and hold):
 
 | Run file | Config | States | Rules broken |
 |---|---|---|---|
-| run-findings-nosleep.txt | APPS=1 DEVS=2 TOT=3, no sleep | 138,032 | Slow, P5s |
-| run-findings-edge-true.txt | same, tie at exactly 4 s counts as flowing | 137,808 | Slow, P5s |
-| run-findings-edge-false.txt | same, tie counts as not flowing | 138,032 | Slow, P5s |
-| run-findings-excl-C.txt | config C, `fix` | 528,718 | Slow, ExclNew |
-| run-findings-excl-nosess-C.txt | config C, candidate fix `excl-nosess` (excluded app gets no new session) | 526,108 | Slow only (ExclNew fixed) |
+| run-findings-nosleep.txt | APPS=1 DEVS=2 TOT=3, no sleep | 83,338 | P5s |
+| run-findings-edge-true.txt | same, tie at exactly 4 s counts as flowing | 83,338 | P5s |
+| run-findings-edge-false.txt | same, tie counts as not flowing | 83,338 | P5s |
+
+Obsolete files from before FIX-A, no longer produced by `run.sh` (delete when `mc-trash` exists): run-findings-excl-C.txt, run-findings-excl-nosess-C.txt, run-rowsess-A.txt, run-rowsess-A2.txt, replay-mutant-rowsess.txt. Some runs took over 20 minutes under machine load (load average about 150); none was cut by a time bound. The flag-A file was rerun alone to remove a duplicated block.
 
 ## Question: can a mic switch slower than 4 s grow the restart backoff?
 
-**Yes.** Model: rule Slow breaks in every findings run (`run-findings-nosleep.txt`). The path is: app records on mic 1, audio flows, mic 1 disappears, a no-device poll releases the worker (A3 keeps `lastDataAt`), 4 s or more pass, app records on mic 2, start. At that start `bytesFlowing` is false (`CaptureSupervisor.swift` 149, 359), so `recordRestart(wasFlowing: false)` counts an unhealthy restart and the next delay doubles. Rule A3 (switch within 4 s) holds in all `fix` runs. At exactly 4 s the model explores both outcomes (the real result depends on timer jitter); Slow breaks either way (edge-true, edge-false).
+Before FIX-A: yes (rule Slow broke; a 5 s gap deferred mic 3 because the delay grew from 3 s to 6 s). After FIX-A: no. `CaptureSupervisor` records `wasFlowing` when any worker ends and a start reads it once and clears it; a start never evaluates byte age. Rule Slow holds in `run-fix-A/B/C/L.txt`; mutants no-a3 and not-consumed break Carry (and A3, Slow for no-a3). Real code: `ReducerModelBudgetReplayTests` gap 5 s now starts mic 3 after the base delay (failing-first against the old code: `replay-mutant-oldslow.txt`).
 
-Real code: `ReducerModelBudgetReplayTests` runs the real `CaptureSupervisor`: gap 3 s, mic 3 starts after the base delay (healthy); gap 5 s, mic 3 is deferred (delay grew from 3 s to 6 s). So the suspicion is right: A3 keeps `lastDataAt` across the release, but the evidence expires after `watchdogThreshold` = 4 s. Impact is a longer wait before the next restart, not a failed switch. The design promises A3 only for the "one poll" case (`CaptureSupervisor.swift` 15-17), so this is a gap in the design, not a code departure.
+## Findings
 
-Not shown: the reducer model uses a budget abstraction (delay capped at 8 s instead of 30 s, unhealthy count saturating at 3). The supervisor stall/silence watchdogs and the exact `mayRestart` timing are in the other agent's supervisor model.
-
-## Findings (not fixed; the brief says report)
-
-1. **Slow** (above).
-2. **ExclNew**: after the user excludes an app that is draining without a session, `DemandReducer.step` gives it a session when capture next comes up (`DemandReducer.swift` 19). The design does not say whether that is allowed; it is probably unintended. `test_ExclNew_...` uses `XCTExpectFailure` to pin it. The candidate fix `excl-nosess` removes the break in the model (`run-findings-excl-nosess-C.txt`). This is a code-matches-design finding, not a case of the fix violating a rule.
-3. **P5s** (`run-findings-*.txt`): while the restart budget defers a switch, the running worker stays on a device that vanished or that only a draining app listed. The reducer picks the right device; the supervisor is deferred. This is the HEAD deferral behaviour. P5 (reducer choice, budget ignored) holds.
-4. **P1s** (P1 without the budget exemption) did **not** appear in any findings run; only Slow, P5s, ExclNew broke. P1 holds with the exemption.
+1. **Slow**: fixed in FIX-A (above).
+2. **ExclNew**: fixed in FIX-A. `DemandReducer.step` opens a session only for an entry that holds at that step; the reducer has no exclusion knowledge. The XCTExpectFailure pin is gone; the test now asserts the fixed behaviour. The model rule NoSessNonHolding holds on the new rule and breaks on the old one (`run-drainsess-A/C.txt`; old DemandReducer fails 4 assertions in 4 tests: `replay-mutant-oldsession.txt`). Guarantee changed: P4 was "every non-absent app gets a session" (design.md section 3 / design-v2 section 2 step 2); now a holder missing from one poll's list gets its session one poll (2 s) later.
+3. **P5s** (`run-findings-*.txt`): while the restart budget defers a switch, the running worker stays on a device that vanished or that only a draining app listed. The reducer picks the right device; the supervisor is deferred. P5 (reducer choice, budget ignored) holds.
+4. **P1s** did not appear in any findings run.
 
 ## Replays (`ReducerModelReplayTests.swift`, 11 tests)
 
-Reducer and executor tests run through the real `SessionLifecycleController` with a model-mirroring fake supervisor (capture status is observable). The 2 budget tests run the real `CaptureSupervisor`. One test (ExclNew) uses `XCTExpectFailure`.
+Reducer and executor tests run through the real `SessionLifecycleController` with a model-mirroring fake supervisor (capture status is observable). The 2 budget tests run the real `CaptureSupervisor`. The ExclNew test now asserts the fixed behaviour (no `XCTExpectFailure`).
 
 Failing-first: for each of rowsess, p5union, stale, nofallback, nostep2, excl-ignore, excl-late I temporarily broke the real code, ran the tests, saved the output in `replay-mutant-<name>.txt` (each shows the diff, the failing test, and `AUHAL started` count 0), then restored. After the last restore `git diff` of `Sources/` is empty.
 
@@ -110,4 +112,4 @@ Supervisor stall and silence watchdogs and environment signals; start failures o
 
 ## Full suite
 
-`swift test --skip AUHALWorkerIntegrationTests --skip CaptureE2ETests`: 266 tests, 0 failures (baseline 255 + 11 new); `grep -c "AUHAL started"` prints 0. Output: `run-swift-test.txt`.
+`swift test --skip AUHALWorkerIntegrationTests --skip CaptureE2ETests`: 318 tests, 0 failures (FIX-A, baseline 315); `grep -c "AUHAL started"` prints 0. Output: `run-swift-test.txt` (final run).
