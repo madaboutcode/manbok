@@ -22,15 +22,15 @@ Implements Core ports (`AudioCapturing`, `DumpSink`) and provides infrastructure
 | `IPC/` | `UnixSocketServer`, `UnixSocketClient` |
 | `IO/` | `AppStatePaths`, `DumpPaths`, `WavFileWriter`, `PlatformDumpSink`, `ExportService` (Finder reveal + clipboard), `StatePersistenceService` (checkpoint save/restore/clear) |
 | `Settings/` | `SettingsStore` (UserDefaults persistence), `LoginItemManager` (SMAppService) |
-| `Runtime/` | `DaemonSession`, `DaemonPresentation`, `DaemonRuntimeEnvironment`, `MigrationService` |
-| `Process/` | `DaemonProcess` — pid file, `posix_spawn` daemon |
+| `Runtime/` | `DaemonSession`, `DaemonPresentation`, `DaemonRuntimeEnvironment`, `MigrationService`, `AppShutdown` (stop-then-save, 2 s bound) |
+| `Process/` | `DaemonProcess`, `SingleInstance` (flock launch guard) |
 | `Logging/` | `AppLog`, `Diagnostics`, `DiagnosticsWriting` |
 | `UI/` | `ActivityPresenting`, `TerminalCaptureMeter`, `TerminalPainter` (debug-only terminal UI) |
 | `External/` | `AudacityLauncher` |
 
 ### Paths
 
-- State: `~/.manbok/run.sock`, `~/.manbok/appa.pid`
+- State: `~/.manbok/run.sock`, `~/.manbok/appa.pid`, `~/.manbok/checkpoint-<seq>/{ring.pcm,ring.json}` (generations), `~/.manbok/instance.lock` (flock held for process lifetime; `Process/SingleInstance.swift`)
 - Dumps: `FileManager.default.temporaryDirectory` / `manbok-YYYYMMDD-HHMMSS.wav`
 
 ### Spike Reference

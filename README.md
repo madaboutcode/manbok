@@ -115,7 +115,7 @@ CLI (short-lived) ──IPC──► App (long-lived) ──► CaptureOrchestra
 - **Opportunistic capture:** manbok never initiates mic use. Audio enters the ring only while another app holds the mic.
 - **Microphone only:** manbok hears what your mic hears: your voice. On a call, the other side comes through your speakers and is not captured. What you said is saved; what you heard is not.
 - **Per-app sessions:** each app that uses the mic gets its own session with a stable id. Overlapping sessions share the same audio (by design — they're views over one ring).
-- **Disk:** capture is RAM-only; WAVs are written only when you export. On quit, the ring is checkpointed to `~/.manbok/` so a restart doesn't lose it — reloaded and deleted on next launch.
+- **Disk:** capture is RAM-only; WAVs are written only when you export. On quit, the ring is checkpointed to `~/.manbok/` so a restart doesn't lose it — reloaded on next launch. The last saved checkpoint stays on disk until the next save replaces it.
 
 ## Development
 

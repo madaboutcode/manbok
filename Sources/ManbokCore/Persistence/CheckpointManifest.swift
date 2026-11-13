@@ -6,6 +6,8 @@ import Foundation
 // - Pure Codable value type — no I/O, no side effects.
 // - formatVersion identifies the schema; unknown versions are rejected by the restore path.
 // - sessions contains only closed (or frozen-open) sessions — no live sampler state.
+// - generation is the checkpoint sequence number assigned by the persistence layer at save time;
+//   nil only in manifests written before generations existed (legacy root layout).
 // - Peaks and durations are NOT stored; they are recomputed from PCM on restore.
 //
 // EXPECTS:
@@ -28,6 +30,7 @@ public struct CheckpointManifest: Codable, Sendable, Equatable {
     public let ringTotalBytesWritten: Int64
     public let nextStableId: UInt64
     public let sessions: [PersistedSession]
+    public var generation: Int?
 
     public init(
         savedAt: Date = Date(),
@@ -35,8 +38,10 @@ public struct CheckpointManifest: Codable, Sendable, Equatable {
         ringFilledBytes: Int,
         ringTotalBytesWritten: Int64,
         nextStableId: UInt64,
-        sessions: [PersistedSession]
+        sessions: [PersistedSession],
+        generation: Int? = nil
     ) {
+        self.generation = generation
         self.formatVersion = Self.currentFormatVersion
         self.savedAt = savedAt
         self.ringCapacityBytes = ringCapacityBytes

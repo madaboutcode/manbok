@@ -7,6 +7,9 @@ import ManbokCore
 // GUARANTEES
 // - Listens on `AppStatePaths.socketURL` (Unix domain stream socket).
 // - One request per accepted connection: read one line, invoke handler (may be async), write one response line.
+// - Every accepted socket has SO_NOSIGPIPE and 1 s receive/send timeouts. A client that sends no complete
+//   request line, or does not read its reply, within that time is dropped (logged at .notice) and the next
+//   client is served. Worst-case delay a stuck client adds to others is therefore about 1 s per phase.
 // - Requests are bare-verb UTF-8 lines; responses are NDJSON (one JSON object per line, `\n`-terminated).
 //
 // EXPECTS
@@ -16,6 +19,10 @@ import ManbokCore
 // FAILURE BEHAVIOR
 // - Bind/listen/accept I/O errors propagate as `UnixSocketError`.
 // - Malformed request line → handler not called; connection receives `{"type":"error","code":"bad_command",...}`.
+//
+// KNOWN LIMITS
+// - Requests are served one at a time: a slow handler (e.g. a large DUMP writing to disk) delays every
+//   other client until it returns. The timeouts bound socket I/O only, not the handler.
 //
 // DOES NOT
 // - Stream audio, parse CLI flags, or implement dump use cases (see ManbokApp).
@@ -68,7 +75,11 @@ public final class UnixSocketServer: @unchecked Sendable {
                 throw UnixSocketError.syscall("accept errno=\(err)")
             }
 
-            Self.serveConnection(fd: clientFD, handler: handler)
+            if Self.configureClientSocket(fd: clientFD) {
+                Self.serveConnection(fd: clientFD, handler: handler, log: log)
+            } else {
+                log.notice("dropping client: already disconnected before it could be served")
+            }
             close(clientFD)
         }
     }
@@ -81,8 +92,31 @@ public final class UnixSocketServer: @unchecked Sendable {
         }
     }
 
-    private static func serveConnection(fd: Int32, handler: @escaping Handler) {
-        let requestLine = readLine(fd: fd) ?? ""
+    private static let ioTimeout = timeval(tv_sec: 1, tv_usec: 0)
+
+    /// macOS rejects setsockopt (EINVAL) on a socket whose peer has already disconnected. Such a client
+    /// cannot read a reply, so the caller drops it instead of serving it without timeouts.
+    private static func configureClientSocket(fd: Int32) -> Bool {
+        var on: Int32 = 1
+        var tv = ioTimeout
+        let results = [
+            setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size)),
+            setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size)),
+            setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size)),
+        ]
+        if results.allSatisfy({ $0 == 0 }) { return true }
+        assert(errno == EINVAL, "unexpected setsockopt failure on accepted socket errno=\(errno)")
+        return false
+    }
+
+    private static func serveConnection(fd: Int32, handler: @escaping Handler, log: AppLog) {
+        let requestLine: String
+        switch readLine(fd: fd) {
+        case .line(let line): requestLine = line
+        case .timedOut:
+            log.notice("dropping client: no complete request line within 1 s")
+            return
+        }
         let response: IPCResponse
         if let command = IPCCommand.parse(line: requestLine) {
             let semaphore = DispatchSemaphore(value: 0)
@@ -96,7 +130,9 @@ public final class UnixSocketServer: @unchecked Sendable {
         } else {
             response = .error(code: "bad_command", message: "bad command")
         }
-        writeLine(fd: fd, line: response.jsonLine)
+        if !writeLine(fd: fd, line: response.jsonLine) {
+            log.notice("dropping client: reply not delivered (client gone or not reading for 1 s)")
+        }
     }
 
     private static func openListenSocket(path: String) throws -> Int32 {
@@ -141,32 +177,45 @@ public final class UnixSocketServer: @unchecked Sendable {
         return fd
     }
 
-    private static func readLine(fd: Int32, maxBytes: Int = 4096) -> String? {
+    /// `.line` also covers EOF or a read error before the newline: whatever arrived (possibly empty) is the line.
+    private enum ReadResult {
+        case line(String)
+        case timedOut
+    }
+
+    private static func readLine(fd: Int32, maxBytes: Int = 4096) -> ReadResult {
         var buffer = [UInt8]()
         buffer.reserveCapacity(64)
         var chunk = [UInt8](repeating: 0, count: 64)
 
         while buffer.count < maxBytes {
             let n = read(fd, &chunk, chunk.count)
+            if n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) { return .timedOut }
             if n <= 0 { break }
             for byte in chunk.prefix(n) {
                 if byte == UInt8(ascii: "\n") {
-                    return String(bytes: buffer, encoding: .utf8)
+                    return .line(String(bytes: buffer, encoding: .utf8) ?? "")
                 }
                 buffer.append(byte)
             }
         }
-
-        guard !buffer.isEmpty else { return nil }
-        return String(bytes: buffer, encoding: .utf8)
+        return .line(String(bytes: buffer, encoding: .utf8) ?? "")
     }
 
-    private static func writeLine(fd: Int32, line: String) {
+    /// Returns false when the reply could not be fully written (peer closed, or not reading for the send timeout).
+    private static func writeLine(fd: Int32, line: String) -> Bool {
         var payload = Data(line.utf8)
         payload.append(UInt8(ascii: "\n"))
-        payload.withUnsafeBytes { raw in
-            guard let base = raw.baseAddress else { return }
-            _ = write(fd, base, payload.count)
+        return payload.withUnsafeBytes { raw in
+            guard var base = raw.baseAddress else { return true }
+            var remaining = raw.count
+            while remaining > 0 {
+                let n = write(fd, base, remaining)
+                if n <= 0 { return false }
+                base += n
+                remaining -= n
+            }
+            return true
         }
     }
 }

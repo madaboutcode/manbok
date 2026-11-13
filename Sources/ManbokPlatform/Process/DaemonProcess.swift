@@ -3,7 +3,8 @@ import Foundation
 
 /// Socket lifecycle helper — removes stale Unix socket before app binds.
 public enum DaemonProcess {
-    public static func removeStaleSocket() {
+    /// Requires proof that this process owns the instance lock: without it the socket may belong to a live instance.
+    public static func removeStaleSocket(holding _: InstanceLock) {
         unlink(AppStatePaths.socketURL.path)
     }
 }

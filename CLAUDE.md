@@ -39,7 +39,7 @@ Foreground meter: TTY UI on stdout; daemon diagnostics → Console (`subsystem:a
 
 ### What This Project Does
 
-Native macOS menu bar app (SwiftUI) that always-on-records mono 16 kHz PCM per foreground app into a shared byte ring (5–120 min, configurable). Capture is RAM-only; export writes WAVs; quit checkpoints the ring to `~/.manbok/` for restore on next launch. A CLI still exists for scripting/debugging and talks to the running app over a Unix socket.
+Native macOS menu bar app (SwiftUI) that always-on-records mono 16 kHz PCM per foreground app into a shared byte ring (5–120 min, configurable). Capture is RAM-only; export writes WAVs; quit checkpoints the ring to `~/.manbok/` for restore on next launch (the last saved checkpoint stays on disk until the next save replaces it). A CLI still exists for scripting/debugging and talks to the running app over a Unix socket.
 
 ### System Mental Model
 

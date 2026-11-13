@@ -11,11 +11,20 @@ struct ManbokApp: App {
     @StateObject private var viewModel: PopoverViewModel
 
     private let registry: SessionRegistry
+    /// Held for the process lifetime; the OS releases it on exit or crash.
+    private let instanceLock: InstanceLock
     private static let log = AppLog(category: .app)
 
     init() {
         Diagnostics.install(OSLogOnlyDiagnostics())
         Self.log.notice("app init: starting")
+        // Must precede migration, checkpoint restore/clear and any socket work: those mutate state owned by a running instance.
+        switch Self.claimInstance() {
+        case .proceed(let lock):
+            instanceLock = lock
+        case .otherRunning, .otherUnresponsive:
+            exit(0)
+        }
         MigrationService.runIfNeeded()
 
         let settingsStore = SettingsStore()
@@ -26,7 +35,6 @@ struct ManbokApp: App {
         if let (manifest, pcm) = StatePersistenceService.restore() {
             Self.log.notice("app init: restoring checkpoint — \(manifest.sessions.count) sessions, \(pcm.count) bytes PCM")
             reg = SessionRegistry(restoredFrom: manifest, ringData: pcm)
-            StatePersistenceService.clear()
             if manifest.ringCapacityBytes != capacity {
                 Self.log.notice("app init: preset changed, resizing \(manifest.ringCapacityBytes) → \(capacity)")
                 try? reg.resize(to: settingsStore.bufferPreset)
@@ -53,12 +61,13 @@ struct ManbokApp: App {
         _settings = StateObject(wrappedValue: settingsStore)
         _viewModel = StateObject(wrappedValue: vm)
 
-        startIPCServer(registry: reg, lifecycle: lifecycleController, supervisor: supervisor)
+        startIPCServer(registry: reg, lifecycle: lifecycleController, supervisor: supervisor, instanceLock: instanceLock)
         supervisor.start()
         lifecycleController.start()
 
-        appDelegate.saveCheckpoint = {
-            Self.performCheckpoint(registry: reg)
+        appDelegate.performShutdown = {
+            AppShutdown.perform(lifecycle: lifecycleController, supervisor: supervisor,
+                                checkpoint: { Self.performCheckpoint(registry: reg) })
         }
 
         Self.log.notice("app init: complete — ring capacity=\(capacity) bytes, sessions=\(reg.listSessions().count)")
@@ -109,10 +118,20 @@ struct ManbokApp: App {
         .defaultPosition(.center)
     }
 
+    private static func claimInstance() -> LaunchClaim {
+        do {
+            return try SingleInstance.claim()
+        } catch {
+            log.error("single-instance: cannot take lock: \(error)")
+            fatalError("single-instance: cannot take lock: \(error)")
+        }
+    }
+
     private func startIPCServer(
         registry: SessionRegistry,
         lifecycle: SessionLifecycleController,
-        supervisor: CaptureSupervisor
+        supervisor: CaptureSupervisor,
+        instanceLock: InstanceLock
     ) {
         let dumpSink = PlatformDumpSink()
         let ipcLog = AppLog(category: .ipc)
@@ -148,10 +167,9 @@ struct ManbokApp: App {
                 response = .sessions(summaries)
 
             case .stop:
-                ipcLog.notice("stop received — saving checkpoint and shutting down")
-                Self.performCheckpoint(registry: registry)
-                lifecycle.stop()
-                supervisor.stop()
+                ipcLog.notice("stop received — shutting down")
+                AppShutdown.perform(lifecycle: lifecycle, supervisor: supervisor,
+                                    checkpoint: { Self.performCheckpoint(registry: registry) })
                 DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) {
                     exit(0)
                 }
@@ -199,7 +217,7 @@ struct ManbokApp: App {
         DispatchQueue.global().async {
             do {
                 try AppStatePaths.ensureDirectory()
-                DaemonProcess.removeStaleSocket()
+                DaemonProcess.removeStaleSocket(holding: instanceLock)
                 ipcLog.info("socket server starting on \(AppStatePaths.socketURL.path)")
                 try server.run()
                 ipcLog.info("socket server stopped")
@@ -262,7 +280,7 @@ struct MenuBarIcon: View {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static var shared: AppDelegate?
     private let log = AppLog(category: .app)
-    var saveCheckpoint: (() -> Void)?
+    var performShutdown: (() -> Void)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Self.shared = self
@@ -276,9 +294,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        log.notice("delegate: saving checkpoint before termination")
-        saveCheckpoint?()
-        log.notice("delegate: checkpoint saved — terminating")
+        log.notice("delegate: shutting down before termination")
+        performShutdown?()
+        log.notice("delegate: shutdown complete — terminating")
         return .terminateNow
     }
 

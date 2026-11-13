@@ -6,7 +6,7 @@ SwiftUI menu bar app target. No ArgumentParser, no direct AVFoundation.
 
 ### What This Module Owns
 
-App entry point, MenuBarExtra popover, Settings window, PopoverViewModel, icon state management, IPC server wiring, single-instance enforcement, first-launch mic permission.
+App entry point, MenuBarExtra popover, Settings window, PopoverViewModel, icon state management, IPC server wiring, single-instance enforcement (`SingleInstance.claim()` at the top of `ManbokApp.init()`), first-launch mic permission.
 
 ### Layout
 
@@ -20,7 +20,7 @@ App entry point, MenuBarExtra popover, Settings window, PopoverViewModel, icon s
 
 - `PopoverViewModel` — @MainActor ObservableObject, 1Hz polling when popover visible
 - `MenuBarIcon` — dynamic icon from bundle resources (watching/recording/noaccess)
-- `AppDelegate` — mic permission request, single-instance check
+- `AppDelegate` — mic permission request
 
 ## Constraints
 

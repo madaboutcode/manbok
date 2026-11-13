@@ -36,10 +36,16 @@ When speech-to-text (or another recorder) drops audio, the user hires **manbok**
    invariant: while listening, buffer length never exceeds the currently-selected preset's
    capacity.
 2. No audio is written to disk during capture. Disk writes happen only on explicit
-   `dump`/export, or as a checkpoint on graceful quit (`~/.manbok/ring.pcm`).
+   `dump`/export, or as a checkpoint on graceful quit (`~/.manbok/checkpoint-<seq>/ring.pcm`). The last saved
+   checkpoint stays on disk until it is replaced by the next save; launch restores it without deleting it.
 3. Dump/export output is standard RIFF WAV, same format as the buffer.
 4. At most one app/listener instance per state directory (single owner of the ring) — enforced
-   by `AppDelegate.anotherInstanceRunning()` pinging the existing socket.
+   by an exclusive `flock` on `~/.manbok/instance.lock` (`SingleInstance.claim`, `InstanceLock`),
+   taken first in `ManbokApp.init()` before migration, checkpoint restore/clear or any socket work.
+   The lock is held for the process lifetime and released by the OS on exit or crash. A second
+   launch that finds the lock held PINGs the holder's socket, logs, and exits without touching any
+   state (an unresponsive holder is logged as an error; nothing is unlinked or killed).
+   `DaemonProcess.removeStaleSocket` requires the held `InstanceLock` as an argument.
 
 ### Non-functional constraints (from spec)
 
@@ -107,8 +113,8 @@ HAL mic (variable rate)
 
 | State | Owner | Persisted? |
 |-------|-------|------------|
-| Ring buffer contents | App (SessionRegistry) | Yes — checkpoint on quit (`~/.manbok/ring.pcm`) |
-| Session metadata | App (SessionRegistry) | Yes — checkpoint on quit (`~/.manbok/ring.json`) |
+| Ring buffer contents | App (SessionRegistry) | Yes — checkpoint on quit (`~/.manbok/checkpoint-<seq>/ring.pcm`; newest complete generation wins, see StatePersistenceService CONTRACT) |
+| Session metadata | App (SessionRegistry) | Yes — checkpoint on quit (`~/.manbok/checkpoint-<seq>/ring.json`) |
 | Waveform peaks | Derived from PCM | No — recomputed on restore |
 | Listening / not listening | App | No (reconstructed: process alive?) |
 | pid, socket path | App writes on start; CLI reads | Yes — `~/.manbok/` |
@@ -811,7 +817,7 @@ STOP                    → OK (app exits)
 **GUARANTEES**
 
 - `init()` runs `MigrationService.runIfNeeded()`, builds `SettingsStore` → `SessionRegistry` (sized from the persisted preset) → `AVAudioCapture` → `CaptureOrchestrator` → `PopoverViewModel`, starts the IPC server against that same registry/orchestrator, then calls `orchestrator.start()`.
-- `AppDelegate.anotherInstanceRunning()` pings the existing socket at launch; if another instance answers, this one terminates instead of fighting over the ring/socket.
+- `init()` first calls `SingleInstance.claim()` (flock on `instance.lock`); if another instance holds the lock, this one PINGs it, logs, and exits before migration/restore/socket work. The lock is held for the process lifetime.
 - Menu bar icon reflects `micPermission`/`anySessionOpen` state (denied / recording / watching).
 
 **DOES NOT:** Implement domain logic — it wires L2/L3 components together and hosts the IPC dispatch.
