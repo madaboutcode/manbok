@@ -1,0 +1,12 @@
+mutant: oldsession (the pre-fix session rule: every non-absent app, holding or draining, gets a session when capture runs)
+file: Sources/ManbokCore/Application/DemandReducer.swift = HEAD 4f7ba59 version, restored afterwards (git diff of Sources/ManbokCore/Application/DemandReducer.swift matches the fixed version)
+command: swift test --skip AUHALWorkerIntegrationTests --skip CaptureE2ETests --filter 'DemandReducerTests|ReducerModelReplayTests'
+/private/tmp/manbok-T1081-int/Tests/ManbokCoreTests/DemandReducerTests.swift:124: error: -[ManbokCoreTests.DemandReducerTests test_NoSessNonHolding_drainingAppGetsNoSessionWhenCaptureComesUp] : XCTAssertEqual failed: ("[ManbokCore.SessionOp.open(appID: "a", pid: 1)]") is not equal to ("[]") - draining app must not get a new session
+/private/tmp/manbok-T1081-int/Tests/ManbokCoreTests/DemandReducerTests.swift:125: error: -[ManbokCoreTests.DemandReducerTests test_NoSessNonHolding_drainingAppGetsNoSessionWhenCaptureComesUp] : XCTAssertEqual failed: ("[]") is not equal to ("[ManbokCore.SessionOp.open(appID: "a", pid: 1)]")
+	 Executed 23 tests, with 2 failures (0 unexpected) in 0.909 (0.911) seconds
+/private/tmp/manbok-T1081-int/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:256: error: -[ManbokPlatformTests.ReducerModelReplayTests test_ExclNew_excludedDrainingAppWithoutSession_getsNoSessionWhenCaptureComesUp] : XCTAssertFalse failed - excluded app 1 must not get a new session
+/private/tmp/manbok-T1081-int/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:162: error: -[ManbokPlatformTests.ReducerModelReplayTests test_P4_holderListedBlipWhileCaptureWasDown_getsSessionOnePollLater] : XCTAssertEqual failed: ("["com.replay.app1"]") is not equal to ("[]") - app 1 is draining at this step: no session opens for a non-holding app
+	 Executed 9 tests, with 2 failures (0 unexpected) in 0.649 (0.650) seconds
+	 Executed 32 tests, with 4 failures (0 unexpected) in 1.558 (1.562) seconds
+	 Executed 32 tests, with 4 failures (0 unexpected) in 1.558 (1.564) seconds
+AUHAL started count: 0

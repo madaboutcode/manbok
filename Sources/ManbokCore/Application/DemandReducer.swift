@@ -15,8 +15,9 @@ import Foundation
 //     draining + h -> holding (reclaim: arrivedAt kept, session untouched)
 //     draining + !h, now >= deadline -> absent, session closed, arrivedAt forgotten
 //   An app that is not listed never enters state: no session, no demand (P2a, P2b).
-// - Session rule, applied after the transitions in the same step: every non-absent app (holding
-//   or draining) without an open session gets one iff input.isCapturing (P4). Sessions are
+// - Session rule, applied after the transitions in the same step: every app that is holding at
+//   that step and has no open session gets one iff input.isCapturing (P4). A draining app never
+//   gets a new session (so an excluded app that is draining cannot open one). Sessions are
 //   closed only at drain expiry or stop(); a capture outage never closes one.
 // - Output.demand has one entry per non-absent app, ordered by appID. `devices` are the capture
 //   candidates: a holding app's listed devices; a draining app's kept devices intersected with
@@ -157,7 +158,7 @@ public struct DemandReducer: Sendable {
         let demand = Self.demand(next.apps, live: input.liveDevices)
 
         if input.isCapturing {
-            for app in demand where !next.sessionOpen.contains(app.appID) {
+            for app in demand where !app.isDraining && !next.sessionOpen.contains(app.appID) {
                 next.sessionOpen.insert(app.appID)
                 ops.append(.open(appID: app.appID, pid: app.pid))
             }

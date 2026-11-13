@@ -1,0 +1,11 @@
+mutant: oldslow (the pre-fix A3 lastDataAt carry; start evaluates byte age itself)
+file: Sources/ManbokPlatform/Capture/CaptureSupervisor.swift = HEAD 4f7ba59 version, restored afterwards
+command: swift test --skip AUHALWorkerIntegrationTests --skip CaptureE2ETests (full suite, 318 tests)
+/private/tmp/manbok-T1081-int/Tests/ManbokPlatformTests/CaptureSupervisorReplayTests.swift:176: error: -[ManbokPlatformTests.CaptureSupervisorReplayTests test_N10_slowMicSwitchesDoNotGrowBackoff] : XCTAssertTrue failed - N10 row 12: real (capturing, target, attempts, holding, deferred) = (capturing: false, target: 0, attempts: 4, holding: false, deferred: false), model = (capturing: true, target: 
+/private/tmp/manbok-T1081-int/Tests/ManbokPlatformTests/CaptureSupervisorReplayTests.swift:176: error: -[ManbokPlatformTests.CaptureSupervisorReplayTests test_N10_slowMicSwitchesDoNotGrowBackoff] : XCTAssertTrue failed - N10 row 13: real (capturing, target, attempts, holding, deferred) = (capturing: false, target: 0, attempts: 4, holding: false, deferred: false), model = (capturing: true, target: 
+	 Executed 22 tests, with 2 failures (0 unexpected) in 1.913 (1.916) seconds
+/private/tmp/manbok-T1081-int/Tests/ManbokPlatformTests/ReducerModelReplayTests.swift:316: error: -[ManbokPlatformTests.ReducerModelBudgetReplayTests test_Slow_switchRestartedAfter4sOfLastByte_doesNotGrowBackoff] : XCTAssertTrue failed - audio flowed when the old worker was released (1 s before): start #2 is healthy whatever the gap, mic 3 starts after the base delay
+	 Executed 2 tests, with 1 failure (0 unexpected) in 0.005 (0.006) seconds
+	 Executed 318 tests, with 3 failures (0 unexpected) in 212.115 (212.272) seconds
+	 Executed 318 tests, with 3 failures (0 unexpected) in 212.115 (212.285) seconds
+AUHAL started count: 0

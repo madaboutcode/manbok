@@ -145,9 +145,11 @@ final class ReducerModelReplayTests: XCTestCase {
         XCTAssertFalse(w.capturing)
     }
 
-    // MARK: - P4, variant rowsess: a draining app without a session gets one when capture comes up
+    // MARK: - P4 and NoSessNonHolding: only a holding app gets a session
 
-    func test_P4_holderListedBlipWhileCaptureWasDown_getsSessionWhenCaptureComesUp() {
+    /// A holder whose mic is missing from one poll's list is draining at that step: it gets no session when capture comes up
+    /// in that step (NoSessNonHolding), and gets it one poll later when it is listed again (P4).
+    func test_P4_holderListedBlipWhileCaptureWasDown_getsSessionOnePollLater() {
         let w = ModelWorld()
         w.supervisor.failingStarts = 1                                  // capture-start failure
         w.startsRecording(1, onMic: 1)                                  // app 1 starts recording on mic 1
@@ -157,7 +159,9 @@ final class ReducerModelReplayTests: XCTestCase {
         w.losesMicFromListForOnePoll(1)                                 // app 1 loses its mic from the device list for one poll
         w.regularPoll()                                                 // draining app 1, kept mic 1 still exists: capture starts
         XCTAssertTrue(w.capturing)
-        XCTAssertEqual(w.openSessions, [app1], "app 1 really holds the mic and capture runs: it must have a session after this poll")
+        XCTAssertEqual(w.openSessions, [], "app 1 is draining at this step: no session opens for a non-holding app")
+        w.regularPoll()                                                 // app 1 is listed again: holding
+        XCTAssertEqual(w.openSessions, [app1], "app 1 holds and capture runs: it has a session after this poll")
     }
 
     // MARK: - P5, variant p5union: a draining app's device does not compete with a holder's
@@ -234,13 +238,12 @@ final class ReducerModelReplayTests: XCTestCase {
         XCTAssertFalse(w.capturing)
     }
 
-    // MARK: - ExclNew (model finding, expected to break): an excluded draining app gets a session when capture comes up
+    // MARK: - ExclNew: an excluded draining app gets no session when capture comes up
 
     /// Model path (run-findings-excl-C.txt): app 1 starts, its capture start fails, you exclude app 1, capture then
     /// comes up for another app. The reducer's session rule covers every non-absent app, so excluded app 1 (draining)
-    /// is given a session. The desired rule is "no new session for an excluded app". XCTExpectFailure keeps the
-    /// suite green while the finding stands and turns red ("unexpected pass") when the rule is fixed.
-    func test_ExclNew_excludedDrainingAppWithoutSession_shouldNotGetSessionWhenCaptureComesUp() {
+    /// is given a session. Fixed: a session opens only for an entry that holds at that step.
+    func test_ExclNew_excludedDrainingAppWithoutSession_getsNoSessionWhenCaptureComesUp() {
         let w = ModelWorld()
         w.supervisor.failingStarts = 1
         w.startsRecording(1, onMic: 1)
@@ -250,9 +253,7 @@ final class ReducerModelReplayTests: XCTestCase {
         w.regularPoll()                                                 // capture comes up for app 2
         XCTAssertTrue(w.capturing)
         XCTAssertTrue(w.openSessions.contains(app2))
-        XCTExpectFailure("finding: DemandReducer opens a session for a draining app that the user excluded") {
-            XCTAssertFalse(w.openSessions.contains(app1), "excluded app 1 must not get a new session")
-        }
+        XCTAssertFalse(w.openSessions.contains(app1), "excluded app 1 must not get a new session")
     }
 }
 
@@ -311,8 +312,8 @@ final class ReducerModelBudgetReplayTests: XCTestCase {
         XCTAssertTrue(mic3Starts(gapAfterLastByte: 3), "audio 3 s old at start #2: healthy switch, delay stays 3 s")
     }
 
-    func test_Slow_finding_switchRestartedAfter4sOfLastByte_growsBackoff() {
-        XCTAssertFalse(mic3Starts(gapAfterLastByte: 5),
-                       "audio 5 s old at start #2 (>= watchdogThreshold): counted unhealthy, delay doubles to 6 s, mic 3 is deferred")
+    func test_Slow_switchRestartedAfter4sOfLastByte_doesNotGrowBackoff() {
+        XCTAssertTrue(mic3Starts(gapAfterLastByte: 5),
+                      "audio flowed when the old worker was released (1 s before): start #2 is healthy whatever the gap, mic 3 starts after the base delay")
     }
 }

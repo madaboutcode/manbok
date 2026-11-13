@@ -112,15 +112,17 @@ final class DemandReducerTests: XCTestCase {
 
     // MARK: - Break paths (model/README.md)
 
-    /// fix-rowsess, P4: first capture start fails, the app's device list blips, capture comes up while
-    /// the app is draining. A holder-only session rule left a non-absent app without a session.
-    func test_P4_drainingAppGetsSessionWhenCaptureComesUp() {
+    /// NoSessNonHolding: first capture start fails, the app's device list blips, capture comes up while the app is
+    /// draining. No session opens for the draining app; it gets one when it is listed again (P4, one poll later).
+    func test_NoSessNonHolding_drainingAppGetsNoSessionWhenCaptureComesUp() {
         let (s, outs) = run([
             input(10, [holder("a", [1])], capturing: false),
             input(12, [], capturing: false),
             input(14, [], capturing: true),
+            input(16, [holder("a", [1])], capturing: true),
         ])
-        XCTAssertEqual(outs[2].sessionOps, [.open(appID: "a", pid: 1)])
+        XCTAssertEqual(outs[2].sessionOps, [], "draining app must not get a new session")
+        XCTAssertEqual(outs[3].sessionOps, [.open(appID: "a", pid: 1)])
         XCTAssertTrue(s.sessionOpen.contains("a"))
     }
 

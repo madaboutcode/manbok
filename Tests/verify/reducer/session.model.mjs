@@ -1,7 +1,7 @@
 // Order model of the T1081 reducer design (design-v2.md section 6 overrides earlier sections). MIRRORED, not linked to code.
 // Variant via env MODEL_VARIANT:
-//   fix | no-a3 | a3-leak | excl-nosess | gaphold | flag | p5union | stale | rowsess | excl-late | excl-ignore | timer | nostep2 | ticks | nofallback | excl-dropnosess
-// Env: MODEL_FINDINGS=1 adds the rules that are expected to break (P1s, P5s, Slow), MODEL_EDGE=true|false pins the 4 s tie, MODEL_UCAP = max unhealthy count, MODEL_NOSLEEP=1 removes the sleep event, MODEL_TOT = fault budget, MODEL_TIMERS=1 adds latency counters (P3, Plat), MODEL_EXAPPS = how many apps can be excluded, MODEL_APPS (default 2), MODEL_DEVS (default 2), MODEL_BSTOP (default 8), MODEL_BEX (default 6),
+//   fix | no-a3 | a3-leak | not-consumed | drainsess | gaphold | flag | p5union | stale | excl-late | excl-ignore | timer | nostep2 | ticks | nofallback | excl-dropnosess
+// Env: MODEL_FINDINGS=1 adds the rules that are expected to break (P1s, P5s, ExclNew until fixed), MODEL_EDGE=true|false pins the 4 s tie, MODEL_UCAP = max unhealthy count, MODEL_NOSLEEP=1 removes the sleep event, MODEL_TOT = fault budget, MODEL_TIMERS=1 adds latency counters (P3, Plat), MODEL_EXAPPS = how many apps can be excluded, MODEL_APPS (default 2), MODEL_DEVS (default 2), MODEL_BSTOP (default 8), MODEL_BEX (default 6),
 //      MODEL_NSW/NBL/NVAN/NFAIL/NSLP/NEXC = event budgets.
 // Time: seconds. Poll every 2 s. Events happen at 1 s steps (offset 0 or 1 after a poll). G = 5 s drain deadline checked on poll.
 const VARIANT = process.env.MODEL_VARIANT ?? "fix";
@@ -32,7 +32,7 @@ export const meta = {
     { file: SRC + "CaptureRestartPolicy.swift", fn: "mayRestart", mirrored: true },
   ],
   notModeled: [
-    "MIRRORED: the model follows DemandReducer.step/stop, SessionLifecycleController.tick, CaptureSupervisor.apply and CaptureRestartPolicy at branch A head 889608f. Linked to the code only by the XCTest replays in Tests/ManbokPlatformTests/ReducerModelReplayTests.swift (see README): the reducer and executor rules run through the real SessionLifecycleController with a model-mirroring fake supervisor, and the A3/Slow restart budget runs through the real CaptureSupervisor. The other supervisor paths (stall/silence watchdogs, restart backoff beyond the budget abstraction) are not replayed.",
+    "MIRRORED: the model follows DemandReducer.step/stop, SessionLifecycleController.tick, CaptureSupervisor.apply and CaptureRestartPolicy at branch A head 889608f. Linked to the code only by the XCTest replays in Tests/ManbokPlatformTests/ReducerModelReplayTests.swift (see README): the reducer and executor rules run through the real SessionLifecycleController with a model-mirroring fake supervisor, and the Slow restart budget runs through the real CaptureSupervisor. The other supervisor paths (stall/silence watchdogs, restart backoff beyond the budget abstraction) are not replayed.",
     "restart-policy delay is capped at 2^UCAP = "+(1<<UCAP)+" s (unhealthy count saturates at UCAP="+UCAP+"); real cap is 30 s (unhealthy count unbounded); real base delay 1 s as modeled",
     "stall and silence watchdogs, environment signals; a start failure is a free choice at any start/restart (at most NFAIL per run)",
     "sleep: clock jump of 6 s; real events during sleep are not modeled; sleep time is not counted toward P3/Plat/Excl (awake seconds)",
@@ -45,9 +45,8 @@ export const meta = {
     "poll every 2 s; one snapshot per poll; settings change (exclusion toggle) triggers an immediate extra poll",
     "executor order: step(isCapturing=before) -> apply -> if capture status changed: step again with the same snapshot",
     "reducer time is monotonic and continues across sleep (A5); stale hold: P3 is measured in awake seconds",
-    "wasFlowing = seconds since the last audio byte < 4; a gap of exactly 4 grid seconds is a tie decided by timer jitter, both outcomes explored (Branch A: lastDataAt survives a no-device release; cleared when demand empties, by restart(), and by sleep). Bytes flow each second while the worker exists and its mic exists",
-    "A3 = that kept lastDataAt. Variant no-a3 forgets it at abandon (HEAD); variant a3-leak does not clear it when demand empties",
-    "abandon for nil target keeps the audio-flow evidence (see above)",
+    "wasFlowing is recorded when a worker ends (release for no device, restart, empty demand, stop) = bytes flowed at that moment (last byte < 4 s old; a gap of exactly 4 grid seconds is a tie decided by timer jitter, both outcomes explored); the next start reads it once and clears it. Bytes flow each second while the worker exists and its mic exists",
+    "variants: no-a3 = release records false (HEAD before A3); a3-leak = empty demand does not record, so an older value survives; not-consumed = a start does not clear the value",
     "tainted episode: after a start failure and before demand empties, P1 excuses backoff deferrals and P1b does not count them",
   ],
   variant: VARIANT,
@@ -58,8 +57,8 @@ const app0 = { kind: "none", dev: 0, blip: false, lastObs: 0, ever: false, sess:
 export const init = {
   a: IDX.map(() => app0), ex: DEVS.map(() => true),
   worker: false, wdev: 0, failed: false, deferred: false, polled: true, due: false, ph: 0, stopped: false, nodev: false,
-  unh: 0, hasLast: false, since: SCAP, dgap: 5, abFlow: false, leak: false, slowGrew: false, a3Grew: false, taint: false,
-  off: 0, lostSess: false, cad: true, imm: false, idle: 0, badClose: false, newEx: false,
+  unh: 0, hasLast: false, since: SCAP, dgap: 5, abFlow: false, tf: false, leak: false, slowGrew: false, a3Grew: false, taint: false,
+  off: 0, lostSess: false, cad: true, imm: false, idle: 0, badClose: false, newEx: false, badOpen: false,
   nf: 0,
 };
 
@@ -77,7 +76,7 @@ function pickTarget(set, wdev) { // abstract CaptureDevicePolicy.resolve
 // ---- the pure reducer step (mirrors DemandReducer.step) ----
 // input: apps (with kind/dev/blip/excl as the executor sees them), isCap. Returns new apps + flags.
 export function stepApps(apps, isCap) {
-  let badClose = false, newEx = false;
+  let badClose = false, newEx = false, badOpen = false;
   const out = apps.map(p => {
     const d = devObs(p);
     const holdsObs = V("flag") ? flagOf(p) === 1 : V("gaphold") ? (flagOf(p) === 1 || d !== 0) : d !== 0;
@@ -96,13 +95,13 @@ export function stepApps(apps, isCap) {
     }
     if (q.sess === 0 && p.sess !== 0) { if (truth(p) && !p.excl && !p.dEx) badClose = badClose || true; }   // a drain that the exclusion itself started may end the session even if the user un-excluded in its last second
     if (q.sess === 0) { q.last = 0; q.open = false; q.dl = 0; q.stale = false; }
-    // session rule (stated once): every non-absent app without a session gets one iff capture runs
-    const needs = V("rowsess") ? q.sess === 1 : q.sess !== 0;
-    if (V("excl-nosess") && q.excl) { /* candidate fix: reducer is told the app is excluded and never opens a session for it */ }
-    else if (needs && isCap && !q.open) { q.open = true; if (q.excl) newEx = true; }
+    // session rule (stated once, FIX-A): an app gets a session iff capture runs and the entry holds at this step (phase holding).
+    // Variant drainsess = the old rule: every non-absent app (holding or draining) without a session gets one.
+    const needs = V("drainsess") ? q.sess !== 0 : q.sess === 1;
+    if (needs && isCap && !q.open) { q.open = true; if (q.sess !== 1) badOpen = true; if (q.excl) newEx = true; }
     return q;
   });
-  return { a: out, badClose, newEx };
+  return { a: out, badClose, newEx, badOpen };
 }
 
 // ---- candidates (mirrors DemandReducer.candidateDevices) ----
@@ -119,37 +118,43 @@ function candidates(a, ex) {
 }
 
 // ---- supervisor apply with the restart budget (mirrors CaptureSupervisor.apply + CaptureRestartPolicy) ----
-// Branch A keeps lastDataAt across a no-device release: dgap = grid seconds since the last audio byte (5 = none / expired).
-// wasFlowing = real gap < 4 s (watchdogThreshold): dgap <= 3 yes, dgap 4 either (tie), dgap 5 no. Variant no-a3: abandon forgets lastDataAt (HEAD behaviour). Variant a3-leak: empty demand does not forget it.
+// FIX-A rule: every worker end (release for no device, restart, abandon for empty demand, stop) records wasFlowing = bytes
+// flowed at that moment; the next start reads it once and clears it (abFlow). A start never looks at byte age itself.
+// dgap = grid seconds since the last audio byte (5 = none / expired). Flowing at the end moment: real gap < 4 s (watchdogThreshold):
+// dgap <= 3 yes, dgap 4 a tie decided by timer jitter (both outcomes explored; MODEL_EDGE=true|false pins one), dgap 5 no.
+// tf = oracle copy of the value recorded at the last end, never touched by variants. Variants: no-a3 (release records false),
+// a3-leak (empty demand does not record), not-consumed (a start does not clear the value).
 const mayRestart = (s) => !s.hasLast || s.since >= (1 << s.unh);
 const record = (s, wasF) => ({ unh: (s.hasLast && !wasF) ? Math.min(UCAP, s.unh + 1) : 0, hasLast: true, since: 0 });
-const SUPK = (s) => ({ worker: s.worker, wdev: s.wdev, unh: s.unh, hasLast: s.hasLast, since: s.since, dgap: s.dgap, abFlow: s.abFlow, taint: s.taint, nf: s.nf, failed: false, deferred: false, leak: s.leak, slowGrew: s.slowGrew, a3Grew: s.a3Grew });
+const SUPK = (s) => ({ worker: s.worker, wdev: s.wdev, unh: s.unh, hasLast: s.hasLast, since: s.since, dgap: s.dgap, abFlow: s.abFlow, tf: s.tf, taint: s.taint, nf: s.nf, failed: false, deferred: false, leak: s.leak, slowGrew: s.slowGrew, a3Grew: s.a3Grew });
+function flowOpts(dgap) {
+  const edge = process.env.MODEL_EDGE;
+  return dgap <= 3 ? [true] : dgap === 4 ? (edge === "true" ? [true] : edge === "false" ? [false] : [true, false]) : [false];
+}
 function supApply(s, anyDemand, cand) {
-  if (!anyDemand) return [{ ...SUPK(s), worker: false, wdev: 0, unh: 0, hasLast: false, dgap: V("a3-leak") ? s.dgap : 5, abFlow: false, taint: false }];
+  const endVals = s.worker ? flowOpts(s.dgap) : [false];            // flowing at the moment a worker ends (none: nothing flows)
+  if (!anyDemand) return endVals.map((f) => ({ ...SUPK(s), worker: false, wdev: 0, unh: 0, hasLast: false, dgap: 5,
+    abFlow: V("a3-leak") ? s.abFlow : f, tf: f, taint: false }));
   const target = pickTarget(cand, s.wdev);
   if (!target) {
     if (V("gaphold")) return [SUPK(s)];
-    const flowing = s.worker ? s.dgap <= 4 : s.abFlow;
-    return [{ ...SUPK(s), worker: false, wdev: 0, dgap: s.dgap, abFlow: flowing }];
+    if (!s.worker) return [SUPK(s)];
+    return endVals.map((f) => ({ ...SUPK(s), worker: false, wdev: 0, dgap: s.dgap, abFlow: V("no-a3") ? false : f, tf: f }));
   }
   if (s.worker && s.wdev === target) return [SUPK(s)];
   if (!mayRestart(s)) return [{ ...SUPK(s), deferred: true }];
   const arrival = !s.worker;
-  // Real test is (now - lastDataAt) < 4.0 s. The model grid is whole seconds, polls are 2 s apart: gap 4 is a tie that
-  // timer jitter and the age of the last chunk decide, so both outcomes are explored (MODEL_EDGE=true|false pins one).
-  const edge = process.env.MODEL_EDGE;
-  const flowOpts = s.dgap <= 3 ? [true] : s.dgap === 4 ? (edge === "true" ? [true] : edge === "false" ? [false] : [true, false]) : [false];
   const outs = [];
-  for (const truthF of flowOpts) {
-    const wasF = (V("no-a3") && arrival) ? false : truthF;           // no-a3: HEAD's abandonWorker() cleared lastDataAt, so an arrival start never saw flow
-    const cold = !s.hasLast;
-    const base = { ...SUPK(s), leak: s.leak || (cold && wasF) };    // a cold start (no earlier attempt since idle) inherits a healthy flag
-    const dg = 5;                                                     // restart() and the arrival path both set lastDataAt = nil before the new worker starts (CaptureSupervisor.swift:150, :347)
-    const slow = arrival && s.abFlow && !truthF && s.hasLast && !s.taint; // audio at release, but the evidence expired before the start
-    const a3 = arrival && s.abFlow && s.dgap <= 3 && s.hasLast && !s.taint; // audio within 3 s of the start (definitely < 4 s): the backoff must not grow
+  for (const endF of (arrival ? [null] : endVals)) {
+    const wasF = arrival ? s.abFlow : endF;
+    const oracle = arrival ? s.tf : endF;
+    const base = { ...SUPK(s), leak: s.leak || wasF !== oracle, abFlow: V("not-consumed") && arrival ? s.abFlow : false, tf: false };
+    const dg = 5;                                                     // restart() and the end of a worker clear lastDataAt (the byte clock)
+    const slow = arrival && s.tf && s.hasLast && !s.taint;            // audio flowed when the worker ended: the backoff must not grow, whatever the gap
+    const a3 = arrival && s.tf && s.dgap <= 3 && s.hasLast && !s.taint; // audio within 3 s of the start (definitely < 4 s)
     const rec = record(s, wasF);
-    outs.push({ ...base, worker: true, wdev: target, ...rec, dgap: dg, abFlow: false, slowGrew: s.slowGrew || (slow && rec.unh > s.unh), a3Grew: s.a3Grew || (a3 && rec.unh > s.unh) });
-    if (s.nf < TOT) outs.push({ ...base, failed: true, worker: false, wdev: 0, ...record(s, false), dgap: dg, abFlow: false, taint: true, nf: s.nf + 1 });
+    outs.push({ ...base, worker: true, wdev: target, ...rec, dgap: dg, slowGrew: s.slowGrew || (slow && rec.unh > s.unh), a3Grew: s.a3Grew || (a3 && rec.unh > s.unh) });
+    if (s.nf < TOT) outs.push({ ...base, failed: true, worker: false, wdev: 0, ...record(s, false), dgap: dg, taint: true, nf: s.nf + 1 });
   }
   return outs;
 }
@@ -159,10 +164,10 @@ function pollAll(s) {
   const { cand, noKnown } = candidates(r1.a, s.ex);
   const anyDemand = r1.a.some(p => p.sess !== 0);
   return supApply(s, anyDemand, cand).map(sp => {
-    let a = r1.a, badClose = r1.badClose, newEx = r1.newEx;
+    let a = r1.a, badClose = r1.badClose, newEx = r1.newEx, badOpen = r1.badOpen;
     if (sp.worker !== s.worker && !V("nostep2")) {      // capture status changed: step again, same snapshot
       const r2 = stepApps(a, sp.worker);
-      a = r2.a; badClose = badClose || r2.badClose; newEx = newEx || r2.newEx;
+      a = r2.a; badClose = badClose || r2.badClose; newEx = newEx || r2.newEx; badOpen = badOpen || r2.badOpen;
     }
     const nodev = !cand.length && noKnown;     // no known device: none listed by a holder, no draining kept device still exists
     const lost = nodev && s.a.some((p, i) => p.open && trueHolder(p) && !p.dEx && !a[i].open);
@@ -170,8 +175,8 @@ function pollAll(s) {
     const noteTaint = sp.taint;
     const off = sp.worker || !holder || sp.failed || noteTaint || sp.deferred ? 0 : (s.imm ? s.off : Math.min(s.off + 1, 2));   // off-cycle (settings) polls do not count as a poll period
     a = a.map(p => ({ ...p, blip: false, lastObs: devObs(p) }));
-    return { ...s, a, badClose: s.badClose || badClose, newEx: s.newEx || newEx, worker: sp.worker, wdev: sp.wdev, failed: sp.failed, deferred: sp.deferred,
-      unh: sp.unh, hasLast: sp.hasLast, since: sp.since, dgap: sp.dgap, abFlow: sp.abFlow, leak: sp.leak, slowGrew: sp.slowGrew, a3Grew: sp.a3Grew, taint: sp.taint, nf: sp.nf,
+    return { ...s, a, badClose: s.badClose || badClose, newEx: s.newEx || newEx, badOpen: s.badOpen || badOpen, worker: sp.worker, wdev: sp.wdev, failed: sp.failed, deferred: sp.deferred,
+      unh: sp.unh, hasLast: sp.hasLast, since: sp.since, dgap: sp.dgap, abFlow: sp.abFlow, tf: sp.tf, leak: sp.leak, slowGrew: sp.slowGrew, a3Grew: sp.a3Grew, taint: sp.taint, nf: sp.nf,
       nodev, lostSess: lost, off, polled: true, due: false, cad: !s.imm, imm: false };
   });
 }
@@ -234,7 +239,7 @@ if (V("timer")) {
     s.a.map((p, i) => (p.stale && p.sess === 1) ? i : -1).filter(i => i >= 0).map(i =>
       ({ ...s, polled: false, badClose: s.badClose || (truth(s.a[i]) && !s.a[i].excl), a: s.a.map((q, j) => j === i ? { ...q, sess: 0, open: false, last: 0, dl: 0, stale: false } : q) }));
 }
-actions["manbok stops"] = s => W(s) && ({ ...s, a: s.a.map(p => ({ ...p, sess: 0, open: false, dl: 0, last: 0, stale: false })), worker: false, wdev: 0, failed: false, dgap: 5, abFlow: false, stopped: true });
+actions["manbok stops"] = s => W(s) && ({ ...s, a: s.a.map(p => ({ ...p, sess: 0, open: false, dl: 0, last: 0, stale: false })), worker: false, wdev: 0, failed: false, dgap: 5, abFlow: false, tf: false, stopped: true });
 
 const draining = (s) => s.a.some(p => p.ever && p.sess !== 0);
 const holderDevs = (s) => s.a.filter(p => p.sess === 1 && p.last).map(p => p.last);
@@ -253,15 +258,18 @@ export const rules = {
         holds: s => s.stopped || !(s.idle > BSTOP && s.worker) },
   Plat: { says: `an app's session is closed within ${BSTOP} s of that app really stopping holding (awake seconds)`,
           holds: s => s.stopped || s.a.every(p => !(p.open && p.idleA > BSTOP)) },
-  P4: { says: "while a non-excluded app that the reducer has seen holds a mic and capture runs, that app has an open session after a poll",
-        holds: s => s.stopped || s.a.every(p => !(s.polled && trueHolder(p) && p.sess !== 0 && s.worker) || p.open) },
+  P4: { says: "while a non-excluded app that the reducer lists as holding a mic (phase holding at this step) and capture runs, that app has an open session after a poll. (FIX-A: a holder whose mic is missing from one poll's list is draining at that step and gets its session one poll later.)",
+        holds: s => s.stopped || s.a.every(p => !(s.polled && trueHolder(p) && p.sess === 1 && s.worker) || p.open) },
+  NoSessNonHolding: { says: "no session opens for an app that does not hold at that step (a draining app never gets a session; advisor round 9, ExclNew fix)",
+        holds: s => !s.badOpen },
+  ExclNew: { says: "after an app is excluded it gets no new session (a draining excluded app without a session is not given one when capture comes up)", holds: s => !s.newEx },
   P5: { says: "the reducer's choice of device (ignoring a restart deferred by the backoff) never favours a draining app's device over a holder's, and never picks a device that no longer exists",
          holds: s => s.stopped || !s.polled || !s.worker || s.deferred || (s.ex[s.wdev - 1] && (holderDevs(s).length === 0 || holderDevs(s).includes(s.wdev))) },
-  Cold: { says: "a cold start after idle never inherits a healthy flag (inferred): the first start attempt after demand was empty uses wasFlowing=false",
+  Carry: { says: "a start uses exactly the wasFlowing value recorded when the previous worker ended, read once: a start after a failed start, after empty demand or after stop never sees an older worker's value (inferred; replaces the old Cold rule)",
           holds: s => !s.leak },
-  A3: { says: "a mic switch through a no-device poll, restarted within 4 s of the last audio byte, with no start failure, never raises the restart backoff (the A3 promise)",
+  A3: { says: "a mic switch through a no-device poll, restarted within 4 s of the last audio byte (the Slow rule below covers every gap), with no start failure, never raises the restart backoff (the A3 promise)",
         holds: s => !s.a3Grew },
-  Slow: { says: "a mic switch with no start failure never raises the restart backoff, even when more than 4 s pass between the last audio byte and the new worker start (inferred; the design promises this only for the 'one poll' case)",
+  Slow: { says: "a mic switch with no start failure never raises the restart backoff, however long the gap between the last audio byte and the new worker start, provided audio flowed when the old worker ended (design-v2 A3 'a healthy mic switch resets backoff'; advisor round 9). Whole state space, no cap",
           holds: s => !s.slowGrew },
   Cont: { says: "a session is never closed while its app really holds a mic and is not excluded",
           holds: s => !s.badClose },
@@ -276,13 +284,12 @@ export const rules = {
 // Findings: rules that are expected to break on branch A as written (budget behaviour owned by the supervisor). Off by default so the
 // baseline run is a clean pass/fail on the reducer rules; MODEL_FINDINGS=1 adds them (run-findings-*.txt).
 if (process.env.MODEL_FINDINGS === "1") {
-  rules.ExclNew = { says: "FINDING (expected to break): after an app is excluded it gets no new session (a draining excluded app without a session is given one when capture comes up)", holds: s => !s.newEx };
   rules.P1s = { says: "FINDING (expected to break): P1 without the budget exemption: an arrival start is deferred only after a failed start",
                 holds: s => s.stopped || !(s.polled && s.cad && anyHolder(s) && !s.failed && !s.nodev && !(s.deferred && s.taint)) || s.worker };
   rules.P5s = { says: "FINDING (expected to break): the running worker is never on a device that vanished or that only a draining app listed, even when the restart budget defers the switch",
                 holds: s => s.stopped || !s.polled || !s.cad || !s.worker || (s.deferred && s.taint) ||
                             (s.ex[s.wdev - 1] && (holderDevs(s).length === 0 || holderDevs(s).includes(s.wdev))) };
-} else { delete rules.Slow; }
+}
 if (!TIMERS) { delete rules.P3; delete rules.Plat; }
 export const canReach = {
   CanIdle: { says: "from any point, capture can end up stopped", goal: s => !s.worker },

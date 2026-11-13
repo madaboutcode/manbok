@@ -16,13 +16,11 @@ if [[ "$1" == "all" ]]; then
   run no-a3-B no-a3 ${=B}
   run gaphold-A gaphold ${=A}; run gaphold-L gaphold ${=L}
   run flag-A flag ${=A}; run flag-L flag ${=L}
-  run p5union-A p5union ${=A}; run stale-A stale ${=A}; run rowsess-A rowsess ${=A}; run rowsess-A2 rowsess MODEL_APPS=2 MODEL_DEVS=2 MODEL_TOT=2 MODEL_EXAPPS=0
+  run p5union-A p5union ${=A}; run stale-A stale ${=A}; run drainsess-A drainsess ${=A}; run drainsess-C drainsess ${=C}
   run nostep2-A nostep2 ${=A}; run ticks-A ticks ${=A}; run nofallback-A nofallback ${=A}
   run excl-late-C excl-late ${=C}; run excl-ignore-C excl-ignore ${=C}; run timer-C timer ${=C}; run excl-dropnosess-C excl-dropnosess ${=C}
-  run a3-leak-B a3-leak ${=B}
+  run a3-leak-B a3-leak ${=B}; run not-consumed-B not-consumed ${=B}
   F="MODEL_FINDINGS=1 MODEL_APPS=1 MODEL_DEVS=2 MODEL_TOT=3 MODEL_EXAPPS=0"
-  run findings-excl-C fix ${=C} MODEL_FINDINGS=1
-  run findings-excl-nosess-C excl-nosess ${=C} MODEL_FINDINGS=1
   run findings-nosleep fix ${=F} MODEL_NOSLEEP=1
   run findings-edge-true fix ${=F} MODEL_NOSLEEP=1 MODEL_EDGE=true
   run findings-edge-false fix ${=F} MODEL_NOSLEEP=1 MODEL_EDGE=false
