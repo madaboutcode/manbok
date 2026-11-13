@@ -7,9 +7,10 @@ import ManbokCore
 // GUARANTEES
 // - Listens on `AppStatePaths.socketURL` (Unix domain stream socket).
 // - One request per accepted connection: read one line, invoke handler (may be async), write one response line.
-// - Every accepted socket has SO_NOSIGPIPE and 1 s receive/send timeouts. A client that sends no complete
-//   request line, or does not read its reply, within that time is dropped (logged at .notice) and the next
-//   client is served. Worst-case delay a stuck client adds to others is therefore about 1 s per phase.
+// - Every accepted socket has SO_NOSIGPIPE and a 1 s send timeout. The request line must arrive completely
+//   within 1 s of the read starting (one total deadline, not restarted by received bytes), and the reply must
+//   be accepted by the client within 1 s per write. A client that fails either is dropped (logged at .notice)
+//   and the next client is served. Worst-case delay a stuck client adds to others is therefore about 1 s per phase.
 // - Requests are bare-verb UTF-8 lines; responses are NDJSON (one JSON object per line, `\n`-terminated).
 //
 // EXPECTS
@@ -183,12 +184,24 @@ public final class UnixSocketServer: @unchecked Sendable {
         case timedOut
     }
 
-    private static func readLine(fd: Int32, maxBytes: Int = 4096) -> ReadResult {
+    /// The whole line must arrive within `totalTimeout` of the call. SO_RCVTIMEO alone restarts on every received
+    /// byte, so a client sending one byte per 0.9 s would hold the serialized accept loop up to `maxBytes` seconds.
+    private static func readLine(fd: Int32, maxBytes: Int = 4096, totalTimeout: TimeInterval = 1) -> ReadResult {
         var buffer = [UInt8]()
         buffer.reserveCapacity(64)
         var chunk = [UInt8](repeating: 0, count: 64)
+        let deadline = ProcessInfo.processInfo.systemUptime + totalTimeout
 
         while buffer.count < maxBytes {
+            let remaining = deadline - ProcessInfo.processInfo.systemUptime
+            if remaining <= 0 { return .timedOut }
+            var pfd = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
+            let ready = poll(&pfd, 1, Int32((remaining * 1000).rounded(.up)))
+            if ready == 0 { return .timedOut }
+            if ready < 0 {
+                if errno == EINTR { continue }
+                break
+            }
             let n = read(fd, &chunk, chunk.count)
             if n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) { return .timedOut }
             if n <= 0 { break }
