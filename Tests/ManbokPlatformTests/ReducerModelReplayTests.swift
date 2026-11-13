@@ -286,6 +286,7 @@ final class ReducerModelBudgetReplayTests: XCTestCase {
         var workers: [BudgetWorker] = []
         let sup = CaptureSupervisor(
             makeWorker: { let w = BudgetWorker(); workers.append(w); return w },
+            authorizer: FakeMicrophoneAuthorizer(status: .authorized),
             signals: BudgetSignals(),
             appendSink: { _ in },
             restartPolicy: .init(watchdogThreshold: 4, baseDelay: 3, maxDelay: 100),

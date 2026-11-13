@@ -67,6 +67,7 @@ private final class SupervisorReplay {
                 made.append(worker)
                 return worker
             },
+            authorizer: FakeMicrophoneAuthorizer(status: .authorized),
             signals: environment,
             appendSink: { _ in },
             restartPolicy: .init(watchdogThreshold: 4, baseDelay: 1, maxDelay: 30),
