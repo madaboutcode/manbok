@@ -49,4 +49,23 @@ final class SettingsStoreTests: XCTestCase {
 
         XCTAssertEqual(store.bufferPreset, .min10)
     }
+
+    func test_excludedApps_defaultEmpty_roundTripsAcrossInstances() {
+        let first = SettingsStore(defaults: defaults)
+        XCTAssertEqual(first.excludedApps, [])
+        first.excludedApps = ["com.google.chrome", "us.zoom.xos"]
+
+        let second = SettingsStore(defaults: defaults)
+        XCTAssertEqual(second.excludedApps, ["com.google.chrome", "us.zoom.xos"])
+    }
+
+    func test_excludedApps_changeNotifiesOnceWithNewSet_notOnInitOrNoOp() {
+        var calls: [Set<String>] = []
+        let store = SettingsStore(defaults: defaults)
+        store.excludedAppsDidChange = { calls.append($0) }
+        store.excludedApps = ["a"]
+        store.excludedApps = ["a"]            // unchanged
+        store.excludedApps = []
+        XCTAssertEqual(calls, [["a"], []])
+    }
 }

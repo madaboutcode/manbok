@@ -5,36 +5,39 @@ import ManbokCore
 
 // MARK: - CONTRACT: SessionLifecycleController
 //
-// PURPOSE: The stable half — owns poll timer, session lifecycle (set-diff, drain,
-// registry open/close), and published UI state. Talks to capture supervision ONLY
-// through the CaptureSupervising waist protocol.
+// PURPOSE: The stable half — owns the poll timer, executes DemandReducer decisions (registry
+// open/close), and publishes UI state. Talks to capture supervision ONLY through the
+// CaptureSupervising waist protocol.
 //
 // GUARANTEES:
-// - Owns the poll timer (~2s) on its serial queue. Each tick: snapshot → set-diff
-//   against last tick's raw presence → build demand → supervisor.apply(demand:now:) →
-//   process arrivals/departures.
-// - Demand = one DemandEntry per current bundleID; arrivedAt per §11.1: first tick
-//   of session-continuous presence, preserved across drain reclaim, reset only when
-//   drain expires (session closes).
-// - Arrival → cancel pending drain, registry.openSession (idempotent if already open);
-//   arrivals deferred while !status.isCapturing (left unseen so next tick retries —
-//   the retry re-establishes a fresh arrivedAt, since nothing was persisted for it).
-// - Departure → per-app drain timer (gracePeriod), started exactly once per departure
-//   (idempotent: a still-absent app is not re-detected as "departed" on later ticks
-//   because the diff is against last tick's raw presence, not a persistent map).
-//   Expiry → registry.closeSession, arrivedAt reset. Reclaim before expiry cancels the
-//   timer, no session churn, arrivedAt preserved.
-// - anySessionOpen = registry.anySessionOpen || !drainTimers.isEmpty (one-signal rule).
+// - Owns the poll timer (~2s) on its serial queue. Each tick: one holder snapshot → DemandReducer.step
+//   → supervisor.apply(demand:now:) → execute the reducer's session ops. If apply changed
+//   isCapturing, step runs once more in the same tick (same snapshot, same now) and its ops
+//   are executed too.
+// - Applies HolderExclusion (built-in + user groups) once per snapshot, before the reducer.
+//   setExcludedGroups(_:) takes effect on an immediate extra tick while running (no wait for the
+//   timer). An app excluded mid-session simply stops being listed: it drains and its session closes
+//   at expiry; capture continues for other holders.
+// - Publishes holdingNow: every non-built-in holder in the raw snapshot (before user exclusion),
+//   one per app group, for the Settings list; updated only when it changes.
+// - Drain, reclaim, arrivedAt and the session rule live in DemandReducer (see its CONTRACT). This
+//   type keeps no per-app timers and no presence diff; time is a monotonic clock closure.
+// - Logs one persisted (.notice) line per reducer transition and per session open/close, from this
+//   type only; unchanged polls log nothing.
+// - Invariant: the registry's open sessions are exactly the reducer's sessionOpen set after every
+//   tick. The reducer is the only opener and closer.
+// - DemandEntry.arrivedAt is wall-clock (Date): a fixed origin plus the reducer's monotonic arrival.
+// - anySessionOpen = registry.anySessionOpen (an open session covers holding and draining apps).
 // - micPermission refreshed via permission() at 30s cadence.
-// - stop(): cancel timers, final supervisor.apply(demand: [], now:), close every
-//   session that is open or draining, publish anySessionOpen=false. Composition root
-//   then calls supervisor.stop().
+// - stop(): cancel timers, final supervisor.apply(demand: [], now:), close every open session,
+//   publish anySessionOpen=false. Composition root then calls supervisor.stop().
 //
 // EXPECTS:
-// - start/stop idempotent, any thread. Supervisor synchronous per §11.1.
+// - start/stop idempotent, any thread. Supervisor synchronous per §11.1. holderSnapshot returns
+//   holders with user exclusions already applied by the caller (none exist yet).
 //
 // FAILURE:
-// - None of its own; capture failures reach it ONLY as isCapturing=false (arrivals defer).
+// - None of its own; capture failures reach it ONLY as isCapturing=false (sessions defer).
 //
 // DOES NOT: touch devices, workers, watchdogs, restart or silence policy — its only
 // capture knowledge is the waist. Enforced by the §11.1 source-scan test.
@@ -54,9 +57,9 @@ public enum MicPermissionState: Sendable, Equatable {
     }
 }
 
-/// Per-app session lifecycle: set-diff polling drives demand into the capture waist and
-/// SessionRegistry open/close directly. The volatile half (workers, devices, watchdogs,
-/// recovery) is entirely behind `CaptureSupervising` — this type never sees it.
+/// Per-app session lifecycle: each poll feeds one holder snapshot to `DemandReducer`, passes its demand
+/// into the capture waist and executes its session ops on SessionRegistry. The volatile half (workers,
+/// devices, watchdogs, recovery) is entirely behind `CaptureSupervising` — this type never sees it.
 ///
 /// @unchecked Sendable: all mutable state is confined to `queue`, except the @Published
 /// properties, which are written only on the main queue (shadow-copy publish pattern).
@@ -64,11 +67,13 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
     // Dependencies (injected)
     private let supervisor: CaptureSupervising
     private let registry: SessionRegistry
-    private let processSnapshot: () -> [AudioProcessInfo]
+    private let holderSnapshot: () -> HolderSnapshot
     private let resolver: AppIdentityResolver
     private let permission: () -> MicPermissionState
     private let pollInterval: TimeInterval
-    private let gracePeriod: TimeInterval
+    private let reducer: DemandReducer
+    private let monotonicNow: () -> TimeInterval
+    private var exclusion: HolderExclusion
 
     private let log = AppLog(category: .capture)
     private let queue = DispatchQueue(label: "ai.manbok.app.lifecycle", qos: .userInitiated)
@@ -77,31 +82,27 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
     private var permissionTimer: DispatchSourceTimer?
     private var isRunning = false
 
-    // Raw presence from the last tick's snapshot — NOT a persistent "known apps" map.
-    // Diffing against this (rather than against every bundleID we've ever seen) is what
-    // keeps departure detection idempotent: once an app drops out, it stays out of this
-    // set, so a still-absent app is never re-reported as "departed" on later ticks.
-    private var previousBundleIDs: Set<String> = []
-    private var knownPIDs: [String: pid_t] = [:]
-
-    // Persisted across drain: cleared only when a session actually closes (drain expiry),
-    // so a depart-and-reclaim within grace preserves the original arrival tick (§11.1 C2/C3).
-    private var arrivedAtByBundleID: [String: Date] = [:]
-
-    private var drainTimers: [String: DispatchSourceTimer] = [:]
+    private var demandState = DemandState.empty
+    private var lastCapturing = false
+    // Wall-clock time of monotonic zero, fixed at the first tick so DemandEntry.arrivedAt is
+    // stable across ticks (a per-tick conversion would jitter).
+    private var wallOrigin: Date?
 
     // Shadow copies — publish() is called from `queue`, so it must not read the
     // @Published properties themselves (those are written on the main queue).
     private var anySessionOpenLocal = false
     private var micPermissionLocal = MicPermissionState.notDetermined
 
+    private var holdingNowLocal: [ActiveHolder] = []
+
+    @Published public private(set) var holdingNow: [ActiveHolder] = []
     @Published public private(set) var anySessionOpen: Bool = false
     @Published public private(set) var micPermission: MicPermissionState = .notDetermined
 
     public init(
         supervisor: CaptureSupervising,
         registry: SessionRegistry,
-        processSnapshot: @escaping () -> [AudioProcessInfo],
+        holderSnapshot: @escaping () -> HolderSnapshot,
         resolver: AppIdentityResolver = .shared,
         // Inlined rather than calling MicPermissionState.from(_:): that static method is
         // `internal`, and a public initializer's default-argument expression must not
@@ -115,15 +116,32 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
             }
         },
         pollInterval: TimeInterval = 2.0,
-        gracePeriod: TimeInterval = 5.0
+        gracePeriod: TimeInterval = 5.0,
+        excludedGroups: Set<String> = [],
+        // CLOCK_MONOTONIC_RAW keeps counting while the Mac sleeps, so a sleep longer than the
+        // grace period expires drains on the first poll after wake.
+        monotonicNow: @escaping () -> TimeInterval = {
+            TimeInterval(clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW)) / 1_000_000_000
+        }
     ) {
         self.supervisor = supervisor
         self.registry = registry
-        self.processSnapshot = processSnapshot
+        self.holderSnapshot = holderSnapshot
         self.resolver = resolver
         self.permission = permission
         self.pollInterval = pollInterval
-        self.gracePeriod = gracePeriod
+        self.reducer = DemandReducer(grace: gracePeriod)
+        self.monotonicNow = monotonicNow
+        self.exclusion = HolderExclusion(userGroups: excludedGroups)
+    }
+
+    /// Replaces the user's excluded app groups; while running, polls immediately.
+    public func setExcludedGroups(_ groups: Set<String>) {
+        queue.async { [self] in
+            guard exclusion.userGroups != groups else { return }
+            exclusion = HolderExclusion(userGroups: groups)
+            if isRunning { tick() }
+        }
     }
 
     public func start() {
@@ -157,21 +175,17 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
             permissionTimer?.cancel()
             permissionTimer = nil
 
-            for (_, timer) in drainTimers { timer.cancel() }
-            drainTimers.removeAll()
-
             // Final empty-demand apply — this is how the worker is released (§11.1 C13).
             _ = supervisor.apply(demand: [], now: Date())
 
-            // Close every session that was open or draining.
-            for bundleID in arrivedAtByBundleID.keys {
-                registry.closeSession(bundleID: bundleID)
-            }
-            arrivedAtByBundleID.removeAll()
-            previousBundleIDs.removeAll()
-            knownPIDs.removeAll()
+            let (cleared, closes) = reducer.stop(demandState)
+            execute(closes)
+            demandState = cleared
+            lastCapturing = false
+            wallOrigin = nil
 
             publish(anySessionOpen: false)
+            publish(holdingNow: [])
             log.notice("lifecycle stopped")
         }
     }
@@ -179,82 +193,85 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
     // MARK: - Poll tick
 
     private func tick() {
-        let now = Date()
-        let processes = processSnapshot()
-        for proc in processes { knownPIDs[proc.bundleID] = proc.pid }
-        let currentBundleIDs = Set(processes.map(\.bundleID))
+        let snapshot = holderSnapshot()
+        let mono = monotonicNow()
+        let wall = Date()
+        let origin = wallOrigin ?? wall.addingTimeInterval(-mono)
+        wallOrigin = origin
+        let holders = snapshot.holders.filter { !exclusion.isExcluded($0.appID) }
+        publish(holdingNow: activeHolders(snapshot.holders))
+        func input(capturing: Bool) -> DemandInput {
+            DemandInput(now: mono, holders: holders, liveDevices: snapshot.liveInputDevices, isCapturing: capturing)
+        }
 
-        // Demand reflects THIS tick's raw presence. For an app already known, reuse its
-        // preserved arrival time; for a brand-new (or not-yet-admitted) app, "now" is its
-        // candidate arrival — persisted only once admission actually happens below.
-        let demand: [DemandEntry] = processes.map { proc in
+        let (afterStep, output) = reducer.step(demandState, input(capturing: lastCapturing))
+        let entries = output.demand.map {
             DemandEntry(
-                bundleID: proc.bundleID,
-                pid: proc.pid,
-                arrivedAt: arrivedAtByBundleID[proc.bundleID] ?? now
+                bundleID: $0.appID,
+                pid: $0.pid,
+                arrivedAt: origin.addingTimeInterval($0.arrivedAt),
+                deviceIDs: $0.devices
             )
         }
+        let status: CaptureStatus = supervisor.apply(demand: entries, now: wall)
+        demandState = afterStep
+        report(output.transitions, now: mono)
+        execute(output.sessionOps)
 
-        let status: CaptureStatus = supervisor.apply(demand: demand, now: now)
-
-        let arrived = currentBundleIDs.subtracting(previousBundleIDs)
-        let departed = previousBundleIDs.subtracting(currentBundleIDs)
-
-        if !departed.isEmpty {
-            handleDeparted(departed)
-        }
-        if !arrived.isEmpty, status.isCapturing {
-            handleArrived(arrived, now: now)
-        }
-
-        previousBundleIDs = currentBundleIDs
-        if !arrived.isEmpty, !status.isCapturing {
-            // Capture isn't up yet — leave these unseen so the next tick retries them
-            // as fresh arrivals (§11.1 C7).
-            previousBundleIDs.subtract(arrived)
+        if status.isCapturing != lastCapturing {
+            lastCapturing = status.isCapturing
+            let (afterRecheck, recheck) = reducer.step(demandState, input(capturing: status.isCapturing))
+            demandState = afterRecheck
+            report(recheck.transitions, now: mono)
+            execute(recheck.sessionOps)
         }
 
-        publish(anySessionOpen: registry.anySessionOpen || !drainTimers.isEmpty)
+        publish(anySessionOpen: registry.anySessionOpen)
     }
 
-    private func handleArrived(_ bundleIDs: Set<String>, now: Date) {
-        for bundleID in bundleIDs {
-            drainTimers[bundleID]?.cancel()
-            drainTimers[bundleID] = nil
+    private func activeHolders(_ raw: [HolderObservation]) -> [ActiveHolder] {
+        var seen = Set<String>()
+        var result: [ActiveHolder] = []
+        for h in raw where !HolderExclusion.isBuiltIn(h.appID) {
+            let group = appGroup(h.appID)
+            guard seen.insert(group).inserted else { continue }
+            result.append(ActiveHolder(group: group, bundleID: h.appID, displayName: resolver.resolve(bundleID: h.appID, pid: h.pid)))
+        }
+        return result
+    }
 
-            let isReclaim = arrivedAtByBundleID[bundleID] != nil
-            if !isReclaim {
-                arrivedAtByBundleID[bundleID] = now
+    private func report(_ transitions: [AppTransition], now: TimeInterval) {
+        for transition in transitions {
+            switch transition {
+            case .startedHolding(let appID, let devices):
+                log.notice("app holding mic — \(appID) devices=\(devices.sorted())")
+            case .drainStarted(let appID, let kept, let deadline):
+                log.notice("app stopped holding — \(appID) kept=\(kept.sorted()) closes in \(String(format: "%.1f", deadline - now))s unless it returns")
+            case .reclaimed(let appID):
+                log.notice("app returned within grace — \(appID) (same session)")
+            case .drainExpired(let appID):
+                log.notice("app released — \(appID) (grace expired)")
             }
-
-            let pid = knownPIDs[bundleID] ?? 0
-            let displayName = resolver.resolve(bundleID: bundleID, pid: pid)
-            registry.openSession(bundleID: bundleID, displayName: displayName) // idempotent
-            log.notice("session \(isReclaim ? "reclaimed" : "opened") — \(displayName) (\(bundleID))")
         }
     }
 
-    private func handleDeparted(_ bundleIDs: Set<String>) {
-        for bundleID in bundleIDs {
-            guard drainTimers[bundleID] == nil else { continue } // already draining
-            let timer = DispatchSource.makeTimerSource(queue: queue)
-            timer.schedule(deadline: .now() + gracePeriod)
-            timer.setEventHandler { [weak self] in self?.expireDrain(bundleID: bundleID) }
-            timer.resume()
-            drainTimers[bundleID] = timer
-            log.info("drain started — \(bundleID) grace=\(gracePeriod)s")
+    private func execute(_ ops: [SessionOp]) {
+        for op in ops {
+            switch op {
+            case .open(let appID, let pid):
+                let displayName = resolver.resolve(bundleID: appID, pid: pid)
+                registry.openSession(bundleID: appID, displayName: displayName)
+                log.notice("session opened — \(displayName) (\(appID))")
+            case .close(let appID):
+                registry.closeSession(bundleID: appID)
+                log.notice("session closed — \(appID)")
+            }
         }
     }
 
-    private func expireDrain(bundleID: String) {
-        drainTimers[bundleID]?.cancel()
-        drainTimers[bundleID] = nil
-        registry.closeSession(bundleID: bundleID)
-        arrivedAtByBundleID.removeValue(forKey: bundleID)
-        knownPIDs.removeValue(forKey: bundleID)
-        log.notice("session closed — \(bundleID)")
-        publish(anySessionOpen: registry.anySessionOpen || !drainTimers.isEmpty)
-    }
+    /// Test seams: one synchronous tick, and the reducer's view of open sessions.
+    func pollOnce() { queue.sync { tick() } }
+    var reducerOpenSessions: Set<String> { queue.sync { demandState.sessionOpen } }
 
     // MARK: - Permission
 
@@ -268,6 +285,12 @@ public final class SessionLifecycleController: ObservableObject, @unchecked Send
         guard anySessionOpenLocal != value else { return }
         anySessionOpenLocal = value
         DispatchQueue.main.async { [weak self] in self?.anySessionOpen = value }
+    }
+
+    private func publish(holdingNow value: [ActiveHolder]) {
+        guard holdingNowLocal != value else { return }
+        holdingNowLocal = value
+        DispatchQueue.main.async { [weak self] in self?.holdingNow = value }
     }
 
     private func publish(micPermission value: MicPermissionState) {

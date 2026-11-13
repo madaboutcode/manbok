@@ -5,8 +5,11 @@ import ManbokCore
 // MARK: - CONTRACT: SettingsStore
 //
 // GUARANTEES:
-// - Persists bufferPreset + startAtLogin to the given UserDefaults suite (default:
-//   "ai.manbok.app"), keyed by "bufferPreset" / "startAtLogin".
+// - Persists bufferPreset + startAtLogin + excludedApps to the given UserDefaults suite (default:
+//   "ai.manbok.app"), keyed by "bufferPreset" / "startAtLogin" / "excludedApps".
+// - excludedApps holds app GROUP keys (appGroup(_:)), stored as a sorted string array. Each change
+//   logs one .notice line per added or removed group and then calls excludedAppsDidChange (not
+//   called by init).
 // - Publishes @Published bufferPreset and @Published startAtLogin for SwiftUI binding.
 // - An unreadable or unrecognized stored preset value falls back to BufferPolicy.Preset.default
 //   (.min10) rather than crashing.
@@ -22,6 +25,20 @@ public final class SettingsStore: ObservableObject {
 
     private static let bufferPresetKey = "bufferPreset"
     private static let startAtLoginKey = "startAtLogin"
+    private static let excludedAppsKey = "excludedApps"
+
+    /// Set by the composition root to forward changes to the lifecycle executor.
+    public var excludedAppsDidChange: ((Set<String>) -> Void)?
+
+    @Published public var excludedApps: Set<String> {
+        didSet {
+            guard excludedApps != oldValue else { return }
+            defaults.set(excludedApps.sorted(), forKey: Self.excludedAppsKey)
+            for group in excludedApps.subtracting(oldValue).sorted() { log.notice("exclusion added — \(group)") }
+            for group in oldValue.subtracting(excludedApps).sorted() { log.notice("exclusion removed — \(group)") }
+            excludedAppsDidChange?(excludedApps)
+        }
+    }
 
     @Published public var bufferPreset: BufferPolicy.Preset {
         didSet {
@@ -44,5 +61,6 @@ public final class SettingsStore: ObservableObject {
             .flatMap(BufferPolicy.Preset.init(rawValue:))
         self.bufferPreset = storedPreset ?? .default
         self.startAtLogin = defaults.bool(forKey: Self.startAtLoginKey)
+        self.excludedApps = Set(defaults.stringArray(forKey: Self.excludedAppsKey) ?? [])
     }
 }

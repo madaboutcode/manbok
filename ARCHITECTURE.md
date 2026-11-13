@@ -399,7 +399,7 @@ ManbokPlatform/
     CaptureOrchestrator.swift     # per-app poll/drain lifecycle — drives SessionRegistry (the app's capture path)
     AppIdentityCatalog.swift      # curated bundle ID → {display name, icon bundle ID} table + icon-candidate stemming (pure)
     AppIdentityResolver.swift     # bundle ID/pid → display name (catalog → PPID walk → cosmetic fallback)
-    ProcessAudioMonitor.swift     # enumerates other processes holding the mic
+    ProcessAudioMonitor.swift     # holderSnapshot(): processes whose pdv# input scope lists an input device
     OpportunisticCaptureController.swift  # legacy/debug: union-identity capture for --foreground
     InputDeviceObserver.swift, MicrophoneAuthorization.swift
   IO/
@@ -563,13 +563,15 @@ manbok/                     # CLI executable — thin IPC client
 
 #### `CaptureOrchestrator` (the app's capture path; replaces `OpportunisticCaptureController` there)
 
-**Responsibility:** Per-app start/stop derived from set-diff of consecutive polls against `ProcessAudioMonitor`, driving `SessionRegistry` open/close directly.
+**Responsibility:** Per-app start/stop decided each poll by the pure `DemandReducer` (Core) from one `ProcessAudioMonitor.holderSnapshot()`, driving `SessionRegistry` open/close directly. (Implemented by `SessionLifecycleController` + `CaptureSupervisor`.)
 
 **GUARANTEES**
 
-- App appears → `registry.openSession(bundleID:displayName:)` using `AppIdentityResolver`. App disappears → starts a per-app drain timer; expiry → `registry.closeSession(bundleID:)`; reclaimed before expiry → timer cancelled, no session churn.
+- **Presence predicate (T1081):** an app holds the mic iff the process's `pdv#` input scope contains a device with at least one input stream. `IsRunningInput` decides nothing (process taps set it without opening a mic). The boundary reads `pdv#` first and PID/bundle ID only for holders; it drops only its own process.
+- **Exclusions (T1081):** built-in infrastructure exclusions and the user's Settings exclusions form one predicate, `HolderExclusion.isExcluded` (Platform), applied once in the executor right after the snapshot and before the reducer. The user list stores app-group keys from `appGroup(bundleID)` (catalog `iconBundleID`, else the helper-suffix-stripped lowercased ID; a CLI recorder named by ppid groups under its terminal app). Excluding an app mid-session drains it like a departure (session closes after grace, buffer audio stays); un-excluding makes it demand again on the next step. `setExcludedGroups` triggers an immediate poll. `holdingNow` publishes the raw holders (user-excluded included, built-ins hidden) for the Settings app list. `appGroup` lives in Platform (the catalog is there), not Core.
+- Per app, `DemandReducer.step` runs `absent → holding → draining → absent` (grace 5 s, monotonic clock, one session rule): a holder gets a session once capture runs; a draining app keeps its session until the deadline passes while it is not holding; a return inside the grace window reclaims the same session and `arrivedAt`, whether or not capture is up at that moment. No per-app timers; close latency is the grace period plus up to two polls. `DemandReducer` is the only opener and closer of registry sessions.
 - Publishes `anySessionOpen: Bool` (true through drain — one-signal rule) and `micPermission: MicPermissionState`, both updated on the main thread for SwiftUI.
-- Capture engine runs iff at least one external app currently holds the mic: starts on first arrival, stops on the poll tick the last app departs. Draining sessions stay open *without* the engine — a warm engine on a drained BT-HFP route fights coreaudiod's delayed SCO teardown and strobes the mic indicator (verified via ControlCenter sensor-indicator logs, 2026-07-06). An app reclaimed during drain gets a fresh engine start on its arrival tick; its session was never closed, the ring just has a gap for the away period.
+- Capture runs iff some app is holding or draining **and a device resolves**. Candidate devices come from the reducer: holding apps' `pdv#` devices; a draining app's kept devices only when no holder lists a device and only if they still exist. There is no gap hold: no candidate device releases the worker (health `deferredNoDevice`) while sessions stay open (at most one poll for a recorder switching mics). Releasing remembers whether bytes were flowing, so a healthy mic switch does not grow the restart backoff. Draining sessions without a candidate device stay open without the engine — a warm engine on a drained BT-HFP route fights coreaudiod's delayed SCO teardown and strobes the mic indicator (verified via ControlCenter sensor-indicator logs, 2026-07-06).
 - Capture self-heals while running (spike-validated 2026-07-06, see `tasks/decisions-20260706-device-change-robustness.md`): restarts on default-input change (`InputDeviceObserver`), on `AVAudioEngineConfigurationChange`, and on byte-flow stall detected by a watchdog on the poll tick — `engine.isRunning` is untrustworthy, byte flow is ground truth. Drain-only state has no engine, so nothing heals (or flickers) there. Sessions stay open across restarts (short ring gap only). Restarts are rate-limited with exponential backoff (`CaptureRestartPolicy`, health = byte flow, not elapsed time) so a device that can't hold capture converges to one attempt per 30s — never a flap loop. Input-device identity logged at notice level on every (re)start.
 
 **EXPECTS:** `AudioCapturing`, `SessionRegistry`, `ProcessAudioMonitor`, `AppIdentityResolver` injected. `start()`/`stop()` idempotent, callable from any thread.
@@ -835,10 +837,11 @@ AppDelegate.applicationDidFinishLaunching → PING existing socket; if answered,
 ### App session lifecycle (per mic-holding app)
 
 ```text
-CaptureOrchestrator poll (every 2s) → set-diff vs previous poll
-  app arrives  → start capture engine if idle → AppIdentityResolver.resolve → registry.openSession
-  app departs  → start 5s drain timer → (reclaimed: cancel, engine restarts) | (expires: registry.closeSession)
-  last app departs → capture engine stops immediately (drains hold sessions open, not the engine)
+SessionLifecycleController poll (every 2s) → holderSnapshot (pdv# input holders + live input devices)
+  → DemandReducer.step → supervisor.apply(demand with device candidates) → step again if isCapturing changed
+  app holds mic → holding; engine starts if a device resolves → AppIdentityResolver.resolve → registry.openSession
+  app stops    → draining (5 s, monotonic) → (returns: reclaimed, same session) | (deadline: registry.closeSession)
+  no candidate device → engine released (sessions stay open until their own deadline)
 registry.append(pcm) on every capture callback → shared ring write → feed each open session's
   incremental waveform sampler
 PopoverViewModel (only while popover visible) polls registry at ~1 Hz → sessions/ringFilled/ringCapacity

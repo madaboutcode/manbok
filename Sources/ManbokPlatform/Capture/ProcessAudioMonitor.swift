@@ -1,64 +1,80 @@
 import CoreAudio
 import Foundation
+import ManbokCore
 import os
 
 // MARK: - CONTRACT: ProcessAudioMonitor
 //
 // GUARANTEES:
-// - otherInputProcesses() returns all HAL audio processes with IsRunningInput=true, excluding own PID
-//   and known always-on system processes that permanently hold the mic (alwaysOnProcesses).
+// - holderSnapshot() returns one HolderObservation per HAL audio process that holds a microphone:
+//   its pdv# input scope (kAudioProcessPropertyDevices, kAudioObjectPropertyScopeInput; Global scope
+//   returns empty) contains at least one device with input streams (D5). IsRunningInput is not
+//   read and decides nothing: process taps set it without opening a mic.
+// - Read order per process object: pdv# input scope first; PID and bundle ID only when that list is
+//   non-empty. Excludes only its own PID; infrastructure and user exclusions are applied later by
+//   HolderExclusion in the lifecycle executor. A holder never has an empty device set.
+// - liveInputDevices = system devices with at least one input stream, read in the same call.
+// - All CoreAudio reads are non-destructive. A failed read yields [] / skips the process and is
+//   logged at .warning once when it first appears (same object, selector and status are silent on
+//   later ticks until they stop failing and fail again).
 // - appName(for:) resolves bundle IDs to human-readable names.
-// - All CoreAudio reads are non-destructive (no engine stop required).
-// - deviceIDs: read per process object via kAudioProcessPropertyDevices at snapshot time,
-//   requires kAudioObjectPropertyScopeInput (Global scope returns empty for this property);
-//   contains input devices only (D5 — a device qualifies iff it has input streams);
-//   [] on any read failure — never an error, but logged at .warning. Reads remain non-destructive.
 //
 // EXPECTS:
 // - macOS 14+ (Sonoma) — ProcessObjectList APIs unavailable on earlier versions.
+// - holderSnapshot() is called from one queue at a time (the failure de-duplication is unsynchronized).
 //
 // DOES NOT:
 // - Register listeners (polling only — IsRunningInput listeners are unreliable per spike validation).
 // - Start/stop audio engines or capture.
+// - Apply user exclusions or decide demand (the executor and DemandReducer do).
 
 private let log = Logger(subsystem: "ai.manbok.app", category: "process-monitor")
 
-public struct AudioProcessInfo: Equatable, Sendable {
-    public let pid: pid_t
-    public let bundleID: String
-    public let isRunningInput: Bool
-    public let deviceIDs: [AudioDeviceID]  // input devices this process has open (pdv#); [] on read failure
+public struct HolderSnapshot: Equatable, Sendable {
+    public let holders: [HolderObservation]
+    public let liveInputDevices: Set<UInt32>
+
+    public init(holders: [HolderObservation], liveInputDevices: Set<UInt32>) {
+        self.holders = holders
+        self.liveInputDevices = liveInputDevices
+    }
 }
 
 public final class ProcessAudioMonitor {
     private let ownPID: pid_t
+    private var failuresLastTick: Set<String> = []
+    private var failuresThisTick: Set<String> = []
 
     public init() {
         self.ownPID = getpid()
     }
 
-    public func otherInputProcesses() -> [AudioProcessInfo] {
+    public func holderSnapshot() -> HolderSnapshot {
+        failuresLastTick = failuresThisTick
+        failuresThisTick = []
+
         let processIDs = readObjectIDs(
             AudioObjectID(kAudioObjectSystemObject),
             kAudioHardwarePropertyProcessObjectList,
             scope: kAudioObjectPropertyScopeGlobal
         )
 
-        var result: [AudioProcessInfo] = []
+        var holders: [HolderObservation] = []
         for objID in processIDs {
-            guard let pid = readPID(objID, kAudioProcessPropertyPID),
-                  pid != ownPID else { continue }
-
-            let isRunningInput = (readUInt32(objID, kAudioProcessPropertyIsRunningInput) ?? 0) != 0
-            guard isRunningInput else { continue }
-
-            let bundleID = readCFString(objID, kAudioProcessPropertyBundleID) ?? ""
-            if Self.alwaysOnProcesses.contains(bundleID) { continue }
-            if Self.ignoredBundleIDPrefixes.contains(where: { bundleID.hasPrefix($0) }) { continue }
             let devices = inputDeviceIDs(for: objID)
-            result.append(AudioProcessInfo(pid: pid, bundleID: bundleID, isRunningInput: true, deviceIDs: devices))
+            guard !devices.isEmpty else { continue }
+
+            guard let pid = readPID(objID, kAudioProcessPropertyPID), pid != ownPID else { continue }
+            let bundleID = readCFString(objID, kAudioProcessPropertyBundleID) ?? ""
+            holders.append(HolderObservation(appID: bundleID, pid: pid, inputDevices: Set(devices)))
         }
-        return result
+
+        let live = readObjectIDs(
+            AudioObjectID(kAudioObjectSystemObject),
+            kAudioHardwarePropertyDevices,
+            scope: kAudioObjectPropertyScopeGlobal
+        ).filter { hasInputStreams($0) }
+        return HolderSnapshot(holders: holders, liveInputDevices: Set(live))
     }
 
     public static func appName(for bundleIDs: Set<String>) -> String? {
@@ -66,21 +82,6 @@ public final class ProcessAudioMonitor {
         let names = bundleIDs.compactMap { resolveAppName($0) }.sorted()
         return names.isEmpty ? nil : names.joined(separator: ", ")
     }
-
-    // Processes that permanently hold IsRunningInput=true and must never trigger opportunistic capture.
-    private static let alwaysOnProcesses: Set<String> = [
-        "com.apple.CoreSpeech",                  // "Hey Siri" always-on listener
-        "com.apple.SiriNCService",               // Siri notification center
-        "com.apple.accessibility.heard",         // Live Listen (hearing aid feature)
-        "com.apple.cmio.ContinuityCaptureAgent", // Continuity Camera agent
-    ]
-
-    private static let ignoredBundleIDPrefixes: [String] = [
-        "com.apple.Sound-Settings.",             // System Settings → Sound input meter
-        "com.apple.systempreferences.",          // System Settings panels
-        "com.apple.audio.",                      // Audio system helpers
-        "com.apple.preference.",                 // Legacy preference panes
-    ]
 
     private static let knownApps: [String: String] = [
         // MARK: Video conferencing
@@ -171,20 +172,10 @@ public final class ProcessAudioMonitor {
 
     // MARK: - CoreAudio HAL helpers
 
-    private func readUInt32(_ objectID: AudioObjectID, _ selector: AudioObjectPropertySelector) -> UInt32? {
-        var addr = AudioObjectPropertyAddress(
-            mSelector: selector,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var value: UInt32 = 0
-        var size = UInt32(MemoryLayout<UInt32>.size)
-        let status = AudioObjectGetPropertyData(objectID, &addr, 0, nil, &size, &value)
-        if status != noErr {
-            log.warning("readUInt32 obj=\(objectID) failed: OSStatus \(status)")
-            return nil
-        }
-        return value
+    /// Warns when a failure first appears; the same failure on consecutive ticks stays silent.
+    private func noteFailure(_ message: String) {
+        failuresThisTick.insert(message)
+        if !failuresLastTick.contains(message) { log.warning("\(message)") }
     }
 
     private func readPID(_ objectID: AudioObjectID, _ selector: AudioObjectPropertySelector) -> pid_t? {
@@ -197,7 +188,7 @@ public final class ProcessAudioMonitor {
         var size = UInt32(MemoryLayout<pid_t>.size)
         let status = AudioObjectGetPropertyData(objectID, &addr, 0, nil, &size, &value)
         if status != noErr {
-            log.warning("readPID obj=\(objectID) failed: OSStatus \(status)")
+            noteFailure("readPID obj=\(objectID) failed: OSStatus \(status)")
             return nil
         }
         return value
@@ -230,7 +221,7 @@ public final class ProcessAudioMonitor {
         let sizeStatus = AudioObjectGetPropertyDataSize(objectID, &addr, 0, nil, &size)
         guard sizeStatus == noErr, size > 0 else {
             if sizeStatus != noErr {
-                log.warning("readObjectIDs obj=\(objectID) selector=\(selector) scope=\(scope) getSizeFailed: OSStatus \(sizeStatus)")
+                noteFailure("readObjectIDs obj=\(objectID) selector=\(selector) scope=\(scope) getSizeFailed: OSStatus \(sizeStatus)")
             }
             return []
         }
@@ -238,7 +229,7 @@ public final class ProcessAudioMonitor {
         var ids = [AudioObjectID](repeating: 0, count: count)
         let dataStatus = AudioObjectGetPropertyData(objectID, &addr, 0, nil, &size, &ids)
         guard dataStatus == noErr else {
-            log.warning("readObjectIDs obj=\(objectID) selector=\(selector) scope=\(scope) getDataFailed: OSStatus \(dataStatus)")
+            noteFailure("readObjectIDs obj=\(objectID) selector=\(selector) scope=\(scope) getDataFailed: OSStatus \(dataStatus)")
             return []
         }
         return ids

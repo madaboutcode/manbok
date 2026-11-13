@@ -5,7 +5,7 @@ import ManbokCore
 // MARK: - CONTRACT: SessionLifecycleControllerTests
 //
 // Exercises SessionLifecycleController against a fake CaptureSupervising (the waist) and a
-// fake process snapshot, using the real SessionRegistry (Core, hardware-free). Poll interval
+// fake holder snapshot, using the real SessionRegistry (Core, hardware-free). Poll interval
 // and grace period are shortened for the test run; assertions poll the *current* run loop
 // (RunLoop.current.run(until:)) rather than Thread.sleep, so DispatchQueue.main.async
 // publishes from the controller's background queue are actually drained on the main thread
@@ -44,21 +44,21 @@ private final class FakeSupervisor: CaptureSupervising {
 
 private final class FakeProcessSource {
     private let lock = NSLock()
-    private var _processes: [AudioProcessInfo] = []
+    private var _processes: [HolderObservation] = []
 
-    var processes: [AudioProcessInfo] {
+    var processes: [HolderObservation] {
         get { lock.lock(); defer { lock.unlock() }; return _processes }
         set { lock.lock(); defer { lock.unlock() }; _processes = newValue }
     }
 
-    func snapshot() -> [AudioProcessInfo] { processes }
+    func snapshot() -> HolderSnapshot { HolderSnapshot(holders: processes, liveInputDevices: [1, 2]) }
 }
 
 final class SessionLifecycleControllerTests: XCTestCase {
     private let pollInterval: TimeInterval = 0.1
     private let gracePeriod: TimeInterval = 0.3
 
-    private let testApp = AudioProcessInfo(pid: 4242, bundleID: "com.test.app", isRunningInput: true, deviceIDs: [])
+    private let testApp = HolderObservation(appID: "com.test.app", pid: 4242, inputDevices: [1])
 
     private func makeRegistry() -> SessionRegistry {
         SessionRegistry(ringCapacity: BufferPolicy.capacityBytes(for: .min5))
@@ -72,7 +72,7 @@ final class SessionLifecycleControllerTests: XCTestCase {
         SessionLifecycleController(
             supervisor: supervisor,
             registry: registry,
-            processSnapshot: processSource.snapshot,
+            holderSnapshot: processSource.snapshot,
             resolver: .shared,
             permission: { .authorized },
             pollInterval: pollInterval,
@@ -136,7 +136,7 @@ final class SessionLifecycleControllerTests: XCTestCase {
         // duplicate. listSessions() can't be used here: it filters out sessions with zero
         // surviving audio bytes, and this test never appends PCM (that's the supervisor's
         // job, out of scope for the lifecycle half).
-        let stableIdBeforeDrain = registry.openSession(bundleID: testApp.bundleID, displayName: "unused")
+        let stableIdBeforeDrain = registry.openSession(bundleID: testApp.appID, displayName: "unused")
 
         processSource.processes = []
         pump(gracePeriod * 0.5) // well inside the grace window — draining, not expired
@@ -147,7 +147,7 @@ final class SessionLifecycleControllerTests: XCTestCase {
 
         XCTAssertTrue(registry.anySessionOpen, "reclaimed session must never have closed")
         XCTAssertEqual(
-            registry.openSession(bundleID: testApp.bundleID, displayName: "unused"),
+            registry.openSession(bundleID: testApp.appID, displayName: "unused"),
             stableIdBeforeDrain,
             "reclaim must resume the same session, not open a new one"
         )
@@ -225,8 +225,8 @@ final class SessionLifecycleControllerTests: XCTestCase {
         defer { controller.stop() }
 
         processSource.processes = [testApp]
-        waitUntil { supervisor.lastDemand.contains { $0.bundleID == testApp.bundleID } }
-        guard let firstArrivedAt = supervisor.lastDemand.first(where: { $0.bundleID == testApp.bundleID })?.arrivedAt else {
+        waitUntil { supervisor.lastDemand.contains { $0.bundleID == testApp.appID } }
+        guard let firstArrivedAt = supervisor.lastDemand.first(where: { $0.bundleID == testApp.appID })?.arrivedAt else {
             return XCTFail("expected a demand entry for the test app")
         }
 
@@ -234,8 +234,8 @@ final class SessionLifecycleControllerTests: XCTestCase {
         pump(gracePeriod * 0.5) // inside grace — still draining
 
         processSource.processes = [testApp] // reclaim before drain expiry
-        waitUntil { supervisor.lastDemand.contains { $0.bundleID == testApp.bundleID } }
-        guard let reclaimedArrivedAt = supervisor.lastDemand.first(where: { $0.bundleID == testApp.bundleID })?.arrivedAt else {
+        waitUntil { supervisor.lastDemand.contains { $0.bundleID == testApp.appID } }
+        guard let reclaimedArrivedAt = supervisor.lastDemand.first(where: { $0.bundleID == testApp.appID })?.arrivedAt else {
             return XCTFail("expected a demand entry for the reclaimed test app")
         }
 
@@ -244,5 +244,201 @@ final class SessionLifecycleControllerTests: XCTestCase {
             reclaimedArrivedAt,
             "arrivedAt must be preserved across a depart-and-reclaim inside the drain grace period"
         )
+    }
+
+    // MARK: - 7. Registry open set == reducer open set (ticks driven by hand, manual clock)
+
+    func test_registryOpenSetEqualsReducerOpenSet_afterEveryTick() {
+        let registry = makeRegistry()
+        let supervisor = FakeSupervisor()
+        let processSource = FakeProcessSource()
+        var mono: TimeInterval = 100
+        let controller = SessionLifecycleController(
+            supervisor: supervisor,
+            registry: registry,
+            holderSnapshot: processSource.snapshot,
+            permission: { .authorized },
+            pollInterval: 2,
+            gracePeriod: 5,
+            monotonicNow: { mono }
+        )
+        let a = HolderObservation(appID: "com.test.a", pid: 1, inputDevices: [1])
+        let b = HolderObservation(appID: "com.test.b", pid: 2, inputDevices: [2])
+        // (holders, capture status the supervisor reports, seconds since the previous tick)
+        let script: [([HolderObservation], Bool, TimeInterval)] = [
+            ([a], false, 0),       // capture down: no session
+            ([a], true, 2),        // capture up: session opens in the second step of the same tick
+            ([a, b], true, 2),
+            ([b], true, 2),        // a drains
+            ([b], false, 2),       // capture drops; a's session must stay
+            ([a, b], true, 2),     // a reclaims
+            ([], true, 2),
+            ([], true, 6),         // both expire
+            ([b], true, 2),        // b returns as a fresh session
+        ]
+        for (holders, capturing, dt) in script {
+            mono += dt
+            processSource.processes = holders
+            supervisor.statusToReturn = CaptureStatus(isCapturing: capturing, health: capturing ? .capturing : .idle)
+            controller.pollOnce()
+            registry.append(Data(count: 3200)) // gives open sessions bytes so listSessions() shows them
+            let registryOpen = Set(registry.listSessions().filter(\.isOpen).map(\.bundleID))
+            XCTAssertEqual(registryOpen, controller.reducerOpenSessions, "after tick at t=\(mono)")
+        }
+    }
+
+    // MARK: - 8. Second step in the same tick when apply changes isCapturing
+
+    func test_sessionOpensInSameTickCaptureComesUp() {
+        let registry = makeRegistry()
+        let supervisor = FakeSupervisor()
+        supervisor.statusToReturn = CaptureStatus(isCapturing: true, health: .capturing)
+        let processSource = FakeProcessSource()
+        let controller = SessionLifecycleController(
+            supervisor: supervisor,
+            registry: registry,
+            holderSnapshot: processSource.snapshot,
+            permission: { .authorized },
+            monotonicNow: { 50 }
+        )
+        processSource.processes = [testApp]
+        controller.pollOnce()
+        XCTAssertTrue(registry.anySessionOpen, "first tick: step 1 saw isCapturing=false, apply returned true, step 2 opened the session")
+        XCTAssertEqual(supervisor.applyCount, 1, "one apply per tick")
+    }
+
+    // MARK: - 9. Candidate devices reach the supervisor
+
+    func test_demandCarriesDeviceCandidates_drainingKeptDeviceOnlyWithoutHolderDevices() {
+        let registry = makeRegistry()
+        let supervisor = FakeSupervisor()
+        let processSource = FakeProcessSource()
+        var mono: TimeInterval = 10
+        let controller = SessionLifecycleController(
+            supervisor: supervisor,
+            registry: registry,
+            holderSnapshot: processSource.snapshot,
+            permission: { .authorized },
+            monotonicNow: { mono }
+        )
+        processSource.processes = [testApp]
+        controller.pollOnce()
+        XCTAssertEqual(supervisor.lastDemand.first?.deviceIDs, [1])
+
+        mono += 2
+        processSource.processes = []
+        controller.pollOnce()
+        XCTAssertEqual(supervisor.lastDemand.count, 1, "draining app stays in demand")
+        XCTAssertEqual(supervisor.lastDemand.first?.deviceIDs, [1], "kept live device is the candidate")
+    }
+
+    // MARK: - 10. User exclusion
+
+    private func manualController(
+        _ supervisor: FakeSupervisor,
+        _ registry: SessionRegistry,
+        _ source: FakeProcessSource,
+        clock: @escaping () -> TimeInterval,
+        pollInterval: TimeInterval = 2
+    ) -> SessionLifecycleController {
+        SessionLifecycleController(
+            supervisor: supervisor, registry: registry, holderSnapshot: source.snapshot,
+            permission: { .authorized }, pollInterval: pollInterval, gracePeriod: 5,
+            monotonicNow: clock
+        )
+    }
+
+    func test_excludeMidSession_drainsAndClosesAtExpiry_captureContinuesForOtherHolder_unexcludeReclaims() {
+        let registry = makeRegistry()
+        let supervisor = FakeSupervisor()
+        let source = FakeProcessSource()
+        var mono: TimeInterval = 100
+        let controller = manualController(supervisor, registry, source, clock: { mono })
+        source.processes = [
+            HolderObservation(appID: "com.test.a", pid: 1, inputDevices: [1]),
+            HolderObservation(appID: "com.test.b", pid: 2, inputDevices: [2]),
+        ]
+        controller.pollOnce()
+        XCTAssertEqual(controller.reducerOpenSessions, ["com.test.a", "com.test.b"])
+
+        controller.setExcludedGroups(["com.test.a"])
+        controller.pollOnce()
+        XCTAssertEqual(controller.reducerOpenSessions, ["com.test.a", "com.test.b"], "excluded app drains; session still open")
+        XCTAssertTrue(supervisor.lastDemand.contains { $0.bundleID == "com.test.b" && $0.deviceIDs == [2] }, "capture continues for b")
+
+        mono += 6
+        controller.pollOnce()
+        XCTAssertEqual(controller.reducerOpenSessions, ["com.test.b"], "a's session closes at grace expiry")
+        XCTAssertFalse(supervisor.lastDemand.contains { $0.bundleID == "com.test.a" })
+
+        controller.setExcludedGroups([])
+        controller.pollOnce()
+        XCTAssertEqual(controller.reducerOpenSessions, ["com.test.a", "com.test.b"], "un-excluded a demands again")
+        XCTAssertTrue(supervisor.lastDemand.contains { $0.bundleID == "com.test.a" })
+    }
+
+    func test_excludeThenUnexcludeInsideGrace_keepsSameSession() {
+        let registry = makeRegistry()
+        let supervisor = FakeSupervisor()
+        let source = FakeProcessSource()
+        var mono: TimeInterval = 100
+        let controller = manualController(supervisor, registry, source, clock: { mono })
+        source.processes = [HolderObservation(appID: "com.test.a", pid: 1, inputDevices: [1])]
+        controller.pollOnce()
+        registry.append(Data(count: 3200))
+        let id = registry.listSessions().first { $0.bundleID == "com.test.a" }?.stableId
+
+        controller.setExcludedGroups(["com.test.a"])
+        mono += 2
+        controller.pollOnce()
+        controller.setExcludedGroups([])
+        mono += 2
+        controller.pollOnce()
+        XCTAssertNotNil(id)
+        XCTAssertEqual(registry.listSessions().filter { $0.bundleID == "com.test.a" }.map(\.stableId), [id!])
+        XCTAssertEqual(registry.listSessions().filter(\.isOpen).count, 1)
+    }
+
+    func test_builtInHolderNeverBecomesDemand() {
+        let registry = makeRegistry()
+        let supervisor = FakeSupervisor()
+        let source = FakeProcessSource()
+        let controller = manualController(supervisor, registry, source, clock: { 10 })
+        source.processes = [HolderObservation(appID: "com.apple.CoreSpeech", pid: 1, inputDevices: [1])]
+        controller.pollOnce()
+        XCTAssertTrue(supervisor.lastDemand.isEmpty)
+        XCTAssertTrue(controller.reducerOpenSessions.isEmpty)
+    }
+
+    func test_holdingNow_includesUserExcludedApp_hidesBuiltIn() {
+        let registry = makeRegistry()
+        let supervisor = FakeSupervisor()
+        let source = FakeProcessSource()
+        let controller = manualController(supervisor, registry, source, clock: { 10 })
+        source.processes = [
+            HolderObservation(appID: "com.test.a", pid: 1, inputDevices: [1]),
+            HolderObservation(appID: "com.apple.CoreSpeech", pid: 2, inputDevices: [1]),
+        ]
+        controller.setExcludedGroups(["com.test.a"])
+        controller.pollOnce()
+        waitUntil { !controller.holdingNow.isEmpty }
+        XCTAssertEqual(controller.holdingNow.map(\.group), ["com.test.a"])
+    }
+
+    func test_settingsChange_triggersImmediatePoll_notTheTimer() {
+        let registry = makeRegistry()
+        let supervisor = FakeSupervisor()
+        let source = FakeProcessSource()
+        source.processes = [HolderObservation(appID: "com.test.a", pid: 1, inputDevices: [1])]
+        // Timer period 1 h: only the start tick and the exclusion-triggered tick can happen.
+        let controller = manualController(supervisor, registry, source,
+                                          clock: { Date().timeIntervalSince1970 }, pollInterval: 3600)
+        controller.start()
+        defer { controller.stop() }
+        waitUntil { supervisor.applyCount >= 1 }
+        let before = supervisor.applyCount
+
+        controller.setExcludedGroups(["com.test.a"])
+        waitUntil(timeout: 1.0) { supervisor.applyCount > before }
     }
 }
